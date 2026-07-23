@@ -1,12 +1,28 @@
 export type PrestationType = 'fourniture' | 'fourniture_pose'
 
+export interface Calculator {
+  name: string
+  email: string
+  phone: string
+}
+
+export const KNOWN_CALCULATORS: Calculator[] = [
+  { name: 'Adrien Martino', email: 'amartino@induni.ch', phone: '076 490 58 17' },
+  { name: 'Luca Bottaro', email: 'lbottaro@induni.ch', phone: '076 338 07 36' },
+  { name: 'Bastien Preteseille', email: 'bpreteseille@induni.ch', phone: '022 879 01 01' },
+  { name: 'Joana Rodrigues Dos Santos', email: 'jrodrigues@induni.ch', phone: '076 320 39 71' },
+]
+
+export const ENTITY_OPTIONS = ['BAT GE', 'BAT VD', 'GC', 'TRANSFO GE', 'TRANSFO VD']
+
 export interface SubmissionInfo {
-  projectName: string
-  submissionNumber: string
+  siteNumber: string // N° de chantier
+  projectName: string // Nom du chantier
   siteLocation: string
   entity: string
-  requesterName: string
-  requesterEmail: string
+  calculatorName: string
+  calculatorEmail: string
+  calculatorPhone: string
   deadline: string // yyyy-mm-dd
   documentsLink: string
   logoDataUrl?: string
@@ -15,12 +31,13 @@ export interface SubmissionInfo {
 }
 
 export const emptySubmissionInfo = (): SubmissionInfo => ({
+  siteNumber: '',
   projectName: '',
-  submissionNumber: '',
   siteLocation: '',
   entity: '',
-  requesterName: '',
-  requesterEmail: '',
+  calculatorName: '',
+  calculatorEmail: '',
+  calculatorPhone: '',
   deadline: '',
   documentsLink: '',
   progressStatus: 'en_cours',
@@ -31,12 +48,13 @@ export const emptySubmissionInfo = (): SubmissionInfo => ({
 export interface DetectedZone {
   id: string
   page: number
-  chapterCode: string // e.g. "423" or "500"
-  chapterTitle: string // e.g. "Incorporés spéciaux pour coffrages de reprise"
+  chapterCode: string // major/dashed header, e.g. "440"
+  chapterTitle: string
+  subChapterCode: string // leaf header, e.g. "442"
+  subChapterTitle: string
   cfcCode: string // e.g. "241"
   text: string
   color: 'jaune' | 'autre'
-  articleNumber?: string
 }
 
 export interface SupplierAssignment {
@@ -66,7 +84,10 @@ export interface Lot {
   id: string
   title: string
   cfcCode: string
-  chapterRef: string // e.g. "423"
+  chapterCode: string
+  chapterTitle: string
+  subChapterCode: string
+  subChapterTitle: string
   prestationType: PrestationType
   pages: number[]
   positionCount: number
@@ -78,7 +99,6 @@ export interface Lot {
   emailSubject?: string
   emailBody?: string
   emailGeneratedAt?: string
-  detailText?: string
 }
 
 export interface Submission {
@@ -96,9 +116,17 @@ export interface Submission {
 export interface SupplierRecord {
   id: string
   name: string
-  email: string
   category: string
-  note?: string
+  email: string
+  nature?: string // Fourniture / Sous-traitance / Mixte
+  frequency?: string // Récurrent / Ponctuel
+  referentAchat?: string
+  backupAchat?: string
+  contactContrat?: string
+  contactCommande?: string
+  zone?: string
+  status?: string // Actif / à confirmer, Ne pas consulter, Inactif / à exclure
+  comments?: string
 }
 
 export const uid = (): string =>

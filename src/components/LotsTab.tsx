@@ -3,6 +3,9 @@ import type { Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
 import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
+import { ALL_CATEGORIES } from '../data/suppliers'
+
+const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
 export default function LotsTab({
   submission,
@@ -14,6 +17,7 @@ export default function LotsTab({
   const [selectedId, setSelectedId] = useState<string | null>(submission.lots[0]?.id ?? null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
+  const [previewLot, setPreviewLot] = useState<Lot | null>(null)
 
   useEffect(() => {
     listSuppliers().then(setSuppliers)
@@ -50,6 +54,7 @@ export default function LotsTab({
       pages: Array.from(new Set(toMerge.flatMap((l) => l.pages))).sort((a, b) => a - b),
       zoneIds: toMerge.flatMap((l) => l.zoneIds),
       positionCount: toMerge.reduce((sum, l) => sum + l.positionCount, 0),
+      categories: Array.from(new Set(toMerge.flatMap((l) => l.categories))),
       suppliers: toMerge.flatMap((l) => l.suppliers),
       followUp: toMerge.flatMap((l) => l.followUp),
     }
@@ -62,7 +67,12 @@ export default function LotsTab({
   }
 
   return (
-    <div className="grid grid-cols-[320px_1fr] gap-6">
+    <div className="grid grid-cols-[340px_1fr] gap-6">
+      <datalist id="all-categories">
+        {ALL_CATEGORIES.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
       <div>
         <p className="text-sm text-slate-500 mb-2">
           Cochez plusieurs lots pour les fusionner en un seul (ex: si des articles distincts doivent en fait
@@ -89,7 +99,7 @@ export default function LotsTab({
                 onClick={(e) => e.stopPropagation()}
                 onChange={() => toggleCheck(lot.id)}
               />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-slate-800 truncate">
                   CFC {lot.cfcCode} — {lot.title || '(sans titre)'}
                 </div>
@@ -102,6 +112,16 @@ export default function LotsTab({
                   <span>· {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture+pose'}</span>
                 </div>
               </div>
+              <button
+                title="Prévisualiser le PDF du lot"
+                className="text-slate-400 hover:text-indigo-600 text-lg leading-none px-1"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPreviewLot(lot)
+                }}
+              >
+                🔍
+              </button>
             </div>
           ))}
           {submission.lots.length === 0 && (
@@ -120,10 +140,60 @@ export default function LotsTab({
             onSuppliersChange={setSuppliers}
             onChange={(patch) => updateLot(selectedLot.id, patch)}
             onDelete={() => deleteLot(selectedLot.id)}
+            onPreview={() => setPreviewLot(selectedLot)}
           />
         ) : (
           <div className="card text-slate-500">Sélectionnez un lot à gauche.</div>
         )}
+      </div>
+
+      {previewLot && submission.pdfData && (
+        <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
+      )}
+    </div>
+  )
+}
+
+function PdfPreviewModal({ lot, pdfData, onClose }: { lot: Lot; pdfData: ArrayBuffer; onClose: () => void }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let objectUrl: string | null = null
+    extractLotPdf(pdfData, lot.pages)
+      .then((bytes) => {
+        const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
+        objectUrl = URL.createObjectURL(blob)
+        setUrl(objectUrl)
+      })
+      .catch((err) => {
+        console.error(err)
+        setError('Impossible de générer la prévisualisation.')
+      })
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [lot, pdfData])
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <h3 className="font-medium text-slate-800 truncate">
+            CFC {lot.cfcCode} — {lot.title} · pages {lot.pages.join(', ')}
+          </h3>
+          <button className="btn-secondary" onClick={onClose}>
+            ✕ Fermer
+          </button>
+        </div>
+        <div className="flex-1 bg-slate-100">
+          {error && <p className="p-4 text-sm text-red-600">{error}</p>}
+          {url && <iframe title="Prévisualisation du lot" src={url} className="w-full h-full border-0" />}
+          {!url && !error && <p className="p-4 text-sm text-slate-500">Génération de la prévisualisation…</p>}
+        </div>
       </div>
     </div>
   )
@@ -136,6 +206,7 @@ function LotDetail({
   onSuppliersChange,
   onChange,
   onDelete,
+  onPreview,
 }: {
   lot: Lot
   submission: Submission
@@ -143,19 +214,22 @@ function LotDetail({
   onSuppliersChange: (s: SupplierRecord[]) => void
   onChange: (patch: Partial<Lot>) => void
   onDelete: () => void
+  onPreview: () => void
 }) {
   const [categoryInput, setCategoryInput] = useState('')
-  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', category: '', note: '' })
+  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', category: '' })
   const [pdfBusy, setPdfBusy] = useState(false)
   const [emailGenerated, setEmailGenerated] = useState(Boolean(lot.emailBody))
 
-  const categoryMatches = useMemo(
-    () =>
-      lot.categories.length
-        ? suppliers.filter((s) => lot.categories.some((c) => s.category.toLowerCase() === c.toLowerCase()))
-        : [],
-    [suppliers, lot.categories],
-  )
+  const categoryMatches = useMemo(() => {
+    if (!lot.categories.length) return []
+    const norm = (s: string) => s.trim().toLowerCase()
+    const wanted = new Set(lot.categories.map(norm))
+    return suppliers.filter((s) => wanted.has(norm(s.category)))
+  }, [suppliers, lot.categories])
+
+  const activeMatches = categoryMatches.filter((s) => !INACTIVE_STATUSES.includes(s.status ?? ''))
+  const inactiveMatches = categoryMatches.filter((s) => INACTIVE_STATUSES.includes(s.status ?? ''))
 
   function addCategory() {
     const v = categoryInput.trim()
@@ -179,11 +253,11 @@ function LotDetail({
 
   async function createAndAddSupplier() {
     if (!newSupplier.name.trim()) return
-    const record: SupplierRecord = { id: uid(), ...newSupplier }
+    const record: SupplierRecord = { id: uid(), ...newSupplier, status: 'Actif / à confirmer' }
     await saveSupplier(record)
     onSuppliersChange([...suppliers, record])
     addSupplierToLot(record)
-    setNewSupplier({ name: '', email: '', category: '', note: '' })
+    setNewSupplier({ name: '', email: '', category: '' })
   }
 
   async function generateLotPdf() {
@@ -195,7 +269,7 @@ function LotDetail({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${lot.cfcCode}-${lot.chapterRef || 'lot'}-p${lot.pages[0]}.pdf`
+      a.download = `${lot.cfcCode}-${lot.chapterCode}${lot.subChapterCode ? '-' + lot.subChapterCode : ''}-p${lot.pages[0]}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } finally {
@@ -217,10 +291,12 @@ function LotDetail({
       '',
       "N'hésitez pas à chiffrer l'ensemble des positions qui vous intéressent et à proposer des variantes qui vous semblent pertinentes.",
       '',
-      `Plans : [Nom du projet] - ${submission.info.siteLocation || '[Ville]'}`,
+      `Plans : ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
       '',
       'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
-      `${submission.info.submissionNumber || '[Réf. projet]'} - ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
+      `${submission.info.siteNumber || '[N° de chantier]'} - ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
+      '',
+      `Calculateur : ${submission.info.calculatorName || '[Nom]'} — ${submission.info.calculatorEmail || ''} — ${submission.info.calculatorPhone || ''}`,
     ].join('\n')
 
     const followUp = lot.suppliers.map((s) => {
@@ -263,26 +339,33 @@ function LotDetail({
   return (
     <div className="space-y-6">
       <div className="card">
-        <div className="grid grid-cols-3 gap-4">
-          <Field label="Titre du lot">
-            <input className="input" value={lot.title} onChange={(e) => onChange({ title: e.target.value })} />
-          </Field>
-          <Field label="Référence CFC / chapitre">
-            <input className="input" value={lot.cfcCode} onChange={(e) => onChange({ cfcCode: e.target.value })} />
-          </Field>
-          <Field label="Type de prestation">
-            <select
-              className="input"
-              value={lot.prestationType}
-              onChange={(e) => onChange({ prestationType: e.target.value as PrestationType })}
-            >
-              <option value="fourniture">Fourniture</option>
-              <option value="fourniture_pose">Fourniture et pose</option>
-            </select>
-          </Field>
+        <div className="flex items-start justify-between">
+          <div className="grid grid-cols-3 gap-4 flex-1">
+            <Field label="Titre du lot">
+              <input className="input" value={lot.title} onChange={(e) => onChange({ title: e.target.value })} />
+            </Field>
+            <Field label="Référence CFC">
+              <input className="input" value={lot.cfcCode} onChange={(e) => onChange({ cfcCode: e.target.value })} />
+            </Field>
+            <Field label="Type de prestation">
+              <select
+                className="input"
+                value={lot.prestationType}
+                onChange={(e) => onChange({ prestationType: e.target.value as PrestationType })}
+              >
+                <option value="fourniture">Fourniture</option>
+                <option value="fourniture_pose">Fourniture et pose</option>
+              </select>
+            </Field>
+          </div>
+          <button title="Prévisualiser le PDF du lot" className="text-2xl ml-4 text-slate-400 hover:text-indigo-600" onClick={onPreview}>
+            🔍
+          </button>
         </div>
         <p className="text-sm text-slate-500 mt-3">
-          Pages soumission : {lot.pages.join(', ')} · {lot.positionCount} position(s)
+          Chapitre {lot.chapterCode || '—'} {lot.chapterTitle}
+          {lot.subChapterCode ? ` · Sous-chapitre ${lot.subChapterCode} ${lot.subChapterTitle}` : ''} · Pages{' '}
+          {lot.pages.join(', ')} · {lot.positionCount} position(s)
         </p>
         <div className="flex gap-2 mt-4">
           <button className="btn-primary" onClick={() => onChange({ validated: true })} disabled={lot.validated}>
@@ -297,7 +380,8 @@ function LotDetail({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Catégories sourcing</h3>
         <p className="text-sm text-slate-500 mb-3">
-          Ajoutez les catégories de fournisseurs pertinentes pour ce lot (utilisées pour proposer des fournisseurs).
+          Proposées automatiquement à partir du titre du lot — corrigez au besoin, elles servent à matcher les
+          fournisseurs de votre base.
         </p>
         <div className="flex flex-wrap gap-2 mb-3">
           {lot.categories.map((c) => (
@@ -308,10 +392,12 @@ function LotDetail({
               </button>
             </span>
           ))}
+          {lot.categories.length === 0 && <span className="text-sm text-slate-400">Aucune catégorie proposée.</span>}
         </div>
         <div className="flex gap-2">
           <input
             className="input"
+            list="all-categories"
             placeholder="Rechercher une catégorie à ajouter..."
             value={categoryInput}
             onChange={(e) => setCategoryInput(e.target.value)}
@@ -326,22 +412,47 @@ function LotDetail({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-3">Fournisseurs pour ce lot</h3>
 
-        {categoryMatches.length > 0 && (
+        {activeMatches.length > 0 && (
           <div className="mb-4">
             <p className="text-sm text-slate-500 mb-2">Suggérés depuis votre base (par catégorie) :</p>
             <div className="space-y-1.5">
-              {categoryMatches.map((s) => (
+              {activeMatches.map((s) => (
                 <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
                   <span>
-                    <strong>{s.name}</strong> · {s.email || 'pas d\'e-mail enregistré'}
+                    <strong>{s.name}</strong> · {s.category}
+                    {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
+                    {s.zone ? ` · ${s.zone}` : ''}
                   </span>
-                  <button className="btn-secondary !py-1" onClick={() => addSupplierToLot(s)}>
-                    Ajouter
+                  <button
+                    className="btn-secondary !py-1"
+                    onClick={() => addSupplierToLot(s)}
+                    disabled={lot.suppliers.some((x) => x.supplierId === s.id)}
+                  >
+                    {lot.suppliers.some((x) => x.supplierId === s.id) ? 'Ajouté' : 'Ajouter'}
                   </button>
                 </div>
               ))}
             </div>
           </div>
+        )}
+        {inactiveMatches.length > 0 && (
+          <details className="mb-4">
+            <summary className="cursor-pointer text-sm text-slate-400">
+              {inactiveMatches.length} fournisseur(s) de cette catégorie marqué(s) inactif / à ne pas consulter
+            </summary>
+            <div className="space-y-1.5 mt-2">
+              {inactiveMatches.map((s) => (
+                <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5 opacity-60">
+                  <span>
+                    <strong>{s.name}</strong> · {s.status}
+                  </span>
+                  <button className="btn-secondary !py-1" onClick={() => addSupplierToLot(s)}>
+                    Ajouter quand même
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
         )}
 
         <p className="text-sm text-slate-500 mb-2">Fournisseurs retenus pour ce lot :</p>
@@ -377,15 +488,10 @@ function LotDetail({
             />
             <input
               className="input"
+              list="all-categories"
               placeholder="Catégorie"
               value={newSupplier.category}
               onChange={(e) => setNewSupplier({ ...newSupplier, category: e.target.value })}
-            />
-            <input
-              className="input"
-              placeholder="Note (optionnel)"
-              value={newSupplier.note}
-              onChange={(e) => setNewSupplier({ ...newSupplier, note: e.target.value })}
             />
           </div>
           <button className="btn-secondary mt-2" onClick={createAndAddSupplier}>
@@ -398,7 +504,7 @@ function LotDetail({
         <h3 className="font-semibold text-slate-800 mb-3">Générer la demande</h3>
         <div className="flex gap-2 mb-3">
           <button className="btn-secondary" onClick={generateLotPdf} disabled={!submission.pdfData || pdfBusy}>
-            📄 {pdfBusy ? 'Génération...' : 'Générer le PDF du lot (pages d\'origine)'}
+            📄 {pdfBusy ? 'Génération...' : "Générer le PDF du lot (pages d'origine)"}
           </button>
           <button className="btn-primary" onClick={generateEmail} disabled={lot.suppliers.length === 0}>
             ✉️ Générer l'e-mail groupé pour ce lot

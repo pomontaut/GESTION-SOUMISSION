@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
 import type { Submission, SubmissionInfo } from '../types'
+import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf } from '../pdf/analyze'
 
-const ENTITIES = ['INDUNI & CIE', 'INDUNI Genève', 'INDUNI Vaud', 'Autre']
+const CALCULATOR_CUSTOM = '__custom__'
 
 export default function ExtractionTab({
   submission,
@@ -13,10 +14,37 @@ export default function ExtractionTab({
 }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [entityCustom, setEntityCustom] = useState(!submission.info.entity || !ENTITY_OPTIONS.includes(submission.info.entity))
+  const [calculatorCustom, setCalculatorCustom] = useState(
+    !submission.info.calculatorName || !KNOWN_CALCULATORS.some((c) => c.name === submission.info.calculatorName),
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function updateInfo(patch: Partial<SubmissionInfo>) {
     onUpdate({ ...submission, info: { ...submission.info, ...patch } })
+  }
+
+  function handleEntitySelect(value: string) {
+    if (value === CALCULATOR_CUSTOM) {
+      setEntityCustom(true)
+      updateInfo({ entity: '' })
+    } else {
+      setEntityCustom(false)
+      updateInfo({ entity: value })
+    }
+  }
+
+  function handleCalculatorSelect(value: string) {
+    if (value === CALCULATOR_CUSTOM) {
+      setCalculatorCustom(true)
+      updateInfo({ calculatorName: '', calculatorEmail: '', calculatorPhone: '' })
+      return
+    }
+    setCalculatorCustom(false)
+    const found = KNOWN_CALCULATORS.find((c) => c.name === value)
+    if (found) {
+      updateInfo({ calculatorName: found.name, calculatorEmail: found.email, calculatorPhone: found.phone })
+    }
   }
 
   async function handleFile(file: File) {
@@ -50,15 +78,8 @@ export default function ExtractionTab({
   }
 
   function resetAll() {
-    if (!confirm('Réinitialiser toutes les infos, le PDF, les zones et les lots de cette soumission ?')) return
-    onUpdate({
-      ...submission,
-      info: { ...submission.info },
-      pdfFileName: undefined,
-      pdfData: undefined,
-      zones: [],
-      lots: [],
-    })
+    if (!confirm('Réinitialiser le PDF, les zones et les lots de cette soumission ? Les informations de chantier sont conservées.')) return
+    onUpdate({ ...submission, pdfFileName: undefined, pdfData: undefined, zones: [], lots: [] })
   }
 
   const zonesByColor = {
@@ -69,23 +90,23 @@ export default function ExtractionTab({
   return (
     <div className="space-y-6">
       <div className="card">
-        <h3 className="font-semibold text-slate-800 mb-1">Informations de la soumission</h3>
+        <h3 className="font-semibold text-slate-800 mb-1">Informations du chantier</h3>
         <p className="text-sm text-slate-500 mb-4">
           Ces informations apparaissent sur le dashboard de suivi (onglet 3) et dans les e-mails.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Field label="Nom du projet / soumission">
+          <Field label="N° de chantier">
+            <input
+              className="input"
+              value={submission.info.siteNumber}
+              onChange={(e) => updateInfo({ siteNumber: e.target.value })}
+            />
+          </Field>
+          <Field label="Nom du chantier">
             <input
               className="input"
               value={submission.info.projectName}
               onChange={(e) => updateInfo({ projectName: e.target.value })}
-            />
-          </Field>
-          <Field label="Numéro de soumission">
-            <input
-              className="input"
-              value={submission.info.submissionNumber}
-              onChange={(e) => updateInfo({ submissionNumber: e.target.value })}
             />
           </Field>
           <Field label="Lieu du futur chantier">
@@ -99,31 +120,63 @@ export default function ExtractionTab({
           <Field label="Entité">
             <select
               className="input"
-              value={submission.info.entity}
-              onChange={(e) => updateInfo({ entity: e.target.value })}
+              value={entityCustom ? CALCULATOR_CUSTOM : submission.info.entity}
+              onChange={(e) => handleEntitySelect(e.target.value)}
             >
               <option value="">— Choisir —</option>
-              {ENTITIES.map((e) => (
+              {ENTITY_OPTIONS.map((e) => (
                 <option key={e} value={e}>
                   {e}
                 </option>
               ))}
+              <option value={CALCULATOR_CUSTOM}>Autre (saisie libre)</option>
             </select>
+            {entityCustom && (
+              <input
+                className="input mt-2"
+                placeholder="Saisir l'entité"
+                value={submission.info.entity}
+                onChange={(e) => updateInfo({ entity: e.target.value })}
+              />
+            )}
           </Field>
-          <Field label="Nom du demandeur (contact)">
-            <input
+          <Field label="Calculateur">
+            <select
               className="input"
-              placeholder="ex: Jean Dupont"
-              value={submission.info.requesterName}
-              onChange={(e) => updateInfo({ requesterName: e.target.value })}
-            />
+              value={calculatorCustom ? CALCULATOR_CUSTOM : submission.info.calculatorName}
+              onChange={(e) => handleCalculatorSelect(e.target.value)}
+            >
+              <option value="">— Choisir —</option>
+              {KNOWN_CALCULATORS.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+              <option value={CALCULATOR_CUSTOM}>Autre (saisie libre)</option>
+            </select>
+            {calculatorCustom && (
+              <input
+                className="input mt-2"
+                placeholder="Nom du calculateur"
+                value={submission.info.calculatorName}
+                onChange={(e) => updateInfo({ calculatorName: e.target.value })}
+              />
+            )}
           </Field>
-          <Field label="Email du demandeur (contact)">
+          <Field label="Email du calculateur">
             <input
               className="input"
               placeholder="ex: j.dupont@induni.ch"
-              value={submission.info.requesterEmail}
-              onChange={(e) => updateInfo({ requesterEmail: e.target.value })}
+              value={submission.info.calculatorEmail}
+              onChange={(e) => updateInfo({ calculatorEmail: e.target.value })}
+            />
+          </Field>
+          <Field label="Téléphone du calculateur">
+            <input
+              className="input"
+              placeholder="ex: 076 490 58 17"
+              value={submission.info.calculatorPhone}
+              onChange={(e) => updateInfo({ calculatorPhone: e.target.value })}
             />
           </Field>
           <Field label="Date limite de retour des offres">
@@ -149,8 +202,8 @@ export default function ExtractionTab({
         <h3 className="font-semibold text-slate-800 mb-1">Importer votre soumission (PDF)</h3>
         <p className="text-sm text-slate-500 mb-4">
           Le fichier reste local à votre navigateur. L'outil détecte les zones surlignées (jaune = fourniture
-          uniquement, toute autre couleur = fourniture et pose) et les regroupe par sous-chapitre pour créer des
-          lots.
+          uniquement, toute autre couleur = fourniture et pose) et regroupe automatiquement les articles d'un même
+          sous-chapitre en un seul lot.
         </p>
         <div
           className="border-2 border-dashed border-indigo-200 rounded-xl p-10 text-center bg-indigo-50/40"
@@ -181,15 +234,15 @@ export default function ExtractionTab({
         </div>
         {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
         <button className="btn-danger mt-4" onClick={resetAll}>
-          ⟲ Réinitialiser tout (infos, PDF, zones, lots et suivi)
+          ⟲ Réinitialiser le PDF, les zones et les lots
         </button>
       </div>
 
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Zones détectées</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Les lots sont créés automatiquement par zone surlignée (onglet 2). Ajustez le titre, le type de
-          prestation ou fusionnez plusieurs lots directement dans l'onglet suivant.
+          Les lots sont créés automatiquement par sous-chapitre (onglet 2). Ajustez le titre, le type de prestation
+          ou fusionnez/scindez des lots directement dans l'onglet suivant.
         </p>
         {submission.zones.length === 0 ? (
           <p className="text-slate-500">Aucune zone détectée pour l'instant — importez un PDF ci-dessus.</p>

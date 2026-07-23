@@ -67,7 +67,7 @@ export default function SubmissionsList({ onOpen }: { onOpen: (s: Submission) =>
                   📁 {s.info.projectName || s.name || 'Sans nom'}
                 </div>
                 <div className="text-sm text-slate-500 mt-0.5">
-                  {s.info.submissionNumber ? `N° ${s.info.submissionNumber} · ` : ''}
+                  {s.info.siteNumber ? `N° ${s.info.siteNumber} · ` : ''}
                   {s.lots.length} lot(s) · mis à jour le {new Date(s.updatedAt).toLocaleDateString('fr-CH')}
                 </div>
               </div>
