@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-100 text-slate-900;
+}
+
+.card {
+  @apply bg-white rounded-xl border border-slate-200 p-6 shadow-sm;
+}
+
+.btn {
+  @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+}
+
+.btn-primary {
+  @apply btn bg-indigo-600 text-white hover:bg-indigo-700;
+}
+
+.btn-secondary {
+  @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200;
+}
+
+.btn-danger {
+  @apply btn bg-red-50 text-red-600 hover:bg-red-100;
+}
+
+.input {
+  @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500;
+}
+
+.label {
+  @apply block text-sm font-medium text-slate-700 mb-1;
+}
+
+.tab-button {
+  @apply px-4 py-3 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700;
+}
+
+.tab-button.active {
+  @apply text-indigo-600 border-indigo-600;
+}
