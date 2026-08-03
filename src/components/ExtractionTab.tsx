@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import type { Submission, SubmissionInfo } from '../types'
 import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
-import { analyzeSubmissionPdf } from '../pdf/analyze'
+import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
+import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
 
 const CALCULATOR_CUSTOM = '__custom__'
 
@@ -13,6 +14,7 @@ export default function ExtractionTab({
   onUpdate: (s: Submission) => void
 }) {
   const [analyzing, setAnalyzing] = useState(false)
+  const [ocrProgress, setOcrProgress] = useState<{ page: number; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [entityCustom, setEntityCustom] = useState(!submission.info.entity || !ENTITY_OPTIONS.includes(submission.info.entity))
   const [calculatorCustom, setCalculatorCustom] = useState(
@@ -50,9 +52,13 @@ export default function ExtractionTab({
   async function handleFile(file: File) {
     setError(null)
     setAnalyzing(true)
+    setOcrProgress(null)
     try {
       const buffer = await file.arrayBuffer()
-      const result = await analyzeSubmissionPdf(buffer)
+      const hasText = await pdfHasExtractableText(buffer)
+      const result = hasText
+        ? await analyzeSubmissionPdf(buffer)
+        : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
       onUpdate({
         ...submission,
         name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),
@@ -68,6 +74,7 @@ export default function ExtractionTab({
       )
     } finally {
       setAnalyzing(false)
+      setOcrProgress(null)
     }
   }
 
@@ -226,7 +233,9 @@ export default function ExtractionTab({
           />
           <p className="text-sm text-slate-500 mt-3">
             {analyzing
-              ? 'Analyse en cours…'
+              ? ocrProgress
+                ? `Analyse OCR en cours (page ${ocrProgress.page}/${ocrProgress.total})… ce PDF n'a pas de texte ni de surlignage natif exploitable, l'outil relit chaque page par reconnaissance optique - cela peut prendre plusieurs minutes.`
+                : 'Analyse en cours…'
               : submission.pdfFileName
                 ? `Fichier: ${submission.pdfFileName}`
                 : 'Aucun fichier sélectionné'}

@@ -57,7 +57,33 @@ export default function AnnexeTab() {
         être sourcés ensemble.
       </p>
 
-      <h4 className="font-semibold text-slate-700 mt-4">4. Suggestion de catégories et de fournisseurs</h4>
+      <h4 className="font-semibold text-slate-700 mt-4">4. Soumissions privées sans texte ni annotation (OCR)</h4>
+      <p className="text-sm text-slate-600">
+        Certains PDF de soumissions privées ne contiennent ni texte sélectionnable (le devis a été « aplati » à
+        l'export, chaque caractère devenant un tracé vectoriel ou un pixel d'image) ni annotation de surlignage
+        native — le surlignage n'existe que comme couleur visible dans les pixels de la page. Dans ce cas, l'outil
+        bascule automatiquement sur une <strong>détection par image</strong> :
+      </p>
+      <ul className="text-sm text-slate-600 list-disc pl-5">
+        <li>Chaque page est rendue en image, puis découpée en lignes de texte par analyse de la densité d'encre.</li>
+        <li>Le texte de chaque ligne est relu par reconnaissance optique de caractères (OCR).</li>
+        <li>
+          Sa couleur de fond est échantillonnée directement sur les pixels (même règle jaune/autre couleur qu'au
+          point 1).
+        </li>
+        <li>
+          La hiérarchie reconnue est plus simple que le format CAN : un <strong>chapitre</strong> numéroté sans
+          décimale (« 4 ARMATURES ET ELEMENTS METALLIQUES ») suivi directement d'<strong>articles</strong> numérotés
+          « 4.1 », « 4.2 »… Les lots sont regroupés par chapitre et couleur.
+        </li>
+      </ul>
+      <p className="text-sm text-slate-600">
+        Cette voie est plus lente (elle relit chaque page image par image) et moins précise que la lecture directe
+        du texte — l'OCR peut mal lire un chiffre ou un mot isolé. Le regroupement par chapitre reste fiable ; le
+        détail des articles et des titres proposés est à vérifier dans l'onglet 2.
+      </p>
+
+      <h4 className="font-semibold text-slate-700 mt-4">5. Suggestion de catégories et de fournisseurs</h4>
       <p className="text-sm text-slate-600">
         À la création de chaque lot, l'outil compare son titre à la liste des catégories de votre base fournisseurs
         et propose automatiquement les catégories les plus probables. Les fournisseurs de ces catégories sont
@@ -69,7 +95,10 @@ export default function AnnexeTab() {
         <li>
           Le titre et les catégories automatiques restent des propositions — corrigez-les librement dans l'onglet 2.
         </li>
-        <li>Un PDF sans surlignage natif (image scannée, aplats dessinés) ne sera pas détecté automatiquement.</li>
+        <li>
+          Un PDF sans texte ni surlignage natif passe par la détection OCR (voir point 4) : plus lente, et moins
+          précise sur le détail des articles individuels.
+        </li>
         <li>
           Il arrive qu'un même contenu apparaisse en double (un lot « section entière » qui recouvre un lot «
           article précis » situé dans la même section) si le document contient deux annotations distinctes pour la

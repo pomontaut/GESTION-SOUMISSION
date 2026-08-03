@@ -97,6 +97,22 @@ export interface AnalyzeResult {
   numPages: number
 }
 
+/**
+ * Some submission PDFs (flattened exports, chapters pasted in as screenshots/scans) carry no
+ * selectable text at all - every character is drawn as a vector outline or baked into a raster
+ * image. Native analysis can't read chapter/CFC banners from such a page, so callers should check
+ * this first and fall back to the OCR pipeline (analyzeOcr.ts) when it returns false.
+ */
+export async function pdfHasExtractableText(data: ArrayBuffer): Promise<boolean> {
+  const doc = await pdfjsLib.getDocument({ data: data.slice(0) }).promise
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p)
+    const textContent = await page.getTextContent()
+    if (textContent.items.some((it) => 'str' in it && it.str.trim().length > 0)) return true
+  }
+  return false
+}
+
 export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeResult> {
   const doc = await pdfjsLib.getDocument({ data: data.slice(0) }).promise
 
