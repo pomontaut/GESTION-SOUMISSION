@@ -4,6 +4,7 @@ import { uid } from '../types'
 import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
+import { detectLotHeterogeneity } from '../data/categorize'
 
 const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
@@ -228,6 +229,11 @@ function LotDetail({
     return suppliers.filter((s) => wanted.has(norm(s.category)))
   }, [suppliers, lot.categories])
 
+  const heterogeneity = useMemo(() => {
+    const zoneTexts = submission.zones.filter((z) => lot.zoneIds.includes(z.id)).map((z) => z.text)
+    return detectLotHeterogeneity(zoneTexts)
+  }, [submission.zones, lot.zoneIds])
+
   const activeMatches = categoryMatches.filter((s) => !INACTIVE_STATUSES.includes(s.status ?? ''))
   const inactiveMatches = categoryMatches.filter((s) => INACTIVE_STATUSES.includes(s.status ?? ''))
 
@@ -376,6 +382,22 @@ function LotDetail({
           </button>
         </div>
       </div>
+
+      {heterogeneity && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
+          <p className="text-sm text-amber-800 font-medium mb-2">
+            ⚠️ Ce lot semble mélanger des produits différents ({heterogeneity.categories.join(', ')}) — vérifiez
+            s'il ne faudrait pas le scinder en plusieurs lots.
+          </p>
+          <ul className="text-sm text-amber-700 list-disc pl-5 space-y-0.5">
+            {heterogeneity.categories.map((c) => (
+              <li key={c}>
+                <strong>{c}</strong> : {heterogeneity.examples[c]}…
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Catégories sourcing</h3>

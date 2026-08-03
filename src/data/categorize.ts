@@ -59,3 +59,28 @@ export function suggestCategories(text: string, max = 3): string[] {
   }
   return result
 }
+
+export interface LotHeterogeneity {
+  /** distinct top categories found, one per zone that matched something */
+  categories: string[]
+  /** zone text excerpt for each distinct category, for display */
+  examples: Record<string, string>
+}
+
+/**
+ * A lot is built by grouping every highlighted zone under the same chapter/sous-chapitre - but
+ * that grouping says nothing about whether those zones actually describe similar products.
+ * Categorizing each zone on its own (instead of the lot's title as a whole) and comparing the
+ * results is a cheap way to flag a lot worth double-checking before it goes out to a single
+ * supplier category.
+ */
+export function detectLotHeterogeneity(zoneTexts: string[]): LotHeterogeneity | null {
+  const examples: Record<string, string> = {}
+  for (const text of zoneTexts) {
+    const [top] = suggestCategories(text, 1)
+    if (top && !(top in examples)) examples[top] = text.trim().slice(0, 120)
+  }
+  const categories = Object.keys(examples)
+  if (categories.length < 2) return null
+  return { categories, examples }
+}
