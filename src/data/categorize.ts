@@ -60,6 +60,11 @@ export function suggestCategories(text: string, max = 3): string[] {
   return result
 }
 
+/** The single most likely category for one zone's text, or null if nothing matched. */
+export function topCategoryFor(text: string): string | null {
+  return suggestCategories(text, 1)[0] ?? null
+}
+
 export interface LotHeterogeneity {
   /** distinct top categories found, one per zone that matched something */
   categories: string[]
@@ -77,7 +82,7 @@ export interface LotHeterogeneity {
 export function detectLotHeterogeneity(zoneTexts: string[]): LotHeterogeneity | null {
   const examples: Record<string, string> = {}
   for (const text of zoneTexts) {
-    const [top] = suggestCategories(text, 1)
+    const top = topCategoryFor(text)
     if (top && !(top in examples)) examples[top] = text.trim().slice(0, 120)
   }
   const categories = Object.keys(examples)

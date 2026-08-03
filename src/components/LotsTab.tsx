@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Lot, PrestationType, Submission, SupplierRecord } from '../types'
+import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
 import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
-import { detectLotHeterogeneity } from '../data/categorize'
+import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
 
 const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
@@ -65,6 +65,15 @@ export default function LotsTab({
     })
     setChecked(new Set())
     setSelectedId(merged.id)
+  }
+
+  function splitLot(oldId: string, newLots: Lot[], remainder: Lot | null) {
+    const replacement = remainder ? [remainder, ...newLots] : newLots
+    onUpdate({
+      ...submission,
+      lots: submission.lots.flatMap((l) => (l.id === oldId ? replacement : [l])),
+    })
+    setSelectedId(replacement[0]?.id ?? null)
   }
 
   return (
@@ -142,6 +151,7 @@ export default function LotsTab({
             onChange={(patch) => updateLot(selectedLot.id, patch)}
             onDelete={() => deleteLot(selectedLot.id)}
             onPreview={() => setPreviewLot(selectedLot)}
+            onSplit={(newLots, remainder) => splitLot(selectedLot.id, newLots, remainder)}
           />
         ) : (
           <div className="card text-slate-500">Sélectionnez un lot à gauche.</div>
@@ -200,6 +210,129 @@ function PdfPreviewModal({ lot, pdfData, onClose }: { lot: Lot; pdfData: ArrayBu
   )
 }
 
+const KEEP_IN_ORIGINAL = '__keep__'
+
+function SplitLotModal({
+  lot,
+  zones,
+  categories,
+  onClose,
+  onConfirm,
+}: {
+  lot: Lot
+  zones: DetectedZone[]
+  categories: string[]
+  onClose: () => void
+  onConfirm: (newLots: Lot[], remainder: Lot | null) => void
+}) {
+  const [assignment, setAssignment] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {}
+    for (const z of zones) initial[z.id] = topCategoryFor(z.text) ?? KEEP_IN_ORIGINAL
+    return initial
+  })
+
+  const groups = useMemo(() => {
+    const map = new Map<string, DetectedZone[]>()
+    for (const z of zones) {
+      const key = assignment[z.id] ?? KEEP_IN_ORIGINAL
+      const list = map.get(key)
+      if (list) list.push(z)
+      else map.set(key, [z])
+    }
+    return map
+  }, [zones, assignment])
+
+  const newLotCount = [...groups.keys()].filter((k) => k !== KEEP_IN_ORIGINAL).length
+
+  function confirm() {
+    const newLots: Lot[] = []
+    let remainderZones: DetectedZone[] = []
+    for (const [key, groupZones] of groups) {
+      if (key === KEEP_IN_ORIGINAL) {
+        remainderZones = groupZones
+        continue
+      }
+      const pages = Array.from(new Set(groupZones.map((z) => z.page))).sort((a, b) => a - b)
+      const subChapterSuffix = lot.subChapterCode ? ` — ${lot.subChapterCode} ${lot.subChapterTitle}` : ''
+      newLots.push({
+        id: uid(),
+        title: `${lot.chapterCode} ${lot.chapterTitle}${subChapterSuffix} — ${key}`.trim(),
+        cfcCode: lot.cfcCode,
+        chapterCode: lot.chapterCode,
+        chapterTitle: lot.chapterTitle,
+        subChapterCode: lot.subChapterCode,
+        subChapterTitle: lot.subChapterTitle,
+        prestationType: lot.prestationType,
+        pages,
+        positionCount: groupZones.length,
+        zoneIds: groupZones.map((z) => z.id),
+        validated: false,
+        categories: [key],
+        suppliers: [],
+        followUp: [],
+      })
+    }
+    const remainder: Lot | null = remainderZones.length
+      ? {
+          ...lot,
+          pages: Array.from(new Set(remainderZones.map((z) => z.page))).sort((a, b) => a - b),
+          zoneIds: remainderZones.map((z) => z.id),
+          positionCount: remainderZones.length,
+        }
+      : null
+    onConfirm(newLots, remainder)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <h3 className="font-medium text-slate-800 truncate">Scinder « {lot.title} »</h3>
+          <button className="btn-secondary" onClick={onClose}>
+            ✕ Fermer
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          <p className="text-sm text-slate-500 mb-2">
+            Chaque article a été rattaché à sa catégorie la plus probable — corrigez au besoin, puis validez : un
+            nouveau lot (avec son propre PDF et ses fournisseurs à sourcer) sera créé par catégorie retenue.
+          </p>
+          {zones.map((z) => (
+            <div key={z.id} className="flex items-center gap-3 border border-slate-200 rounded-lg p-2.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-700 truncate">{z.text || '(sans texte)'}</p>
+                <p className="text-xs text-slate-400">
+                  p.{z.page} · {z.color === 'jaune' ? 'Fourniture' : 'Fourniture et pose'}
+                </p>
+              </div>
+              <select
+                className="input w-56 flex-shrink-0"
+                value={assignment[z.id] ?? KEEP_IN_ORIGINAL}
+                onChange={(e) => setAssignment((prev) => ({ ...prev, [z.id]: e.target.value }))}
+              >
+                {[...categories, KEEP_IN_ORIGINAL].map((o) => (
+                  <option key={o} value={o}>
+                    {o === KEEP_IN_ORIGINAL ? "Garder dans le lot d'origine" : o}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
+          <p className="text-sm text-slate-500">{newLotCount} nouveau(x) lot(s) seront créés.</p>
+          <button className="btn-primary" onClick={confirm} disabled={newLotCount === 0}>
+            ✅ Valider la répartition
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LotDetail({
   lot,
   submission,
@@ -208,6 +341,7 @@ function LotDetail({
   onChange,
   onDelete,
   onPreview,
+  onSplit,
 }: {
   lot: Lot
   submission: Submission
@@ -216,11 +350,13 @@ function LotDetail({
   onChange: (patch: Partial<Lot>) => void
   onDelete: () => void
   onPreview: () => void
+  onSplit: (newLots: Lot[], remainder: Lot | null) => void
 }) {
   const [categoryInput, setCategoryInput] = useState('')
   const [newSupplier, setNewSupplier] = useState({ name: '', email: '', category: '' })
   const [pdfBusy, setPdfBusy] = useState(false)
   const [emailGenerated, setEmailGenerated] = useState(Boolean(lot.emailBody))
+  const [splitOpen, setSplitOpen] = useState(false)
 
   const categoryMatches = useMemo(() => {
     if (!lot.categories.length) return []
@@ -229,10 +365,15 @@ function LotDetail({
     return suppliers.filter((s) => wanted.has(norm(s.category)))
   }, [suppliers, lot.categories])
 
-  const heterogeneity = useMemo(() => {
-    const zoneTexts = submission.zones.filter((z) => lot.zoneIds.includes(z.id)).map((z) => z.text)
-    return detectLotHeterogeneity(zoneTexts)
-  }, [submission.zones, lot.zoneIds])
+  const lotZones = useMemo(
+    () => submission.zones.filter((z) => lot.zoneIds.includes(z.id)),
+    [submission.zones, lot.zoneIds],
+  )
+
+  const heterogeneity = useMemo(
+    () => detectLotHeterogeneity(lotZones.map((z) => z.text)),
+    [lotZones],
+  )
 
   const activeMatches = categoryMatches.filter((s) => !INACTIVE_STATUSES.includes(s.status ?? ''))
   const inactiveMatches = categoryMatches.filter((s) => INACTIVE_STATUSES.includes(s.status ?? ''))
@@ -389,14 +530,30 @@ function LotDetail({
             ⚠️ Ce lot semble mélanger des produits différents ({heterogeneity.categories.join(', ')}) — vérifiez
             s'il ne faudrait pas le scinder en plusieurs lots.
           </p>
-          <ul className="text-sm text-amber-700 list-disc pl-5 space-y-0.5">
+          <ul className="text-sm text-amber-700 list-disc pl-5 space-y-0.5 mb-3">
             {heterogeneity.categories.map((c) => (
               <li key={c}>
                 <strong>{c}</strong> : {heterogeneity.examples[c]}…
               </li>
             ))}
           </ul>
+          <button className="btn-secondary" onClick={() => setSplitOpen(true)}>
+            ✂️ Scinder ce lot
+          </button>
         </div>
+      )}
+
+      {splitOpen && heterogeneity && (
+        <SplitLotModal
+          lot={lot}
+          zones={lotZones}
+          categories={heterogeneity.categories}
+          onClose={() => setSplitOpen(false)}
+          onConfirm={(newLots, remainder) => {
+            onSplit(newLots, remainder)
+            setSplitOpen(false)
+          }}
+        />
       )}
 
       <div className="card">
