@@ -26,19 +26,31 @@ export default function Workspace({
 }) {
   const [tab, setTab] = useState<TabKey>('extraction')
   const saveTimeout = useRef<number | null>(null)
+  const pending = useRef<Submission | null>(null)
 
   function update(next: Submission) {
     const withTimestamp = { ...next, updatedAt: new Date().toISOString() }
     onChange(withTimestamp)
+    pending.current = withTimestamp
     if (saveTimeout.current) window.clearTimeout(saveTimeout.current)
     saveTimeout.current = window.setTimeout(() => {
+      pending.current = null
       saveSubmission(withTimestamp)
     }, 300)
   }
 
   useEffect(() => {
-    return () => {
+    function flush() {
       if (saveTimeout.current) window.clearTimeout(saveTimeout.current)
+      if (pending.current) {
+        saveSubmission(pending.current)
+        pending.current = null
+      }
+    }
+    window.addEventListener('beforeunload', flush)
+    return () => {
+      window.removeEventListener('beforeunload', flush)
+      flush()
     }
   }, [])
 

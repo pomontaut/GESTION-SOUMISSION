@@ -70,6 +70,13 @@ export default function SubmissionsList({ onOpen }: { onOpen: (s: Submission) =>
                   {s.info.siteNumber ? `N° ${s.info.siteNumber} · ` : ''}
                   {s.lots.length} lot(s) · mis à jour le {new Date(s.updatedAt).toLocaleDateString('fr-CH')}
                 </div>
+                {s.info.calculatorName && (
+                  <div className="text-sm text-slate-500 mt-0.5">
+                    👤 {s.info.calculatorName}
+                    {s.info.calculatorEmail ? ` · ${s.info.calculatorEmail}` : ''}
+                    {s.info.calculatorPhone ? ` · ${s.info.calculatorPhone}` : ''}
+                  </div>
+                )}
               </div>
               <span className="btn-danger" onClick={(e) => remove(s.id, e)}>
                 Supprimer
