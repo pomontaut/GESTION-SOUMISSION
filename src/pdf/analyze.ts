@@ -10,25 +10,44 @@ import { suggestCategories } from '../data/categorize'
  * the preparer using the PDF highlighter tool, which pdf.js exposes as native `Highlight`
  * annotations (subtype "Highlight") with an exact rectangle and RGB color - no pixel sampling
  * needed. Convention: yellow highlight = fourniture seule, any other highlight color =
- * fourniture et pose.
+ * fourniture et pose. A highlight rectangle can be tiny (one header line) or huge (a whole page
+ * or more) - the preparer just drags the highlighter down the margin, so the same rectangle
+ * commonly covers a chapter header AND all its articles AND unrelated sibling sub-chapters below
+ * it. Never assume one highlight == one lot; always resolve each *line* under the rectangle to
+ * its own chapter context.
  *
- * CAN documents have three nested levels above a priced article:
- *  - L0: the CAN chapter itself, repeated on every page as a banner
- *    "CAN Construction : <code> <title> ...". A change of <code> between two consecutive pages
- *    marks the start of a new chapter (e.g. "246 Systèmes de précontrainte").
- *  - L1 ("chapitre"): a section header printed at the page's left margin and followed by a long
- *    dashed rule (e.g. "440 Incorporés, bandes d'appui").
- *  - L2 ("sous-chapitre"): a header at the same margin but with NO dashed rule after it - it
- *    introduces the priced articles directly (e.g. "442 Matériau isolant dans coffrages de
- *    dalles." followed by ".001 ...").
+ * CAN documents number every row in the "Pos." column, headers and priced articles alike, all at
+ * the same left margin - there is no indentation or literal dashed rule to tell a header apart
+ * from a priced position. The one reliable signal is the code's shape:
+ *  - A header code has NO decimal point: "500", "540", "R592", "134", "447"... It only ever
+ *    carries a title, never a quantity/price. "R"-prefixed codes are the preparer's own custom
+ *    additions (the CAN legend prints this explicitly) and must be recognised as headers too.
+ *  - A priced article's code always has a decimal point: "511.201", "134.308", "R592.101". Such a
+ *    line never changes the current chapter context, it just belongs to it.
+ * Headers nest arbitrarily deep with no visual cue ("500 Armatures" > "540 Accessoires
+ * d'armature" > "541 Armatures de support" are three consecutive header lines), so the algorithm
+ * tracks a single "current chapter" pointer that gets overwritten by *every* header line it sees.
+ * By the time a priced (decimal) line is reached, that pointer naturally holds the most specific
+ * header above it - which is exactly the lot boundary the preparer intends: siblings like 541,
+ * 543, 544, 545, 546 under the same umbrella "540" are distinct lots, while a header with no
+ * priced children of its own (500, 540, 430, R590...) never becomes a lot by itself.
  *
- * If a highlight covers a header line itself (L0, L1 or L2) rather than a specific priced
- * article, the preparer means "everything under this heading is one lot" - the lot is expanded
- * to the header's full span (until the next header at the same or a shallower level, or the end
- * of the chapter). Otherwise, the highlight is attached to whichever L1/L2 heading is currently
- * active, and lots are grouped by (color, L1 code, L2 code) across the *whole* document - several
- * highlighted articles under the same sous-chapitre become one lot; a different sous-chapitre (or
- * a different highlight color, since that changes fourniture vs fourniture+pose) becomes another.
+ * Lots are grouped by (highlight color, current chapter code) across the *whole* document -
+ * several highlighted runs under the same code become one lot; a different code (or a different
+ * highlight color, since that changes fourniture vs fourniture+pose) becomes another. The header
+ * line itself does not need to be inside the highlighted rectangle for this to work: if only the
+ * priced children are highlighted (e.g. "R891 Escaliers..." left white, but R891.100-104
+ * highlighted), the chapter pointer was still set when the header line was read, so the children
+ * resolve to the right lot regardless.
+ *
+ * Separately, some preparers drop a `FreeText` annotation (a text box, often boxed in red) next
+ * to a chapter instead of highlighting it - typically a logistics note ("livraison groupée ~800m3
+ * pour les 2 soumissions") that applies to the whole chapter rather than one article. Whenever
+ * such a note is found, the nearest enclosing "round" chapter (a code ending in "00", e.g. "500"
+ * or "600" - the level *above* the fine-grained per-sibling lots described above) becomes its own
+ * lot, spanning every page until the next round-numbered chapter starts. Fourniture seule by
+ * default; this only encodes one confirmed real-world example and may need revisiting once more
+ * cases turn up.
  */
 
 interface TextLine {
@@ -38,8 +57,13 @@ interface TextLine {
   items: { x: number; y: number }[]
 }
 
-const HEADER_RE = /^(\d{2,3}(?:\.\d+)?)\s+[A-ZÀ-Þ]/
-const DASH_RE = /^-{8,}/
+interface ChapterKey {
+  code: string
+  title: string
+}
+
+const NONDECIMAL_HEADER_RE = /^((?:R)?\d{2,3})\s+[A-ZÀ-Þ]/
+const DECIMAL_ARTICLE_RE = /^(?:R)?\d{2,3}\.\d+\b/
 const CFC_RE = /CFC:\s*([\d.]+)/
 const CAN_CHAPTER_RE = /CAN Construction\s*:\s*(\d+)/
 const CAN_CHAPTER_TITLE_RE = /CAN Construction\s*:\s*\d+\s+(.+?)\s+[A-Z]\/\d+\(/
@@ -71,21 +95,19 @@ function groupLines(items: Array<{ str: string; transform: number[] }>): TextLin
   })
 }
 
-interface HeaderEvent {
-  page: number
-  y: number
-  code: string
-  title: string
-  level: 'L1' | 'L2'
-}
-
 interface RawHighlight {
-  kind: 'L0' | 'L1' | 'article'
+  kind: 'L0' | 'article'
   color: 'jaune' | 'autre'
   code: string
   title: string
-  subCode: string
-  subTitle: string
+  pages: number[]
+  cfc: string
+  text: string
+}
+
+interface RawNote {
+  code: string
+  title: string
   pages: number[]
   cfc: string
   text: string
@@ -121,9 +143,20 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   const pageCfc = new Map<number, string>()
   const pageCanChapter = new Map<number, string>()
   const pageCanChapterTitle = new Map<number, string>()
-  const pageAnnots = new Map<number, Array<{ color: Uint8ClampedArray; rect: number[] }>>()
-  const headerEvents: HeaderEvent[] = []
+  const pageHighlightAnnots = new Map<number, Array<{ color: Uint8ClampedArray; rect: number[] }>>()
+  const pageNoteAnnots = new Map<number, Array<{ rect: number[]; contents: string }>>()
+  // For every body line, the chapter header code/title active at that point (the "current
+  // chapter" pointer described above), plus the coarser "round" (x00) chapter for FreeText notes.
+  const pageLineChapters = new Map<
+    number,
+    Array<{ line: TextLine; key: ChapterKey | null; roundKey: ChapterKey | null }>
+  >()
+  const pageRoundKeyAtEnd = new Map<number, ChapterKey | null>()
+
   let prevPageLastLine: string | null = null
+  let currentKey: ChapterKey | null = null
+  let currentRoundKey: ChapterKey | null = null
+  let currentChapterForKeys: string | undefined
 
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p)
@@ -145,75 +178,48 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const marginCandidates = bodyLines.filter((l) => !/^R\b/.test(l.text))
     const marginX = marginCandidates.length ? Math.min(...marginCandidates.map((l) => l.xStart)) : null
 
+    if (pageCanChapter.get(p) !== currentChapterForKeys) {
+      currentKey = null
+      currentRoundKey = null
+      currentChapterForKeys = pageCanChapter.get(p)
+    }
+
     const endedWithAReporter = prevPageLastLine !== null && /^A reporter\s*:/.test(prevPageLastLine)
+    const lineChapters: Array<{ line: TextLine; key: ChapterKey | null; roundKey: ChapterKey | null }> = []
     bodyLines.forEach((line, idx) => {
-      if (idx === 0 && endedWithAReporter) return
-      const m = line.text.match(HEADER_RE)
-      if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6) {
-        const nextLine = bodyLines[idx + 1]
-        const level: 'L1' | 'L2' = nextLine && DASH_RE.test(nextLine.text) ? 'L1' : 'L2'
-        headerEvents.push({ page: p, y: line.y, code: m[1], title: line.text.slice(m[0].length - 1).trim(), level })
+      if (!(idx === 0 && endedWithAReporter)) {
+        const m = line.text.match(NONDECIMAL_HEADER_RE)
+        if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6) {
+          const code = m[1]
+          const title = line.text.slice(m[0].length - 1).trim()
+          currentKey = { code, title }
+          if (Number(code.replace(/^R/, '')) % 100 === 0) currentRoundKey = { code, title }
+        }
       }
+      lineChapters.push({ line, key: currentKey, roundKey: currentRoundKey })
     })
+    pageLineChapters.set(p, lineChapters)
+    pageRoundKeyAtEnd.set(p, currentRoundKey)
     prevPageLastLine = bodyLines.length ? bodyLines[bodyLines.length - 1].text : prevPageLastLine
 
-    pageAnnots.set(
+    const typedAnnots = annots as Array<{
+      subtype: string
+      color?: Uint8ClampedArray
+      rect: number[]
+      contents?: string
+    }>
+    pageHighlightAnnots.set(
       p,
-      (annots as Array<{ subtype: string; color?: Uint8ClampedArray; rect: number[] }>)
+      typedAnnots
         .filter((a) => a.subtype === 'Highlight' && a.color)
         .map((a) => ({ color: a.color as Uint8ClampedArray, rect: a.rect })),
     )
-  }
-
-  // running L1/L2 state snapshot after each header event, reset whenever the CAN chapter changes
-  const snapshots: Array<{ l1: HeaderEvent | null; l2: HeaderEvent | null }> = []
-  {
-    let l1: HeaderEvent | null = null
-    let l2: HeaderEvent | null = null
-    let currentChapterForState: string | undefined
-    for (const ev of headerEvents) {
-      const chapterNow = pageCanChapter.get(ev.page)
-      if (chapterNow !== currentChapterForState) {
-        l1 = null
-        l2 = null
-        currentChapterForState = chapterNow
-      }
-      if (ev.level === 'L1') {
-        l1 = ev
-        l2 = null
-      } else {
-        l2 = ev
-      }
-      snapshots.push({ l1, l2 })
-    }
-  }
-
-  function stateBefore(page: number, y: number): { l1: HeaderEvent | null; l2: HeaderEvent | null } {
-    let idx = -1
-    for (let i = 0; i < headerEvents.length; i++) {
-      const ev = headerEvents[i]
-      if (ev.page > page) break
-      if (ev.page === page && ev.y < y) break
-      idx = i
-    }
-    return idx === -1 ? { l1: null, l2: null } : snapshots[idx]
-  }
-
-  function headerEventIndexAt(page: number, y: number): number {
-    return headerEvents.findIndex((ev) => ev.page === page && Math.abs(ev.y - y) < 0.5)
-  }
-
-  function nextHeaderIndex(afterIndex: number, level: 'L1' | 'L2'): number {
-    for (let i = afterIndex + 1; i < headerEvents.length; i++) {
-      if (level === 'L1' && headerEvents[i].level === 'L1') return i
-      if (level === 'L2') return i
-    }
-    return -1
-  }
-
-  function isFirstBodyLineOfPage(ev: HeaderEvent): boolean {
-    const bl = pageBodyLines.get(ev.page) ?? []
-    return bl.length > 0 && Math.abs(bl[0].y - ev.y) < 0.5
+    pageNoteAnnots.set(
+      p,
+      typedAnnots
+        .filter((a) => a.subtype === 'FreeText')
+        .map((a) => ({ rect: a.rect, contents: (a.contents ?? '').trim() })),
+    )
   }
 
   function chapterPageRange(startPage: number): number {
@@ -226,31 +232,52 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     return last
   }
 
+  /** Last page (from startPage) for which `code` is still the active "round" chapter. */
+  function roundKeyPageRange(startPage: number, code: string): number {
+    let last = startPage
+    let sawIt = false
+    for (let p = startPage; p <= doc.numPages; p++) {
+      if (pageCanChapter.get(p) !== pageCanChapter.get(startPage)) break
+      const chapters = pageLineChapters.get(p) ?? []
+      let brokeOnThisPage = false
+      for (const c of chapters) {
+        if (c.roundKey?.code === code) {
+          sawIt = true
+          last = p
+        } else if (sawIt) {
+          brokeOnThisPage = true
+          break
+        }
+      }
+      if (brokeOnThisPage) break
+    }
+    return last
+  }
+
   const highlights: RawHighlight[] = []
+  const notes: RawNote[] = []
 
   for (let p = 1; p <= doc.numPages; p++) {
     const bodyLines = pageBodyLines.get(p) ?? []
     const allLines = pageAllLines.get(p) ?? []
-    const annots = pageAnnots.get(p) ?? []
+    const chapters = pageLineChapters.get(p) ?? []
     const isChapterStartPage = pageCanChapter.get(p) !== undefined && pageCanChapter.get(p) !== pageCanChapter.get(p - 1)
     const firstBodyLine = bodyLines[0]
+    const cfc = pageCfc.get(p) ?? ''
 
-    for (const h of annots) {
+    for (const h of pageHighlightAnnots.get(p) ?? []) {
       const [rx0, ry0, rx1, ry1] = h.rect
-      const contained = bodyLines
-        .filter((l) => l.items.some((it) => it.x >= rx0 - 3 && it.x <= rx1 + 3 && it.y >= ry0 - 3 && it.y <= ry1 + 3))
-        .sort((a, b) => b.y - a.y)
-      const text = contained.map((l) => l.text).join(' ')
+      const contained = chapters.filter(({ line }) =>
+        line.items.some((it) => it.x >= rx0 - 3 && it.x <= rx1 + 3 && it.y >= ry0 - 3 && it.y <= ry1 + 3),
+      )
       const isYellow = h.color[0] > 200 && h.color[1] > 200 && h.color[2] < 100
       const color: 'jaune' | 'autre' = isYellow ? 'jaune' : 'autre'
-      const topY = contained.length ? contained[0].y : ry1
-      const cfc = pageCfc.get(p) ?? ''
 
       let isL0 = false
       if (isChapterStartPage && contained.length === 0) {
         isL0 = allLines.some((l) => l.y >= 760 && l.y >= ry0 - 3 && l.y <= ry1 + 3)
       } else if (isChapterStartPage && contained.length > 0 && firstBodyLine) {
-        isL0 = Math.abs(topY - firstBodyLine.y) < 3
+        isL0 = Math.abs(contained[0].line.y - firstBodyLine.y) < 3
       }
 
       if (isL0) {
@@ -260,8 +287,6 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           color,
           code: pageCanChapter.get(p) ?? '',
           title: pageCanChapterTitle.get(p) ?? '',
-          subCode: '',
-          subTitle: '',
           pages: Array.from({ length: endPage - p + 1 }, (_, i) => p + i),
           cfc,
           text: pageCanChapterTitle.get(p) ?? '',
@@ -269,72 +294,89 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         continue
       }
 
-      const selfHeaderIdx = contained.length ? headerEventIndexAt(p, contained[0].y) : -1
-      if (selfHeaderIdx !== -1) {
-        const ev = headerEvents[selfHeaderIdx]
-        const endIdx = nextHeaderIndex(selfHeaderIdx, ev.level)
-        const endEvent = endIdx === -1 ? null : headerEvents[endIdx]
-        const pageEnd = !endEvent
-          ? chapterPageRange(p)
-          : isFirstBodyLineOfPage(endEvent)
-            ? endEvent.page - 1
-            : endEvent.page
-        const pages = Array.from({ length: Math.max(pageEnd - p + 1, 1) }, (_, i) => p + i)
+      if (contained.length === 0) continue
 
-        if (ev.level === 'L1') {
-          highlights.push({ kind: 'L1', color, code: ev.code, title: ev.title, subCode: '', subTitle: '', pages, cfc, text })
-        } else {
-          const state = stateBefore(p, ev.y)
+      // Contained lines are already in top-to-bottom document order (groupLines sorts that way).
+      // Split them into consecutive runs that share the same chapter code, one highlight entry
+      // per run. A run is dropped if it has no chapter context yet (shouldn't normally happen),
+      // or if it never reaches a priced (decimal-coded) line - a run that's just a header title
+      // (and maybe its intro paragraph) before the code changes again is a pure umbrella chapter,
+      // never a lot on its own (see "500 Armatures" / "540 Accessoires d'armature" in the header
+      // comment above).
+      let runStart = 0
+      for (let i = 1; i <= contained.length; i++) {
+        const sameAsPrev = i < contained.length && contained[i].key?.code === contained[runStart].key?.code
+        if (sameAsPrev) continue
+        const run = contained.slice(runStart, i)
+        const key = run[0].key
+        const hasPricedLine = run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim()))
+        if (key && hasPricedLine) {
           highlights.push({
             kind: 'article',
             color,
-            code: state.l1?.code ?? '',
-            title: state.l1?.title ?? '',
-            subCode: ev.code,
-            subTitle: ev.title,
-            pages,
+            code: key.code,
+            title: key.title,
+            pages: [p],
             cfc,
-            text,
+            text: run.map((r) => r.line.text).join(' '),
           })
         }
-        continue
+        runStart = i
       }
+    }
 
-      const state = stateBefore(p, topY)
-      highlights.push({
-        kind: 'article',
-        color,
-        code: state.l1?.code ?? '',
-        title: state.l1?.title ?? '',
-        subCode: state.l2?.code ?? '',
-        subTitle: state.l2?.title ?? '',
-        pages: [p],
+    for (const note of pageNoteAnnots.get(p) ?? []) {
+      const [, , , ny1] = note.rect
+      let roundKey: ChapterKey | null = null
+      for (const c of chapters) {
+        if (c.line.y >= ny1 - 3) roundKey = c.roundKey
+        else break
+      }
+      if (!roundKey) roundKey = pageRoundKeyAtEnd.get(p - 1) ?? null
+      if (!roundKey) continue
+
+      const endPage = roundKeyPageRange(p, roundKey.code)
+      notes.push({
+        code: roundKey.code,
+        title: roundKey.title,
+        pages: Array.from({ length: Math.max(endPage - p + 1, 1) }, (_, i) => p + i),
         cfc,
-        text,
+        text: note.contents,
       })
     }
   }
 
-  // ---- Build zones (one per highlight annotation, for display/traceability) ----
-  const zones: DetectedZone[] = highlights.map((h) => ({
-    id: uid(),
-    page: h.pages[0],
-    chapterCode: h.code,
-    chapterTitle: h.title,
-    subChapterCode: h.subCode,
-    subChapterTitle: h.subTitle,
-    cfcCode: h.cfc,
-    text: h.text,
-    color: h.color,
-  }))
+  // ---- Build zones (one per highlight run / note, for display and traceability) ----
+  const zones: DetectedZone[] = [
+    ...highlights.map((h) => ({
+      id: uid(),
+      page: h.pages[0],
+      chapterCode: h.code,
+      chapterTitle: h.title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      cfcCode: h.cfc,
+      text: h.text,
+      color: h.color,
+    })),
+    ...notes.map((n) => ({
+      id: uid(),
+      page: n.pages[0],
+      chapterCode: n.code,
+      chapterTitle: n.title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      cfcCode: n.cfc,
+      text: n.text || n.title,
+      color: 'jaune' as const,
+    })),
+  ]
 
-  // ---- Build lots: group by (color, L1 code, L2 code) across the whole document ----
+  // ---- Build lots: group highlight runs by (color, chapter code) across the whole document ----
   interface LotGroup {
     color: 'jaune' | 'autre'
     code: string
     title: string
-    subCode: string
-    subTitle: string
     cfc: string
     pages: Set<number>
     zoneIds: string[]
@@ -344,7 +386,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
 
   highlights.forEach((h, idx) => {
     const zoneId = zones[idx].id
-    const key = `${h.color}|${h.code}|${h.subCode}`
+    const key = `${h.color}|${h.code}`
     const existing = lotGroups.get(key)
     if (existing) {
       h.pages.forEach((pg) => existing.pages.add(pg))
@@ -355,8 +397,6 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         color: h.color,
         code: h.code,
         title: h.title,
-        subCode: h.subCode,
-        subTitle: h.subTitle,
         cfc: h.cfc,
         pages: new Set(h.pages),
         zoneIds: [zoneId],
@@ -366,16 +406,16 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   })
 
   const lots: Lot[] = Array.from(lotGroups.values()).map((g): Lot => {
-    const title = g.subCode ? `${g.code} ${g.title} — ${g.subCode} ${g.subTitle}` : `${g.code} ${g.title}`
-    const categories = suggestCategories(`${title} ${g.title} ${g.subTitle} ${g.textSample}`)
+    const title = `${g.code} ${g.title}`
+    const categories = suggestCategories(`${title} ${g.textSample}`)
     return {
       id: uid(),
       title,
       cfcCode: g.cfc,
       chapterCode: g.code,
       chapterTitle: g.title,
-      subChapterCode: g.subCode,
-      subChapterTitle: g.subTitle,
+      subChapterCode: '',
+      subChapterTitle: '',
       prestationType: (g.color === 'jaune' ? 'fourniture' : 'fourniture_pose') as PrestationType,
       pages: Array.from(g.pages).sort((a, b) => a - b),
       positionCount: g.zoneIds.length,
@@ -385,6 +425,28 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       suppliers: [],
       followUp: [],
     }
+  })
+
+  notes.forEach((n, idx) => {
+    const zoneId = zones[highlights.length + idx].id
+    const title = `${n.code} ${n.title}`
+    lots.push({
+      id: uid(),
+      title,
+      cfcCode: n.cfc,
+      chapterCode: n.code,
+      chapterTitle: n.title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      prestationType: 'fourniture',
+      pages: n.pages,
+      positionCount: 1,
+      zoneIds: [zoneId],
+      validated: false,
+      categories: suggestCategories(`${title} ${n.text}`),
+      suppliers: [],
+      followUp: [],
+    })
   })
 
   lots.sort((a, b) => a.pages[0] - b.pages[0])
