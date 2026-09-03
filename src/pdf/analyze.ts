@@ -100,6 +100,10 @@ interface RawHighlight {
   color: 'jaune' | 'autre'
   code: string
   title: string
+  /** The round (x00) chapter this run sits under, e.g. "600" for a run coded "612" - used to
+   *  tell apart a genuine lot from highlighter spillover into a chapter a FreeText note already
+   *  claims whole (see the filter right after the main page loop below). */
+  roundCode: string
   pages: number[]
   cfc: string
   text: string
@@ -254,7 +258,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     return last
   }
 
-  const highlights: RawHighlight[] = []
+  let highlights: RawHighlight[] = []
   const notes: RawNote[] = []
 
   for (let p = 1; p <= doc.numPages; p++) {
@@ -287,6 +291,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           color,
           code: pageCanChapter.get(p) ?? '',
           title: pageCanChapterTitle.get(p) ?? '',
+          roundCode: '',
           pages: Array.from({ length: endPage - p + 1 }, (_, i) => p + i),
           cfc,
           text: pageCanChapterTitle.get(p) ?? '',
@@ -316,6 +321,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
             color,
             code: key.code,
             title: key.title,
+            roundCode: run[0].roundKey?.code ?? '',
             pages: [p],
             cfc,
             text: run.map((r) => r.line.text).join(' '),
@@ -345,6 +351,15 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       })
     }
   }
+
+  // A FreeText note already claims its whole round chapter as one lot. Drop any highlight run
+  // that sits under that same round chapter - in practice this is over-drawn highlighter
+  // spilling from an adjacent, unrelated chapter (the noted chapter itself is never colour-
+  // highlighted, since the preparer used a note instead), not a deliberate finer-grained lot
+  // inside the noted chapter. Matched by chapter ancestry, not by page number: the noted chapter
+  // and its neighbours often share a page (e.g. one ends and the next begins mid-page).
+  const notedRoundCodes = new Set(notes.map((n) => n.code))
+  highlights = highlights.filter((h) => !notedRoundCodes.has(h.roundCode))
 
   // ---- Build zones (one per highlight run / note, for display and traceability) ----
   const zones: DetectedZone[] = [
