@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import express from 'express'
+import { PDFDocument } from 'pdf-lib'
 import { pool } from '../db'
+import { sendEmail } from '../resend'
 
 const router = Router()
 
@@ -75,6 +77,53 @@ router.put('/:id/pdf', express.raw({ type: '*/*', limit: '100mb' }), async (req,
   ])
   if (result.rowCount === 0) {
     res.status(404).json({ error: 'Soumission introuvable' })
+    return
+  }
+  res.status(204).end()
+})
+
+router.post('/:id/lots/:lotId/send-email', async (req, res) => {
+  const { bcc, subject, body } = req.body ?? {}
+  if (!Array.isArray(bcc) || bcc.length === 0) {
+    res.status(400).json({ error: 'Aucun destinataire' })
+    return
+  }
+
+  const result = await pool.query('SELECT data, pdf_data FROM submissions WHERE id = $1', [req.params.id])
+  const row = result.rows[0]
+  if (!row) {
+    res.status(404).json({ error: 'Soumission introuvable' })
+    return
+  }
+  const lot = (row.data.lots ?? []).find((l: any) => l.id === req.params.lotId)
+  if (!lot) {
+    res.status(404).json({ error: 'Lot introuvable' })
+    return
+  }
+
+  let attachments
+  if (row.pdf_data) {
+    const srcDoc = await PDFDocument.load(row.pdf_data)
+    const outDoc = await PDFDocument.create()
+    const pages: number[] = lot.pages ?? []
+    const indices = pages.map((p) => p - 1).filter((i) => i >= 0 && i < srcDoc.getPageCount())
+    const copied = await outDoc.copyPages(srcDoc, indices)
+    copied.forEach((p) => outDoc.addPage(p))
+    const bytes = await outDoc.save()
+    const namePart = [lot.cfcCode, lot.chapterCode, lot.subChapterCode].filter(Boolean).join('-')
+    attachments = [
+      {
+        filename: `${namePart}-p${pages[0]}.pdf`,
+        content: Buffer.from(bytes).toString('base64'),
+        contentType: 'application/pdf',
+      },
+    ]
+  }
+
+  try {
+    await sendEmail({ bcc, subject: subject ?? '', text: body ?? '', attachments })
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Échec de l'envoi" })
     return
   }
   res.status(204).end()

@@ -370,6 +370,9 @@ function LotDetail({
   const [pdfBusy, setPdfBusy] = useState(false)
   const [emailGenerated, setEmailGenerated] = useState(Boolean(lot.emailBody))
   const [splitOpen, setSplitOpen] = useState(false)
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [sendOk, setSendOk] = useState(false)
 
   const categoryMatches = useMemo(() => {
     if (!lot.categories.length) return []
@@ -439,12 +442,27 @@ function LotDetail({
     }
   }
 
-  // A mailto: link can never carry an attachment - no browser or mail client allows it, for
-  // security reasons. The best we can do is download the lot's PDF at the same moment the draft
-  // opens, so the file is sitting right there (usually in Downloads) ready to be dragged in.
-  async function openMailAndDownloadPdf(mailtoUrl: string) {
-    await generateLotPdf()
-    window.location.href = mailtoUrl
+  async function sendEmailNow() {
+    setSendBusy(true)
+    setSendError(null)
+    setSendOk(false)
+    try {
+      const res = await fetch(`/api/submissions/${submission.id}/lots/${lot.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bcc: bccList, subject: lot.emailSubject, body: lot.emailBody }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Erreur ${res.status}`)
+      }
+      setSendOk(true)
+      markAllSent()
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Échec de l'envoi")
+    } finally {
+      setSendBusy(false)
+    }
   }
 
   function generateEmail() {
@@ -744,24 +762,11 @@ function LotDetail({
               value={lot.emailBody}
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
-            <p className="text-sm text-amber-600 mt-3">
-              ⚠ Un e-mail ne peut pas s'ouvrir avec une pièce jointe déjà insérée (limitation de tous les
-              navigateurs) — en cliquant sur « Ouvrir dans ma messagerie », le PDF du lot est téléchargé en même
-              temps : glissez-le depuis vos téléchargements dans le brouillon qui s'ouvre.
-            </p>
+            {sendError && <p className="text-sm text-red-600 mt-3">⚠ {sendError}</p>}
+            {sendOk && <p className="text-sm text-green-600 mt-3">✓ E-mail envoyé avec le PDF du lot en pièce jointe.</p>}
             <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                className="btn-primary"
-                disabled={!submission.pdfData || pdfBusy}
-                onClick={() =>
-                  openMailAndDownloadPdf(
-                    `mailto:?bcc=${encodeURIComponent(bccList.join(','))}&subject=${encodeURIComponent(
-                      lot.emailSubject ?? '',
-                    )}&body=${encodeURIComponent(lot.emailBody ?? '')}`,
-                  )
-                }
-              >
-                ✉️ {pdfBusy ? 'Préparation...' : 'Ouvrir dans ma messagerie (+ télécharger le PDF)'}
+              <button className="btn-primary" disabled={sendBusy || bccList.length === 0} onClick={sendEmailNow}>
+                ✉️ {sendBusy ? 'Envoi...' : "Envoyer l'e-mail (avec le PDF du lot)"}
               </button>
               <button
                 className="btn-secondary"
