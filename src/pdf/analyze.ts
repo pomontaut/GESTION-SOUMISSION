@@ -68,6 +68,11 @@ const CFC_RE = /CFC:\s*([\d.]+)/
 const CAN_CHAPTER_RE = /CAN Construction\s*:\s*(\d+)/
 const CAN_CHAPTER_TITLE_RE = /CAN Construction\s*:\s*\d+\s+(.+?)\s+[A-Z]\/\d+\(/
 const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission)\s*:/
+// Page-footer boilerplate (software name, printer, pagination like "Page 27 de 40") - not
+// submission content, but ordinary body text with no colon, so BANNER_RE above doesn't catch it.
+// A highlight rectangle dragged too far down a page routinely oversteps into this line; it must
+// never be treated as part of a lot's text, and must never break up a run mid-chapter.
+const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$/
 
 function groupLines(items: Array<{ str: string; transform: number[] }>): TextLine[] {
   const list = items
@@ -176,7 +181,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const canTitleMatch = bannerText.match(CAN_CHAPTER_TITLE_RE)
     if (canTitleMatch) pageCanChapterTitle.set(p, canTitleMatch[1].trim())
 
-    const bodyLines = lines.filter((l) => !BANNER_RE.test(l.text) && l.y < 775)
+    const bodyLines = lines.filter((l) => !BANNER_RE.test(l.text) && !FOOTER_RE.test(l.text) && l.y < 775)
     pageBodyLines.set(p, bodyLines)
 
     const marginCandidates = bodyLines.filter((l) => !/^R\b/.test(l.text))
