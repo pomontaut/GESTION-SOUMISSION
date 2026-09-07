@@ -67,12 +67,16 @@ const DECIMAL_ARTICLE_RE = /^(?:R)?\d{2,3}\.\d+\b/
 const CFC_RE = /CFC:\s*([\d.]+)/
 const CAN_CHAPTER_RE = /CAN Construction\s*:\s*(\d+)/
 const CAN_CHAPTER_TITLE_RE = /CAN Construction\s*:\s*\d+\s+(.+?)\s+[A-Z]\/\d+\(/
-const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission)\s*:/
+const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission|Chapitre)\s*:/
 // Page-footer boilerplate (software name, printer, pagination like "Page 27 de 40") - not
 // submission content, but ordinary body text with no colon, so BANNER_RE above doesn't catch it.
 // A highlight rectangle dragged too far down a page routinely oversteps into this line; it must
 // never be treated as part of a lot's text, and must never break up a run mid-chapter.
 const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$/
+// The "Pos. Cd. Description Un. Quantité Prix Montant" table header repeats at the top of every
+// page's article table - same reasoning as FOOTER_RE, it just happens to sit a bit lower on the
+// page (below the y < 775 banner cutoff) whenever a chapter's table starts partway down a page.
+const COLUMN_HEADER_RE = /^Pos\.\s+Cd\.\s+Description\b/
 
 function groupLines(items: Array<{ str: string; transform: number[] }>): TextLine[] {
   const list = items
@@ -181,7 +185,9 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const canTitleMatch = bannerText.match(CAN_CHAPTER_TITLE_RE)
     if (canTitleMatch) pageCanChapterTitle.set(p, canTitleMatch[1].trim())
 
-    const bodyLines = lines.filter((l) => !BANNER_RE.test(l.text) && !FOOTER_RE.test(l.text) && l.y < 775)
+    const bodyLines = lines.filter(
+      (l) => !BANNER_RE.test(l.text) && !FOOTER_RE.test(l.text) && !COLUMN_HEADER_RE.test(l.text) && l.y < 775,
+    )
     pageBodyLines.set(p, bodyLines)
 
     const marginCandidates = bodyLines.filter((l) => !/^R\b/.test(l.text))
@@ -265,6 +271,13 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
 
   let highlights: RawHighlight[] = []
   const notes: RawNote[] = []
+  // Header-only runs (see below) are never lots by themselves, but their title carries real
+  // information ("R592 Poteaux métalliques.") that a bare priced line ("Type: RRW 120x120x6,3
+  // S355...") doesn't. Keep that text per chapter code and prepend it to the next priced run
+  // under the same code, even if that run is a different highlight annotation on a later page -
+  // exactly the case where the header sits alone at the bottom of one page and its articles start
+  // on the next.
+  const pendingHeaderText = new Map<string, string>()
 
   for (let p = 1; p <= doc.numPages; p++) {
     const bodyLines = pageBodyLines.get(p) ?? []
@@ -312,15 +325,17 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       // or if it never reaches a priced (decimal-coded) line - a run that's just a header title
       // (and maybe its intro paragraph) before the code changes again is a pure umbrella chapter,
       // never a lot on its own (see "500 Armatures" / "540 Accessoires d'armature" in the header
-      // comment above).
+      // comment above). Its text isn't lost though - see pendingHeaderText above.
       let runStart = 0
       for (let i = 1; i <= contained.length; i++) {
         const sameAsPrev = i < contained.length && contained[i].key?.code === contained[runStart].key?.code
         if (sameAsPrev) continue
         const run = contained.slice(runStart, i)
         const key = run[0].key
+        const runText = run.map((r) => r.line.text).join(' ')
         const hasPricedLine = run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim()))
         if (key && hasPricedLine) {
+          const pending = pendingHeaderText.get(key.code)
           highlights.push({
             kind: 'article',
             color,
@@ -329,8 +344,11 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
             roundCode: run[0].roundKey?.code ?? '',
             pages: [p],
             cfc,
-            text: run.map((r) => r.line.text).join(' '),
+            text: pending ? `${pending} ${runText}` : runText,
           })
+          pendingHeaderText.delete(key.code)
+        } else if (key) {
+          pendingHeaderText.set(key.code, `${pendingHeaderText.get(key.code) ?? ''} ${runText}`.trim())
         }
         runStart = i
       }
