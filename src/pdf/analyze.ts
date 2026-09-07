@@ -375,14 +375,25 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     }
   }
 
-  // A FreeText note already claims its whole round chapter as one lot. Drop any highlight run
-  // that sits under that same round chapter - in practice this is over-drawn highlighter
-  // spilling from an adjacent, unrelated chapter (the noted chapter itself is never colour-
-  // highlighted, since the preparer used a note instead), not a deliberate finer-grained lot
-  // inside the noted chapter. Matched by chapter ancestry, not by page number: the noted chapter
-  // and its neighbours often share a page (e.g. one ends and the next begins mid-page).
-  const notedRoundCodes = new Set(notes.map((n) => n.code))
-  highlights = highlights.filter((h) => !notedRoundCodes.has(h.roundCode))
+  // A FreeText note only means "this whole round chapter is a lot" when that chapter has at most
+  // one distinct highlighted code of its own - exactly the "600 Béton" case, where the only
+  // colour under "600" is a single-position sliver ("612") bled in from the previous chapter's
+  // over-drawn highlighter, and the preparer left a note instead of highlighting anything real.
+  // When the round chapter has several distinct highlighted codes (e.g. "800" already has R891,
+  // R892, R894, R898, each its own genuine multi-position lot), the highlighting is clearly
+  // deliberate and a small note nearby (e.g. "Variante préfa" next to one article) is a side
+  // remark on that content, not a chapter-wide instruction - keep the fine-grained lots and drop
+  // the note instead of the other way around.
+  const highlightCodesByRound = new Map<string, Set<string>>()
+  for (const h of highlights) {
+    if (!h.roundCode) continue
+    const set = highlightCodesByRound.get(h.roundCode) ?? new Set<string>()
+    set.add(h.code)
+    highlightCodesByRound.set(h.roundCode, set)
+  }
+  const wholeChapterNotes = notes.filter((n) => (highlightCodesByRound.get(n.code)?.size ?? 0) < 2)
+  const wholeChapterNoteCodes = new Set(wholeChapterNotes.map((n) => n.code))
+  highlights = highlights.filter((h) => !wholeChapterNoteCodes.has(h.roundCode))
 
   // ---- Build zones (one per highlight run / note, for display and traceability) ----
   const zones: DetectedZone[] = [
@@ -397,7 +408,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       text: h.text,
       color: h.color,
     })),
-    ...notes.map((n) => ({
+    ...wholeChapterNotes.map((n) => ({
       id: uid(),
       page: n.pages[0],
       chapterCode: n.code,
@@ -465,7 +476,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     }
   })
 
-  notes.forEach((n, idx) => {
+  wholeChapterNotes.forEach((n, idx) => {
     const zoneId = zones[highlights.length + idx].id
     const title = `${n.code} ${n.title}`
     lots.push({
