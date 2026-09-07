@@ -1,10 +1,8 @@
 import { Router } from 'express'
 import express from 'express'
 import { pool } from '../db'
-import { requireAuth } from '../auth'
 
 const router = Router()
-router.use(requireAuth)
 
 function rowToSubmission(row: any) {
   return {

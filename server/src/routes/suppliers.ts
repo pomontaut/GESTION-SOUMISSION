@@ -1,9 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../db'
-import { requireAuth } from '../auth'
 
 const router = Router()
-router.use(requireAuth)
 
 router.get('/', async (_req, res) => {
   const result = await pool.query('SELECT data FROM suppliers')

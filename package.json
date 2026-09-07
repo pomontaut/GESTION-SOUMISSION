@@ -14,12 +14,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "idb": "^8.0.0",
-    "jsonwebtoken": "^9.0.3",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.7.76",
     "pg": "^8.22.0",
@@ -28,10 +25,7 @@
     "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.20.4",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

@@ -2,14 +2,12 @@ import 'dotenv/config'
 import path from 'node:path'
 import express from 'express'
 import { initSchema } from './db'
-import authRoutes from './routes/auth'
 import submissionsRoutes from './routes/submissions'
 import suppliersRoutes from './routes/suppliers'
 
 const app = express()
 app.use(express.json({ limit: '5mb' }))
 
-app.use('/api/auth', authRoutes)
 app.use('/api/submissions', submissionsRoutes)
 app.use('/api/suppliers', suppliersRoutes)
 

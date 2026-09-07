@@ -5,7 +5,7 @@ Application web (React + TypeScript + Vite côté client, Express + PostgreSQL c
 2. gérer les lots, catégories et fournisseurs, et générer un e-mail groupé (Cci) avec le PDF du lot ;
 3. suivre les offres reçues par lot/fournisseur (dashboard) et exporter en CSV/JSON.
 
-Les données (soumissions, fournisseurs, PDF) sont stockées côté serveur dans une base PostgreSQL et partagées entre tous les comptes de l'équipe. Chaque personne se connecte avec son propre compte (e-mail + mot de passe de son choix).
+Les données (soumissions, fournisseurs, PDF) sont stockées côté serveur dans une base PostgreSQL et partagées entre tous les utilisateurs de l'outil. Il n'y a pas de compte ni de mot de passe : toute personne ayant l'URL peut consulter et modifier les données.
 
 ## Développement local
 
@@ -13,7 +13,7 @@ Il faut une base PostgreSQL accessible (locale ou distante).
 
 ```bash
 npm install
-cp .env.example .env   # renseigner DATABASE_URL, JWT_SECRET, REGISTRATION_CODE
+cp .env.example .env   # renseigner DATABASE_URL
 npm run dev:all        # lance le frontend (Vite) et l'API (Express) en parallèle
 ```
 
@@ -36,16 +36,11 @@ npm start               # lance le serveur Express (sert l'API + le frontend bui
 
 1. Créer un projet Railway et y ajouter un service PostgreSQL (« New » → « Database » → « PostgreSQL »). Railway fournit alors une variable `DATABASE_URL`.
 2. Ajouter un service à partir de ce dépôt GitHub (« New » → « GitHub Repo »), sur la branche à déployer.
-3. Dans les variables d'environnement du service :
-   - `DATABASE_URL` : référencer celle du service PostgreSQL (Railway propose une référence automatique entre services).
-   - `JWT_SECRET` : une chaîne aléatoire longue (secret de signature des sessions).
-   - `REGISTRATION_CODE` : un code d'invitation à communiquer aux 12 personnes de l'équipe pour qu'elles puissent créer leur compte (protège l'inscription publique). Laisser vide pour désactiver cette protection (déconseillé).
+3. Dans les variables d'environnement du service, référencer `DATABASE_URL` du service PostgreSQL (Railway propose une référence automatique entre services).
 4. Build command : `npm run build && npm run build:server`
 5. Start command : `npm start`
 
 Railway assigne automatiquement `PORT` ; le serveur l'utilise tel quel.
-
-Une fois déployé, chaque personne ouvre l'URL Railway, clique sur « Pas encore de compte ? S'inscrire », saisit le code d'invitation et choisit son propre mot de passe.
 
 ## Méthode de détection des lots
 
