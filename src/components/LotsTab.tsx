@@ -439,6 +439,14 @@ function LotDetail({
     }
   }
 
+  // A mailto: link can never carry an attachment - no browser or mail client allows it, for
+  // security reasons. The best we can do is download the lot's PDF at the same moment the draft
+  // opens, so the file is sitting right there (usually in Downloads) ready to be dragged in.
+  async function openMailAndDownloadPdf(mailtoUrl: string) {
+    await generateLotPdf()
+    window.location.href = mailtoUrl
+  }
+
   function generateEmail() {
     const subject = `Demande de prix — ${lot.title}${submission.info.projectName ? ' — ' + submission.info.projectName : ''}`
     const deadlineTxt = submission.info.deadline
@@ -736,15 +744,25 @@ function LotDetail({
               value={lot.emailBody}
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
+            <p className="text-sm text-amber-600 mt-3">
+              ⚠ Un e-mail ne peut pas s'ouvrir avec une pièce jointe déjà insérée (limitation de tous les
+              navigateurs) — en cliquant sur « Ouvrir dans ma messagerie », le PDF du lot est téléchargé en même
+              temps : glissez-le depuis vos téléchargements dans le brouillon qui s'ouvre.
+            </p>
             <div className="flex flex-wrap gap-2 mt-3">
-              <a
+              <button
                 className="btn-primary"
-                href={`mailto:?bcc=${encodeURIComponent(bccList.join(','))}&subject=${encodeURIComponent(
-                  lot.emailSubject ?? '',
-                )}&body=${encodeURIComponent(lot.emailBody ?? '')}`}
+                disabled={!submission.pdfData || pdfBusy}
+                onClick={() =>
+                  openMailAndDownloadPdf(
+                    `mailto:?bcc=${encodeURIComponent(bccList.join(','))}&subject=${encodeURIComponent(
+                      lot.emailSubject ?? '',
+                    )}&body=${encodeURIComponent(lot.emailBody ?? '')}`,
+                  )
+                }
               >
-                ✉️ Ouvrir dans ma messagerie
-              </a>
+                ✉️ {pdfBusy ? 'Préparation...' : 'Ouvrir dans ma messagerie (+ télécharger le PDF)'}
+              </button>
               <button
                 className="btn-secondary"
                 onClick={() =>
