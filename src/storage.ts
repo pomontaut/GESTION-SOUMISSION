@@ -88,8 +88,16 @@ export async function deleteSupplier(id: string): Promise<void> {
   await assertOk(await fetch(`/api/suppliers/${id}`, { method: 'DELETE' }))
 }
 
+/**
+ * Tops up the shared supplier list to at least the bundled seed's size. A plain "only if empty"
+ * check would never pick up a bigger/updated seed once any suppliers already exist (e.g. the
+ * previous, much smaller placeholder list) - comparing counts instead lets a genuine catalog
+ * update (more suppliers bundled in the app than currently stored) replace the stale data, while
+ * still leaving things alone once the real catalog is in place.
+ */
 export async function seedSuppliersIfEmpty(seed: SupplierRecord[]): Promise<void> {
   const existing = await listSuppliers()
-  if (existing.length > 0) return
+  if (existing.length >= seed.length) return
+  await Promise.all(existing.map((s) => deleteSupplier(s.id)))
   await Promise.all(seed.map((s) => saveSupplier(s)))
 }

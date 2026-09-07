@@ -8,6 +8,19 @@ import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
 
 const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
+/**
+ * "Nature" in the supplier base tells apart pure material suppliers from subcontractors:
+ * "Fourniture" only supplies goods, "Sous-traitance" both supplies and installs, and "Mixte" does
+ * either depending on the job. A fourniture-only lot has no business going to a pure
+ * sous-traitant (they don't just deliver), and a fourniture+pose lot needs someone who installs.
+ * Suppliers with no nature on file are never excluded - missing data shouldn't hide a match.
+ */
+function natureMatchesPrestation(nature: string | undefined, prestationType: PrestationType): boolean {
+  const n = (nature ?? '').trim().toLowerCase()
+  if (!n || n === 'mixte') return true
+  return prestationType === 'fourniture' ? n === 'fourniture' : n === 'sous-traitance'
+}
+
 export default function LotsTab({
   submission,
   onUpdate,
@@ -362,8 +375,10 @@ function LotDetail({
     if (!lot.categories.length) return []
     const norm = (s: string) => s.trim().toLowerCase()
     const wanted = new Set(lot.categories.map(norm))
-    return suppliers.filter((s) => wanted.has(norm(s.category)))
-  }, [suppliers, lot.categories])
+    return suppliers.filter(
+      (s) => wanted.has(norm(s.category)) && natureMatchesPrestation(s.nature, lot.prestationType),
+    )
+  }, [suppliers, lot.categories, lot.prestationType])
 
   const lotZones = useMemo(
     () => submission.zones.filter((z) => lot.zoneIds.includes(z.id)),
