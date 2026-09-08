@@ -455,7 +455,7 @@ function LotDetail({
   // review and hit send on. This is as close as the web platform gets to "open my mail client
   // with the file attached": a mailto: link can never carry an attachment, in any browser, for
   // any mail client, so there is no way to do this without writing the message to a file first.
-  async function downloadEmlDraft() {
+  async function downloadEmlDraft(subject: string, body: string) {
     setPdfBusy(true)
     try {
       const recipients = bccText.split(',').map((s) => s.trim()).filter(Boolean)
@@ -476,13 +476,13 @@ function LotDetail({
 
       const eml =
         `Bcc: ${recipients.join(', ')}\r\n` +
-        `Subject: ${lot.emailSubject ?? ''}\r\n` +
+        `Subject: ${subject}\r\n` +
         `MIME-Version: 1.0\r\n` +
         `Content-Type: multipart/mixed; boundary="${boundary}"\r\n\r\n` +
         `--${boundary}\r\n` +
         `Content-Type: text/plain; charset="UTF-8"\r\n` +
         `Content-Transfer-Encoding: 8bit\r\n\r\n` +
-        `${lot.emailBody ?? ''}\r\n\r\n` +
+        `${body}\r\n\r\n` +
         pdfPart +
         `--${boundary}--\r\n`
 
@@ -498,7 +498,7 @@ function LotDetail({
     }
   }
 
-  function generateEmail() {
+  async function generateEmail() {
     const subject = `Demande de prix — ${lot.title}${submission.info.projectName ? ' — ' + submission.info.projectName : ''}`
     const deadlineTxt = submission.info.deadline
       ? new Date(submission.info.deadline).toLocaleDateString('fr-CH')
@@ -541,6 +541,7 @@ function LotDetail({
       followUp,
     })
     setEmailGenerated(true)
+    await downloadEmlDraft(subject, body)
   }
 
   function copyToClipboard(text: string) {
@@ -762,13 +763,14 @@ function LotDetail({
           <button className="btn-secondary" onClick={generateLotPdf} disabled={!submission.pdfData || pdfBusy}>
             📄 {pdfBusy ? 'Génération...' : "Générer le PDF du lot (pages d'origine)"}
           </button>
-          <button className="btn-primary" onClick={generateEmail} disabled={lot.suppliers.length === 0}>
-            ✉️ Générer l'e-mail groupé pour ce lot
+          <button className="btn-primary" onClick={generateEmail} disabled={lot.suppliers.length === 0 || pdfBusy}>
+            ✉️ {pdfBusy ? 'Préparation...' : "Générer l'e-mail groupé pour ce lot"}
           </button>
         </div>
         <p className="text-sm text-slate-500">
           Un seul e-mail est créé par lot, avec tous les fournisseurs retenus en copie cachée (Cci) afin qu'ils ne
-          se voient pas entre eux.
+          se voient pas entre eux. Ça télécharge un fichier .eml avec le PDF déjà joint — double-cliquez dessus
+          pour l'ouvrir dans Outlook, relisez-le et envoyez-le vous-même.
         </p>
 
         {missingEmail.length > 0 && (
@@ -804,12 +806,16 @@ function LotDetail({
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
             <p className="text-sm text-slate-500 mt-3">
-              Télécharge un brouillon (.eml) avec le PDF déjà joint — double-cliquez dessus pour l'ouvrir dans
-              Outlook, relisez-le et envoyez-le vous-même.
+              Si vous modifiez les destinataires, l'objet ou le corps ci-dessus, retéléchargez le brouillon pour
+              que le fichier .eml reflète vos changements.
             </p>
             <div className="flex flex-wrap gap-2 mt-3">
-              <button className="btn-primary" disabled={pdfBusy || bccText.trim().length === 0} onClick={downloadEmlDraft}>
-                ✉️ {pdfBusy ? 'Préparation...' : 'Ouvrir dans Outlook (PDF joint)'}
+              <button
+                className="btn-primary"
+                disabled={pdfBusy || bccText.trim().length === 0}
+                onClick={() => downloadEmlDraft(lot.emailSubject ?? '', lot.emailBody ?? '')}
+              >
+                ✉️ {pdfBusy ? 'Préparation...' : 'Retélécharger le brouillon (.eml)'}
               </button>
               <button
                 className="btn-secondary"
