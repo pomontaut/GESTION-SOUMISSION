@@ -88,6 +88,27 @@ export async function deleteSupplier(id: string): Promise<void> {
   await assertOk(await fetch(`/api/suppliers/${id}`, { method: 'DELETE' }))
 }
 
+export async function uploadOfferFile(submissionId: string, fileId: string, file: File): Promise<void> {
+  await assertOk(
+    await fetch(`/api/submissions/${submissionId}/offers/${fileId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-File-Name': encodeURIComponent(file.name),
+      },
+      body: file,
+    }),
+  )
+}
+
+export function offerFileUrl(submissionId: string, fileId: string): string {
+  return `/api/submissions/${submissionId}/offers/${fileId}`
+}
+
+export async function deleteOfferFile(submissionId: string, fileId: string): Promise<void> {
+  await assertOk(await fetch(`/api/submissions/${submissionId}/offers/${fileId}`, { method: 'DELETE' }))
+}
+
 export async function sendLotEmail(params: {
   bcc: string[]
   subject: string

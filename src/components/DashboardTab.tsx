@@ -1,4 +1,8 @@
+import { useId, useState } from 'react'
 import type { FollowUpEntry, Lot, Submission } from '../types'
+import { uid } from '../types'
+import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
+import { extractAmountFromPdf } from '../pdf/extractAmount'
 
 export default function DashboardTab({
   submission,
@@ -7,6 +11,8 @@ export default function DashboardTab({
   submission: Submission
   onUpdate: (s: Submission) => void
 }) {
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
   }
@@ -17,6 +23,37 @@ export default function DashboardTab({
     updateLot(lotId, {
       followUp: lot.followUp.map((f) => (f.supplierId === supplierId ? { ...f, ...patch } : f)),
     })
+  }
+
+  // Dropping the supplier's offer stores the file server-side and, when it's a PDF, tries to
+  // pick out the quote's total automatically so "Montant estimé" doesn't have to be retyped by
+  // hand - it stays a plain editable field afterwards for whenever the heuristic misses.
+  async function handleOfferFile(lotId: string, supplierId: string, file: File) {
+    const key = `${lotId}:${supplierId}`
+    setUploadingKey(key)
+    try {
+      const fileId = uid()
+      await uploadOfferFile(submission.id, fileId, file)
+      const patch: Partial<FollowUpEntry> = { offerFileId: fileId, offerFileName: file.name }
+      if (file.type === 'application/pdf') {
+        const amount = await extractAmountFromPdf(await file.arrayBuffer())
+        if (amount) patch.estimatedAmount = amount
+      }
+      updateFollowUp(lotId, supplierId, patch)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Échec de l'envoi du fichier")
+    } finally {
+      setUploadingKey(null)
+    }
+  }
+
+  async function handleRemoveOffer(lotId: string, supplierId: string, fileId: string) {
+    try {
+      await deleteOfferFile(submission.id, fileId)
+    } catch {
+      // The reference is cleared locally regardless - a stray blob server-side isn't worth blocking on.
+    }
+    updateFollowUp(lotId, supplierId, { offerFileId: undefined, offerFileName: undefined })
   }
 
   function relance(lotId: string, supplierId: string) {
@@ -132,6 +169,7 @@ export default function DashboardTab({
                   <th className="py-1.5 pr-2">Statut</th>
                   <th className="py-1.5 pr-2">Date envoi</th>
                   <th className="py-1.5 pr-2">Relance</th>
+                  <th className="py-1.5 pr-2">Offre reçue</th>
                   <th className="py-1.5 pr-2">Montant estimé</th>
                   <th className="py-1.5 pr-2">Montant offert</th>
                   <th className="py-1.5 pr-2">Conforme</th>
@@ -165,6 +203,17 @@ export default function DashboardTab({
                         Relancer
                       </button>
                       {f.relanceDate && <div className="text-xs text-slate-400 mt-0.5">{f.relanceDate}</div>}
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <OfferDropCell
+                        fileName={f.offerFileName}
+                        fileUrl={f.offerFileId ? offerFileUrl(submission.id, f.offerFileId) : undefined}
+                        busy={uploadingKey === `${lot.id}:${f.supplierId}`}
+                        onFile={(file) => handleOfferFile(lot.id, f.supplierId, file)}
+                        onRemove={
+                          f.offerFileId ? () => handleRemoveOffer(lot.id, f.supplierId, f.offerFileId!) : undefined
+                        }
+                      />
                     </td>
                     <td className="py-1.5 pr-2">
                       <input
@@ -219,6 +268,83 @@ export default function DashboardTab({
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function OfferDropCell({
+  fileName,
+  fileUrl,
+  busy,
+  onFile,
+  onRemove,
+}: {
+  fileName?: string
+  fileUrl?: string
+  busy: boolean
+  onFile: (file: File) => void
+  onRemove?: () => void
+}) {
+  const [dragOver, setDragOver] = useState(false)
+  const inputId = useId()
+
+  return (
+    <div
+      className={`w-36 rounded border border-dashed px-2 py-1.5 text-xs transition-colors ${
+        dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300'
+      }`}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        const file = e.dataTransfer.files[0]
+        if (file) onFile(file)
+      }}
+    >
+      {busy ? (
+        <span className="text-slate-400">Envoi...</span>
+      ) : fileName ? (
+        <div className="flex items-center justify-between gap-1">
+          {fileUrl ? (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-600 truncate"
+              title={fileName}
+            >
+              📎 {fileName}
+            </a>
+          ) : (
+            <span className="truncate" title={fileName}>
+              📎 {fileName}
+            </span>
+          )}
+          {onRemove && (
+            <button type="button" onClick={onRemove} className="text-slate-400 hover:text-red-600">
+              ✕
+            </button>
+          )}
+        </div>
+      ) : (
+        <label htmlFor={inputId} className="cursor-pointer text-slate-400 block">
+          ⭱ Glisser l'offre ici
+          <input
+            id={inputId}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onFile(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      )}
     </div>
   )
 }

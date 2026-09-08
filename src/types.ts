@@ -77,6 +77,7 @@ export interface FollowUpEntry {
   returnDate?: string
   notes?: string
   offerFileName?: string
+  offerFileId?: string
   retained: boolean
 }
 

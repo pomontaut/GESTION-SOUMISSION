@@ -32,5 +32,14 @@ export async function initSchema(): Promise<void> {
       id TEXT PRIMARY KEY,
       data JSONB NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS offer_files (
+      id TEXT PRIMARY KEY,
+      submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+      file_name TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      file_data BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `)
 }
