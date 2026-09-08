@@ -2,7 +2,7 @@
 
 Application web (React + TypeScript + Vite côté client, Express + PostgreSQL côté serveur) pour :
 1. importer un PDF de soumission (format CAN) et détecter automatiquement les lots à sourcer à partir des surlignages (jaune = fourniture seule, autre couleur = fourniture et pose) ;
-2. gérer les lots, catégories et fournisseurs, et préparer un e-mail groupé (Cci) avec le PDF du lot déjà joint, prêt à ouvrir dans Outlook et à envoyer ;
+2. gérer les lots, catégories et fournisseurs, et envoyer un e-mail groupé (Cci) avec le PDF du lot déjà joint, directement depuis l'outil ;
 3. suivre les offres reçues par lot/fournisseur (dashboard) et exporter en CSV/JSON.
 
 Les données (soumissions, fournisseurs, PDF) sont stockées côté serveur dans une base PostgreSQL et partagées entre tous les utilisateurs de l'outil. Il n'y a pas de compte ni de mot de passe : toute personne ayant l'URL peut consulter et modifier les données.
@@ -41,6 +41,15 @@ npm start               # lance le serveur Express (sert l'API + le frontend bui
 5. Start command : `npm start`
 
 Railway assigne automatiquement `PORT` ; le serveur l'utilise tel quel.
+
+## Envoi des e-mails groupés
+
+L'envoi passe par [Resend](https://resend.com) (API HTTPS — Railway bloque les ports SMTP sortants).
+Variables à renseigner sur le service :
+- `RESEND_API_KEY` — clé API Resend.
+- `RESEND_FROM` — adresse d'expédition (`soumissions@induni.ch`).
+
+Sans `RESEND_API_KEY`, le bouton « Envoyer l'e-mail maintenant » échoue avec un message d'erreur explicite.
 
 ## Méthode de détection des lots
 

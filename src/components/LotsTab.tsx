@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
-import { listSuppliers, saveSupplier } from '../storage'
+import { listSuppliers, saveSupplier, sendLotEmail } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
@@ -371,6 +371,9 @@ function LotDetail({
   const [emailGenerated, setEmailGenerated] = useState(Boolean(lot.emailBody))
   const [splitOpen, setSplitOpen] = useState(false)
   const [bccOverride, setBccOverride] = useState<string | null>(null)
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [sendOk, setSendOk] = useState(false)
 
   const categoryMatches = useMemo(() => {
     if (!lot.categories.length) return []
@@ -449,56 +452,39 @@ function LotDetail({
     return btoa(binary)
   }
 
-  // A .eml file is a plain-text RFC 822 message. Double-clicking a downloaded one opens it
-  // directly in whatever the system's default mail client is (Outlook included) as a normal
-  // draft - recipients, subject, body and the PDF attachment all already in place - ready to
-  // review and hit send on. This is as close as the web platform gets to "open my mail client
-  // with the file attached": a mailto: link can never carry an attachment, in any browser, for
-  // any mail client, so there is no way to do this without writing the message to a file first.
-  async function downloadEmlDraft(subject: string, body: string) {
-    setPdfBusy(true)
+  // Sends the lot's e-mail for real, server-side, with the lot's PDF already attached - no file
+  // to download, nothing to double-click. The recipients/subject/body are already editable right
+  // above this button, so review happens in the app before the click, not in an external mail
+  // client afterwards.
+  async function sendEmailNow() {
+    const recipients = bccText.split(',').map((s) => s.trim()).filter(Boolean)
+    if (recipients.length === 0) return
+    setSendBusy(true)
+    setSendError(null)
+    setSendOk(false)
     try {
-      const recipients = bccText.split(',').map((s) => s.trim()).filter(Boolean)
-      const boundary = `----lot-${lot.id}-${Date.now()}`
-      const filenameBase = `${lot.cfcCode}-${lot.chapterCode}${lot.subChapterCode ? '-' + lot.subChapterCode : ''}-p${lot.pages[0]}`
-
-      let pdfPart = ''
+      let attachment: { filename: string; content: string } | undefined
       if (submission.pdfData) {
         const bytes = await extractLotPdf(submission.pdfData, lot.pages)
-        const b64 = toBase64(bytes).match(/.{1,76}/g)?.join('\r\n') ?? ''
-        pdfPart =
-          `--${boundary}\r\n` +
-          `Content-Type: application/pdf; name="${filenameBase}.pdf"\r\n` +
-          `Content-Disposition: attachment; filename="${filenameBase}.pdf"\r\n` +
-          `Content-Transfer-Encoding: base64\r\n\r\n` +
-          `${b64}\r\n\r\n`
+        const filenameBase = `${lot.cfcCode}-${lot.chapterCode}${lot.subChapterCode ? '-' + lot.subChapterCode : ''}-p${lot.pages[0]}`
+        attachment = { filename: `${filenameBase}.pdf`, content: toBase64(bytes) }
       }
-
-      const eml =
-        `Bcc: ${recipients.join(', ')}\r\n` +
-        `Subject: ${subject}\r\n` +
-        `MIME-Version: 1.0\r\n` +
-        `Content-Type: multipart/mixed; boundary="${boundary}"\r\n\r\n` +
-        `--${boundary}\r\n` +
-        `Content-Type: text/plain; charset="UTF-8"\r\n` +
-        `Content-Transfer-Encoding: 8bit\r\n\r\n` +
-        `${body}\r\n\r\n` +
-        pdfPart +
-        `--${boundary}--\r\n`
-
-      const blob = new Blob([eml], { type: 'message/rfc822' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${filenameBase}.eml`
-      a.click()
-      URL.revokeObjectURL(url)
+      await sendLotEmail({
+        bcc: recipients,
+        subject: lot.emailSubject ?? '',
+        text: lot.emailBody ?? '',
+        attachment,
+      })
+      setSendOk(true)
+      markAllSent()
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Échec de l'envoi")
     } finally {
-      setPdfBusy(false)
+      setSendBusy(false)
     }
   }
 
-  async function generateEmail() {
+  function generateEmail() {
     const subject = `Demande de prix — ${lot.title}${submission.info.projectName ? ' — ' + submission.info.projectName : ''}`
     const deadlineTxt = submission.info.deadline
       ? new Date(submission.info.deadline).toLocaleDateString('fr-CH')
@@ -541,7 +527,8 @@ function LotDetail({
       followUp,
     })
     setEmailGenerated(true)
-    await downloadEmlDraft(subject, body)
+    setSendOk(false)
+    setSendError(null)
   }
 
   function copyToClipboard(text: string) {
@@ -763,14 +750,14 @@ function LotDetail({
           <button className="btn-secondary" onClick={generateLotPdf} disabled={!submission.pdfData || pdfBusy}>
             📄 {pdfBusy ? 'Génération...' : "Générer le PDF du lot (pages d'origine)"}
           </button>
-          <button className="btn-primary" onClick={generateEmail} disabled={lot.suppliers.length === 0 || pdfBusy}>
-            ✉️ {pdfBusy ? 'Préparation...' : "Générer l'e-mail groupé pour ce lot"}
+          <button className="btn-primary" onClick={generateEmail} disabled={lot.suppliers.length === 0}>
+            ✉️ Préparer l'e-mail groupé pour ce lot
           </button>
         </div>
         <p className="text-sm text-slate-500">
-          Un seul e-mail est créé par lot, avec tous les fournisseurs retenus en copie cachée (Cci) afin qu'ils ne
-          se voient pas entre eux. Ça télécharge un fichier .eml avec le PDF déjà joint — double-cliquez dessus
-          pour l'ouvrir dans Outlook, relisez-le et envoyez-le vous-même.
+          Un seul e-mail est préparé par lot, avec tous les fournisseurs retenus en copie cachée (Cci) afin qu'ils
+          ne se voient pas entre eux, et le PDF du lot déjà joint. Relisez les destinataires, l'objet et le corps
+          ci-dessous puis cliquez sur « Envoyer » — l'e-mail part directement, sans fichier à ouvrir.
         </p>
 
         {missingEmail.length > 0 && (
@@ -805,17 +792,17 @@ function LotDetail({
               value={lot.emailBody}
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
-            <p className="text-sm text-slate-500 mt-3">
-              Si vous modifiez les destinataires, l'objet ou le corps ci-dessus, retéléchargez le brouillon pour
-              que le fichier .eml reflète vos changements.
-            </p>
+            {sendError && <p className="text-sm text-red-600 mt-3">⚠ {sendError}</p>}
+            {sendOk && !sendError && (
+              <p className="text-sm text-green-600 mt-3">✅ E-mail envoyé et suivi marqué "Envoyé".</p>
+            )}
             <div className="flex flex-wrap gap-2 mt-3">
               <button
                 className="btn-primary"
-                disabled={pdfBusy || bccText.trim().length === 0}
-                onClick={() => downloadEmlDraft(lot.emailSubject ?? '', lot.emailBody ?? '')}
+                disabled={sendBusy || bccText.trim().length === 0}
+                onClick={sendEmailNow}
               >
-                ✉️ {pdfBusy ? 'Préparation...' : 'Retélécharger le brouillon (.eml)'}
+                🚀 {sendBusy ? 'Envoi en cours...' : "Envoyer l'e-mail maintenant"}
               </button>
               <button
                 className="btn-secondary"

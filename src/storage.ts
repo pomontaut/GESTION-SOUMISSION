@@ -88,6 +88,21 @@ export async function deleteSupplier(id: string): Promise<void> {
   await assertOk(await fetch(`/api/suppliers/${id}`, { method: 'DELETE' }))
 }
 
+export async function sendLotEmail(params: {
+  bcc: string[]
+  subject: string
+  text: string
+  attachment?: { filename: string; content: string }
+}): Promise<void> {
+  await assertOk(
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }),
+  )
+}
+
 /**
  * Tops up the shared supplier list to at least the bundled seed's size. A plain "only if empty"
  * check would never pick up a bigger/updated seed once any suppliers already exist (e.g. the

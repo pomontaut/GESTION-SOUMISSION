@@ -4,12 +4,14 @@ import express from 'express'
 import { initSchema } from './db'
 import submissionsRoutes from './routes/submissions'
 import suppliersRoutes from './routes/suppliers'
+import emailRoutes from './routes/email'
 
 const app = express()
-app.use(express.json({ limit: '5mb' }))
+app.use(express.json({ limit: '20mb' }))
 
 app.use('/api/submissions', submissionsRoutes)
 app.use('/api/suppliers', suppliersRoutes)
+app.use('/api/send-email', emailRoutes)
 
 const distDir = path.join(__dirname, '..', 'dist')
 app.use(express.static(distDir))
