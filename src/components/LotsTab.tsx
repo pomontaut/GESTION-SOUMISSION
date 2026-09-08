@@ -370,9 +370,7 @@ function LotDetail({
   const [pdfBusy, setPdfBusy] = useState(false)
   const [emailGenerated, setEmailGenerated] = useState(Boolean(lot.emailBody))
   const [splitOpen, setSplitOpen] = useState(false)
-  const [sendBusy, setSendBusy] = useState(false)
-  const [sendError, setSendError] = useState<string | null>(null)
-  const [sendOk, setSendOk] = useState(false)
+  const [bccOverride, setBccOverride] = useState<string | null>(null)
 
   const categoryMatches = useMemo(() => {
     if (!lot.categories.length) return []
@@ -442,26 +440,61 @@ function LotDetail({
     }
   }
 
-  async function sendEmailNow() {
-    setSendBusy(true)
-    setSendError(null)
-    setSendOk(false)
+  function toBase64(bytes: Uint8Array): string {
+    let binary = ''
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    }
+    return btoa(binary)
+  }
+
+  // A .eml file is a plain-text RFC 822 message. Double-clicking a downloaded one opens it
+  // directly in whatever the system's default mail client is (Outlook included) as a normal
+  // draft - recipients, subject, body and the PDF attachment all already in place - ready to
+  // review and hit send on. This is as close as the web platform gets to "open my mail client
+  // with the file attached": a mailto: link can never carry an attachment, in any browser, for
+  // any mail client, so there is no way to do this without writing the message to a file first.
+  async function downloadEmlDraft() {
+    setPdfBusy(true)
     try {
-      const res = await fetch(`/api/submissions/${submission.id}/lots/${lot.id}/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bcc: bccList, subject: lot.emailSubject, body: lot.emailBody }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || `Erreur ${res.status}`)
+      const recipients = bccText.split(',').map((s) => s.trim()).filter(Boolean)
+      const boundary = `----lot-${lot.id}-${Date.now()}`
+      const filenameBase = `${lot.cfcCode}-${lot.chapterCode}${lot.subChapterCode ? '-' + lot.subChapterCode : ''}-p${lot.pages[0]}`
+
+      let pdfPart = ''
+      if (submission.pdfData) {
+        const bytes = await extractLotPdf(submission.pdfData, lot.pages)
+        const b64 = toBase64(bytes).match(/.{1,76}/g)?.join('\r\n') ?? ''
+        pdfPart =
+          `--${boundary}\r\n` +
+          `Content-Type: application/pdf; name="${filenameBase}.pdf"\r\n` +
+          `Content-Disposition: attachment; filename="${filenameBase}.pdf"\r\n` +
+          `Content-Transfer-Encoding: base64\r\n\r\n` +
+          `${b64}\r\n\r\n`
       }
-      setSendOk(true)
-      markAllSent()
-    } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Échec de l'envoi")
+
+      const eml =
+        `Bcc: ${recipients.join(', ')}\r\n` +
+        `Subject: ${lot.emailSubject ?? ''}\r\n` +
+        `MIME-Version: 1.0\r\n` +
+        `Content-Type: multipart/mixed; boundary="${boundary}"\r\n\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Type: text/plain; charset="UTF-8"\r\n` +
+        `Content-Transfer-Encoding: 8bit\r\n\r\n` +
+        `${lot.emailBody ?? ''}\r\n\r\n` +
+        pdfPart +
+        `--${boundary}--\r\n`
+
+      const blob = new Blob([eml], { type: 'message/rfc822' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filenameBase}.eml`
+      a.click()
+      URL.revokeObjectURL(url)
     } finally {
-      setSendBusy(false)
+      setPdfBusy(false)
     }
   }
 
@@ -523,6 +556,9 @@ function LotDetail({
 
   const bccList = lot.suppliers.map((s) => s.email).filter(Boolean)
   const missingEmail = lot.suppliers.filter((s) => !s.email)
+  // Editable, and seeded from the retained suppliers' addresses - lets you type in one by hand
+  // when a supplier (like one with no e-mail on file yet) needs to be added on the fly.
+  const bccText = bccOverride ?? bccList.join(', ')
 
   return (
     <div className="space-y-6">
@@ -747,7 +783,12 @@ function LotDetail({
               E-mail groupé — {lot.suppliers.length} fournisseur(s) en copie cachée (Cci)
             </h4>
             <Field label="Destinataires (Cci, séparés par des virgules)">
-              <input className="input" readOnly value={bccList.join(', ')} />
+              <input
+                className="input"
+                value={bccText}
+                onChange={(e) => setBccOverride(e.target.value)}
+                placeholder="adresse@exemple.ch, ..."
+              />
             </Field>
             <Field label="Objet">
               <input
@@ -762,17 +803,17 @@ function LotDetail({
               value={lot.emailBody}
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
-            {sendError && <p className="text-sm text-red-600 mt-3">⚠ {sendError}</p>}
-            {sendOk && <p className="text-sm text-green-600 mt-3">✓ E-mail envoyé avec le PDF du lot en pièce jointe.</p>}
+            <p className="text-sm text-slate-500 mt-3">
+              Télécharge un brouillon (.eml) avec le PDF déjà joint — double-cliquez dessus pour l'ouvrir dans
+              Outlook, relisez-le et envoyez-le vous-même.
+            </p>
             <div className="flex flex-wrap gap-2 mt-3">
-              <button className="btn-primary" disabled={sendBusy || bccList.length === 0} onClick={sendEmailNow}>
-                ✉️ {sendBusy ? 'Envoi...' : "Envoyer l'e-mail (avec le PDF du lot)"}
+              <button className="btn-primary" disabled={pdfBusy || bccText.trim().length === 0} onClick={downloadEmlDraft}>
+                ✉️ {pdfBusy ? 'Préparation...' : 'Ouvrir dans Outlook (PDF joint)'}
               </button>
               <button
                 className="btn-secondary"
-                onClick={() =>
-                  copyToClipboard(`À (Cci): ${bccList.join(', ')}\nObjet: ${lot.emailSubject}\n\n${lot.emailBody}`)
-                }
+                onClick={() => copyToClipboard(`À (Cci): ${bccText}\nObjet: ${lot.emailSubject}\n\n${lot.emailBody}`)}
               >
                 Copier objet + destinataires + corps
               </button>
