@@ -3,15 +3,19 @@ import type { Submission, SubmissionInfo } from '../types'
 import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
+import { listSuppliers } from '../storage'
+import { runLotAgent } from '../agent/runLotAgent'
 
 const CALCULATOR_CUSTOM = '__custom__'
 
 export default function ExtractionTab({
   submission,
   onUpdate,
+  onImported,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  onImported?: () => void
 }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [ocrProgress, setOcrProgress] = useState<{ page: number; total: number } | null>(null)
@@ -59,14 +63,17 @@ export default function ExtractionTab({
       const result = hasText
         ? await analyzeSubmissionPdf(buffer)
         : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
+      const suppliers = await listSuppliers()
+      const lots = runLotAgent(result.lots, suppliers, submission.info)
       onUpdate({
         ...submission,
         name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),
         pdfFileName: file.name,
         pdfData: buffer,
         zones: result.zones,
-        lots: result.lots,
+        lots,
       })
+      onImported?.()
     } catch (err) {
       console.error(err)
       setError(
@@ -250,8 +257,9 @@ export default function ExtractionTab({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Zones détectées</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Les lots sont créés automatiquement par sous-chapitre (onglet 2). Ajustez le titre, le type de prestation
-          ou fusionnez/scindez des lots directement dans l'onglet suivant.
+          Les lots sont créés automatiquement par sous-chapitre, avec leurs fournisseurs déjà proposés et l'e-mail
+          groupé déjà prérédigé pour chacun — retrouvez tout ça dans l'onglet Suivi. Un lot reste modifiable
+          (fournisseurs, e-mail, fusion/scission) depuis là si besoin.
         </p>
         {submission.zones.length === 0 ? (
           <p className="text-slate-500">Aucune zone détectée pour l'instant — importez un PDF ci-dessus.</p>

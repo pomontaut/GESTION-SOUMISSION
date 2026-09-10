@@ -1,15 +1,18 @@
-import { useId, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import type { FollowUpEntry, Lot, Submission } from '../types'
 import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
+import { detectLotHeterogeneity } from '../data/categorize'
 
 export default function DashboardTab({
   submission,
   onUpdate,
+  onEditLot,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  onEditLot: (lotId: string) => void
 }) {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
 
@@ -55,6 +58,17 @@ export default function DashboardTab({
     }
     updateFollowUp(lotId, supplierId, { offerFileId: undefined, offerFileName: undefined })
   }
+
+  // Flags lots the agent grouped together that actually mix distinct product categories - worth a
+  // manual look before the automatically-picked suppliers go out.
+  const heterogeneityByLot = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof detectLotHeterogeneity>>()
+    for (const lot of submission.lots) {
+      const texts = submission.zones.filter((z) => lot.zoneIds.includes(z.id)).map((z) => z.text)
+      map.set(lot.id, detectLotHeterogeneity(texts))
+    }
+    return map
+  }, [submission.lots, submission.zones])
 
   function relance(lotId: string, supplierId: string) {
     updateFollowUp(lotId, supplierId, { relanceDate: new Date().toISOString().slice(0, 10) })
@@ -141,7 +155,9 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {submission.lots.map((lot) => (
+      {submission.lots.map((lot) => {
+        const heterogeneity = heterogeneityByLot.get(lot.id)
+        return (
         <div key={lot.id} className="card overflow-x-auto">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <h3 className="font-semibold text-slate-800">
@@ -154,12 +170,29 @@ export default function DashboardTab({
               {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.suppliers.length} fournisseur(s) ·{' '}
               {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
-            <span className="text-xs text-slate-400 ml-auto">pages {lot.pages.join(', ')}</span>
+            <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
+            <button className="btn-secondary !py-1 ml-auto" onClick={() => onEditLot(lot.id)}>
+              ✎ Modifier fournisseurs / e-mail
+            </button>
           </div>
+
+          {heterogeneity && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+              ⚠️ Ce lot semble mélanger des produits différents ({heterogeneity.categories.join(', ')}) — vérifiez
+              s'il ne faudrait pas le scinder.{' '}
+              <button className="underline" onClick={() => onEditLot(lot.id)}>
+                Vérifier / scinder
+              </button>
+            </p>
+          )}
 
           {lot.followUp.length === 0 ? (
             <p className="text-sm text-slate-400">
-              Aucun suivi — générez l'e-mail groupé dans l'onglet 2 pour initialiser le suivi des fournisseurs.
+              Aucun fournisseur trouvé automatiquement pour ce lot —{' '}
+              <button className="underline" onClick={() => onEditLot(lot.id)}>
+                ouvrez-le pour en ajouter manuellement
+              </button>
+              .
             </p>
           ) : (
             <table className="w-full text-sm min-w-[900px]">
@@ -267,7 +300,8 @@ export default function DashboardTab({
             </table>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

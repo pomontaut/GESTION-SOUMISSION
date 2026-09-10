@@ -5,30 +5,21 @@ import { listSuppliers, saveSupplier, sendLotEmail } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
-
-const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
-
-/**
- * "Nature" in the supplier base tells apart pure material suppliers from subcontractors:
- * "Fourniture" only supplies goods, "Sous-traitance" both supplies and installs, and "Mixte" does
- * either depending on the job. A fourniture-only lot has no business going to a pure
- * sous-traitant (they don't just deliver), and a fourniture+pose lot needs someone who installs.
- * Suppliers with no nature on file are never excluded - missing data shouldn't hide a match.
- */
-function natureMatchesPrestation(nature: string | undefined, prestationType: PrestationType): boolean {
-  const n = (nature ?? '').trim().toLowerCase()
-  if (!n || n === 'mixte') return true
-  return prestationType === 'fourniture' ? n === 'fourniture' : n === 'sous-traitance'
-}
+import { INACTIVE_STATUSES, matchSuppliersForCategories } from '../data/matching'
+import { buildLotEmail } from '../email/draftEmail'
 
 export default function LotsTab({
   submission,
   onUpdate,
+  initialSelectedId,
+  onBack,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  initialSelectedId?: string | null
+  onBack?: () => void
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(submission.lots[0]?.id ?? null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? submission.lots[0]?.id ?? null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
@@ -36,6 +27,10 @@ export default function LotsTab({
   useEffect(() => {
     listSuppliers().then(setSuppliers)
   }, [])
+
+  useEffect(() => {
+    if (initialSelectedId) setSelectedId(initialSelectedId)
+  }, [initialSelectedId])
 
   const selectedLot = submission.lots.find((l) => l.id === selectedId) ?? null
 
@@ -165,6 +160,7 @@ export default function LotsTab({
             onDelete={() => deleteLot(selectedLot.id)}
             onPreview={() => setPreviewLot(selectedLot)}
             onSplit={(newLots, remainder) => splitLot(selectedLot.id, newLots, remainder)}
+            onBack={onBack}
           />
         ) : (
           <div className="card text-slate-500">Sélectionnez un lot à gauche.</div>
@@ -355,6 +351,7 @@ function LotDetail({
   onDelete,
   onPreview,
   onSplit,
+  onBack,
 }: {
   lot: Lot
   submission: Submission
@@ -364,6 +361,7 @@ function LotDetail({
   onDelete: () => void
   onPreview: () => void
   onSplit: (newLots: Lot[], remainder: Lot | null) => void
+  onBack?: () => void
 }) {
   const [categoryInput, setCategoryInput] = useState('')
   const [newSupplier, setNewSupplier] = useState({ name: '', email: '', category: '' })
@@ -375,14 +373,10 @@ function LotDetail({
   const [sendError, setSendError] = useState<string | null>(null)
   const [sendOk, setSendOk] = useState(false)
 
-  const categoryMatches = useMemo(() => {
-    if (!lot.categories.length) return []
-    const norm = (s: string) => s.trim().toLowerCase()
-    const wanted = new Set(lot.categories.map(norm))
-    return suppliers.filter(
-      (s) => wanted.has(norm(s.category)) && natureMatchesPrestation(s.nature, lot.prestationType),
-    )
-  }, [suppliers, lot.categories, lot.prestationType])
+  const categoryMatches = useMemo(
+    () => matchSuppliersForCategories(suppliers, lot.categories, lot.prestationType),
+    [suppliers, lot.categories, lot.prestationType],
+  )
 
   const lotZones = useMemo(
     () => submission.zones.filter((z) => lot.zoneIds.includes(z.id)),
@@ -485,26 +479,7 @@ function LotDetail({
   }
 
   function generateEmail() {
-    const subject = `Demande de prix — ${lot.title}${submission.info.projectName ? ' — ' + submission.info.projectName : ''}`
-    const deadlineTxt = submission.info.deadline
-      ? new Date(submission.info.deadline).toLocaleDateString('fr-CH')
-      : '[date limite]'
-    const body = [
-      `DATE DE REPONSE SOUHAITEE : ${deadlineTxt}`,
-      '',
-      'Bonjour,',
-      '',
-      `Merci de bien vouloir nous transmettre votre offre pour les prestations décrites selon soumission ci-annexée (${lot.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'}).`,
-      '',
-      "N'hésitez pas à chiffrer l'ensemble des positions qui vous intéressent et à proposer des variantes qui vous semblent pertinentes.",
-      '',
-      `Plans : ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
-      '',
-      'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
-      `${submission.info.siteNumber || '[N° de chantier]'} - ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
-      '',
-      `Calculateur : ${submission.info.calculatorName || '[Nom]'} — ${submission.info.calculatorEmail || ''} — ${submission.info.calculatorPhone || ''}`,
-    ].join('\n')
+    const { subject, body } = buildLotEmail(lot, submission.info)
 
     const followUp = lot.suppliers.map((s) => {
       const existing = lot.followUp.find((f) => f.supplierId === s.supplierId)
@@ -550,6 +525,11 @@ function LotDetail({
 
   return (
     <div className="space-y-6">
+      {onBack && (
+        <button className="btn-secondary" onClick={onBack}>
+          ← Retour au suivi
+        </button>
+      )}
       <div className="card">
         <div className="flex items-start justify-between">
           <div className="grid grid-cols-3 gap-4 flex-1">
