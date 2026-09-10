@@ -48,6 +48,34 @@ import { suggestCategories } from '../data/categorize'
  * lot, spanning every page until the next round-numbered chapter starts. Fourniture seule by
  * default; this only encodes one confirmed real-world example and may need revisiting once more
  * cases turn up.
+ *
+ * Different bid-software vendors/bureaux export CAN documents with the same underlying structure
+ * but different surface conventions - each confirmed on real submissions, not hypothetical:
+ *  - Chapter codes are usually 2-3 digits, but a bureau numbering by CFC sub-position (e.g.
+ *    "1100 ARMATURE", "1110 Fourniture et pose d'acier B500B") uses 4 digits - same header rule,
+ *    just a wider digit count.
+ *  - One bureau (Thomas Jundt) numbers chapters "N.00" (e.g. "1.00 Fourniture et pose des piliers
+ *    béton") and its priced articles "N.01", "N.02"... - i.e. *every* code has a decimal point,
+ *    and the header/article distinction is the ".00" suffix specifically, not "has a dot at all".
+ *    Recognised as an alternate header shape; a priced-article code is still anything decimal
+ *    that ISN'T "x.00", so "1.01" already satisfies the normal article check once the digit-count
+ *    bound below is widened to allow a 1-digit prefix.
+ *  - Some bureaux print an article's code in full ("532.001") only the first time or right after a
+ *    page break, and drop the chapter prefix on every following position on the same page
+ *    ("541 Armatures de support." followed by ".200", ".203", ".204"... instead of "541.200",
+ *    "541.203"...). Such an orphan code never carries a chapter prefix to match against, so it
+ *    can't be told apart from a bare sub-heading by shape alone - the reliable signal instead is
+ *    that every priced row (wherever the quantity/price actually lands, sometimes several
+ *    wrapped description lines below the code, or in an "up = <unité> :<zone> <qté> up ...
+ *    ...................." tally) ends in a long run of dots, the blank fill for the still-empty
+ *    Prix/Montant columns - a bare sub-heading with no quantity never has one. That dot-fill is
+ *    checked across the whole highlighted run's text, not just the code's own line.
+ *  - The repeating table banner above each chapter's articles ("Pos. Cd. Description...") is
+ *    filtered out as boilerplate, but its exact wording differs by bureau ("Pos. Libellé U.
+ *    Quant. P.U. Prix", "Article Description des travaux Unité Quantité"...). A banner variant
+ *    that isn't recognised doesn't just pollute a zone's text - if its (unrelated) left margin is
+ *    lower than the real code column's, it can drag the whole page's computed margin left and
+ *    break the alignment check every real header on that page depends on.
  */
 
 interface TextLine {
@@ -62,21 +90,52 @@ interface ChapterKey {
   title: string
 }
 
-const NONDECIMAL_HEADER_RE = /^((?:R)?\d{2,3})\s+[A-ZÀ-Þ]/
-const DECIMAL_ARTICLE_RE = /^(?:R)?\d{2,3}\.\d+\b/
+const NONDECIMAL_HEADER_RE = /^((?:R)?\d{2,4})\s+[A-ZÀ-Þ]/
+// Alternate header shape used by bureaux that give every code a decimal point ("1.00", "3.00")
+// instead of reserving the bare (no-dot) form for headers - see the file-header comment above.
+const HEADER_DOT_ZERO_RE = /^((?:R)?\d{1,4})\.00\s+[A-ZÀ-Þ]/
+// Prefix widened to 1-4 digits (some bureaux use "1.01" or "1110.101"); a bare ".00" suffix is
+// excluded because that's exactly the alternate header shape above, never a priced article.
+const DECIMAL_ARTICLE_RE = /^(?:R)?\d{1,4}\.(?!00\b)\d+\b/
+// A priced row's Prix/Montant columns are printed blank (to be filled in by hand) as a long run
+// of dots - "................. ................." or "up = kg ... .......... .........." - the
+// one signal that survives even when the code itself is an orphan ".NNN" with no chapter prefix
+// to match DECIMAL_ARTICLE_RE against (see file-header comment). A bare sub-heading with no
+// quantity/price never has this.
+const PRICE_ROW_RE = /\.{4,}/
+// The highlight-containment check below tolerates a few points of slop (antialiasing/rounding),
+// which occasionally lets the trailing dot-fill of an unrelated PREVIOUS chapter's last line leak
+// into the next highlight a hair above it - always a bare zone tag ("COMMUN 4 ..."), never real
+// position content. Requiring some actual text before the dots (not just a short tag) is enough
+// to tell that stray leak apart from a genuine priced line, which always carries its code and/or
+// description alongside the dot-fill.
+const MIN_PRICE_ROW_CONTENT = 15
+// A running chapter subtotal ("300 Total Alimentation, évacuation, télécommunication ....") is
+// printed at the same left margin as a real header and also ends in a dot-fill - matches both
+// NONDECIMAL_HEADER_RE and, now, PRICE_ROW_RE, but it's a summary row, not a lot boundary or a
+// priced position. Filtered out like the other page boilerplate below.
+const TOTAL_ROW_RE = /^(?:R)?\d{2,4}\s+Total\b/
 const CFC_RE = /CFC:\s*([\d.]+)/
 const CAN_CHAPTER_RE = /CAN Construction\s*:\s*(\d+)/
 const CAN_CHAPTER_TITLE_RE = /CAN Construction\s*:\s*\d+\s+(.+?)\s+[A-Z]\/\d+\(/
 const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission|Chapitre)\s*:/
-// Page-footer boilerplate (software name, printer, pagination like "Page 27 de 40") - not
-// submission content, but ordinary body text with no colon, so BANNER_RE above doesn't catch it.
-// A highlight rectangle dragged too far down a page routinely oversteps into this line; it must
-// never be treated as part of a lot's text, and must never break up a run mid-chapter.
-const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$/
-// The "Pos. Cd. Description Un. Quantité Prix Montant" table header repeats at the top of every
-// page's article table - same reasoning as FOOTER_RE, it just happens to sit a bit lower on the
-// page (below the y < 775 banner cutoff) whenever a chapter's table starts partway down a page.
-const COLUMN_HEADER_RE = /^Pos\.\s+Cd\.\s+Description\b/
+// Page-footer boilerplate (software name, printer, pagination like "Page 27 de 40", or a bureau's
+// own "Imprimé le <date>" export stamp) - not submission content, but ordinary body text with no
+// colon, so BANNER_RE above doesn't catch it. A highlight rectangle dragged too far down a page
+// routinely oversteps into this line; it must never be treated as part of a lot's text, and must
+// never break up a run mid-chapter. Critically, it also sits at the page's true left margin or
+// lower (often the lowest text on the page) - left unfiltered, it silently becomes the computed
+// marginX and breaks the alignment check for every real header on that page (same failure mode as
+// an unrecognised column-header banner, see COLUMN_HEADER_RE below).
+const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d/
+// The article-table header repeats at the top of every page's article table - same reasoning as
+// FOOTER_RE, it just happens to sit a bit lower on the page (below the y < 775 banner cutoff)
+// whenever a chapter's table starts partway down a page. Wording varies by bureau/software; an
+// unrecognised variant doesn't just leak into a zone's text, it can also drag the page's computed
+// left margin (see marginX below) off the real code column and break every header's alignment
+// check for that whole page.
+const COLUMN_HEADER_RE =
+  /^(?:Pos\.\s+Cd\.\s+Description\b|Pos\.\s+Libellé\b|Article\s+Description\s+des\s+travaux\b)/
 
 function groupLines(items: Array<{ str: string; transform: number[] }>): TextLine[] {
   const list = items
@@ -186,7 +245,12 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     if (canTitleMatch) pageCanChapterTitle.set(p, canTitleMatch[1].trim())
 
     const bodyLines = lines.filter(
-      (l) => !BANNER_RE.test(l.text) && !FOOTER_RE.test(l.text) && !COLUMN_HEADER_RE.test(l.text) && l.y < 775,
+      (l) =>
+        !BANNER_RE.test(l.text) &&
+        !FOOTER_RE.test(l.text) &&
+        !COLUMN_HEADER_RE.test(l.text) &&
+        !TOTAL_ROW_RE.test(l.text) &&
+        l.y < 775,
     )
     pageBodyLines.set(p, bodyLines)
 
@@ -203,7 +267,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const lineChapters: Array<{ line: TextLine; key: ChapterKey | null; roundKey: ChapterKey | null }> = []
     bodyLines.forEach((line, idx) => {
       if (!(idx === 0 && endedWithAReporter)) {
-        const m = line.text.match(NONDECIMAL_HEADER_RE)
+        const m = line.text.match(NONDECIMAL_HEADER_RE) ?? line.text.match(HEADER_DOT_ZERO_RE)
         if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6) {
           const code = m[1]
           const title = line.text.slice(m[0].length - 1).trim()
@@ -333,7 +397,11 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         const run = contained.slice(runStart, i)
         const key = run[0].key
         const runText = run.map((r) => r.line.text).join(' ')
-        const hasPricedLine = run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim()))
+        const dotIndex = runText.search(PRICE_ROW_RE)
+        const hasPriceRowWithContent =
+          dotIndex > 0 && runText.slice(0, dotIndex).replace(/\s+/g, '').length >= MIN_PRICE_ROW_CONTENT
+        const hasPricedLine =
+          run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim())) || hasPriceRowWithContent
         if (key && hasPricedLine) {
           const pending = pendingHeaderText.get(key.code)
           highlights.push({
