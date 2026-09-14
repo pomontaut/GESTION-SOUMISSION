@@ -10,16 +10,28 @@ router.post('/', async (req, res) => {
     return
   }
   const from = process.env.RESEND_FROM || 'soumissions@induni.ch'
+  const attachmentParam =
+    attachment?.content && attachment?.filename
+      ? { filename: attachment.filename, contentBase64: attachment.content }
+      : undefined
   try {
+    // Bcc addresses are stripped from the delivered message for every recipient, including the
+    // "to" one - that's the point of Bcc, but it also means the copy landing in soumissions@induni.ch
+    // never shows who the request actually went to. A separate internal-only e-mail (no bcc, so it
+    // reaches nobody else) spells out the recipient list in its own body instead.
+    await sendResendEmail({
+      to: [from],
+      bcc: [],
+      subject,
+      text: `Destinataires (Cci) : ${bcc.join(', ')}\n\n${text}`,
+      attachment: attachmentParam,
+    })
     await sendResendEmail({
       to: [from],
       bcc,
       subject,
       text,
-      attachment:
-        attachment?.content && attachment?.filename
-          ? { filename: attachment.filename, contentBase64: attachment.content }
-          : undefined,
+      attachment: attachmentParam,
     })
     res.status(204).end()
   } catch (err) {
