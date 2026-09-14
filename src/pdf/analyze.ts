@@ -99,6 +99,21 @@ import { suggestCategories } from '../data/categorize'
  *    (dotted codes are headers here, never articles) that forcing a fix in without a second
  *    confirming example risked destabilizing the decimal-article convention everywhere else. Left
  *    as 0 lots on that document until a second real case confirms the general rule.
+ *  - One bureau (seen on "26-58 HEP") prints its top-level chapter banner as "Chapitre <code>
+ *    <title> GQ Quantité GP PU Montant..." instead of "CAN Construction: <code> ...", and its
+ *    per-page footer as "<project initials> <page> | <total pages>" (e.g. "DRNK 16 | 161") instead
+ *    of the usual "Page N / M" - both recognised as alternates feeding the same mechanisms
+ *    (CHAPITRE_BANNER_RE/_TITLE_RE alongside CAN_CHAPTER_RE/_TITLE_RE; the generic "token N | M"
+ *    case in FOOTER_RE). Without the footer fix, the unrecognised line polluted marginX for the
+ *    rest of the document, freezing currentKey on a match picked up from the document's own
+ *    Récapitulatif/table-of-contents page - the actual bug behind a single mega-lot spanning
+ *    dozens of unrelated chapters.
+ *  - Not yet solved: a handful of other real documents (Surville 3 BA - codes shaped "F.4", "F.5";
+ *    Ker Yan Charpente Métal; Chemin de Rojoux 5 BA/MA; "26-55 Soum_ABing") have real highlight
+ *    annotations but currently produce 0 lots. Each looked like a different, not-yet-diagnosed
+ *    code/margin convention rather than one shared cause - left alone rather than guessing a fix
+ *    from a single under-investigated case each; revisit once there's time to properly root-cause
+ *    them individually (same discipline as the Favon MA/TP-Démol case above).
  */
 
 interface TextLine {
@@ -157,7 +172,16 @@ const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission|Chapitre)\s*:/
 // lower (often the lowest text on the page) - left unfiltered, it silently becomes the computed
 // marginX and breaks the alignment check for every real header on that page (same failure mode as
 // an unrecognised column-header banner, see COLUMN_HEADER_RE below).
-const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d|Page\s+\d+\s*\/\s*\d+|Date\s+d.impression\s*:/
+const FOOTER_RE =
+  /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d|Page\s+\d+\s*\/\s*\d+|Date\s+d.impression\s*:|^\S+\s+\d+\s*\|\s*\d+\s*$/
+// One bureau (seen on "26-58 HEP") prints its page-level top banner as "Chapitre <code> <title>"
+// instead of "CAN Construction: <code> <title> A/B(..." - same semantic role (the top-level CFC
+// chapter active on this page, used to scope/reset the sub-chapter "current chapter" pointer so
+// reused sub-codes like "100"/"200"/"600" under two different top-level chapters never collide
+// into the same lot) - fed into the exact same pageCanChapter/pageCanChapterTitle maps below.
+const CHAPITRE_BANNER_RE = /^Chapitre\s+((?:R)?\d{2,4})\b/
+const CHAPITRE_BANNER_TITLE_RE =
+  /^Chapitre\s+(?:R)?\d{2,4}\s+(.+?)\s+(?:GQ\s+Quantité|Pos\.\s+Cd\.|Pos\.\s+Libellé|Article\s+Description|Pos\.\s+Descriptif|N°\s+Texte)/
 // The article-table header repeats at the top of every page's article table - same reasoning as
 // FOOTER_RE, it just happens to sit a bit lower on the page (below the y < 775 banner cutoff)
 // whenever a chapter's table starts partway down a page. Wording varies by bureau/software; an
@@ -296,8 +320,16 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     if (cfcMatch) pageCfc.set(p, cfcMatch[1])
     const canMatch = bannerText.match(CAN_CHAPTER_RE)
     if (canMatch) pageCanChapter.set(p, canMatch[1])
+    else {
+      const altMatch = bannerText.match(CHAPITRE_BANNER_RE)
+      if (altMatch) pageCanChapter.set(p, altMatch[1])
+    }
     const canTitleMatch = bannerText.match(CAN_CHAPTER_TITLE_RE)
     if (canTitleMatch) pageCanChapterTitle.set(p, canTitleMatch[1].trim())
+    else {
+      const altTitleMatch = bannerText.match(CHAPITRE_BANNER_TITLE_RE)
+      if (altTitleMatch) pageCanChapterTitle.set(p, altTitleMatch[1].trim())
+    }
 
     const bodyLines = lines.filter(
       (l) =>
