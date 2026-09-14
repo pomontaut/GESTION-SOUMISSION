@@ -27,6 +27,25 @@ function significantWords(s: string): string[] {
     .filter((w) => w.length >= 4 && !STOPWORDS.has(w))
 }
 
+// A trailing parenthetical on a category name is a brand/product qualifier ("ARMATURES DE
+// POINCONNEMENT (DURA)", "PILIERS BETON (Orso B)") that a submission's chapter title
+// essentially never repeats verbatim - a real lot titled "Armatures de poinçonnement" has no
+// way to also say "DURA". Required only when it actually appears (the literal full-name check
+// below still uses the untouched category name), never as part of the word-overlap ratio.
+function stripQualifier(category: string): string {
+  return category.replace(/\s*\([^)]*\)\s*$/, '').trim()
+}
+
+// Tolerates a simple singular/plural mismatch between a category's word and the submission
+// text ("APPUIS"/"un appui", "ETANCHEITE"/"étanchéités") - real chapter titles don't reliably
+// use the same number as the category list, and the plain substring check below would
+// otherwise miss both directions.
+function haystackHasWord(haystack: string, word: string): boolean {
+  if (haystack.includes(word)) return true
+  if (word.endsWith('S')) return haystack.includes(word.slice(0, -1))
+  return haystack.includes(`${word}S`)
+}
+
 /** Suggests likely supplier categories for a lot based on its title/content text. */
 export function suggestCategories(text: string, max = 3): string[] {
   const haystack = normalize(text)
@@ -35,13 +54,13 @@ export function suggestCategories(text: string, max = 3): string[] {
   for (const category of ALL_CATEGORIES) {
     const normCat = normalize(category)
     if (!normCat) continue
-    const words = significantWords(category)
-    if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
     if (haystack.includes(normCat)) {
       scored.push({ category, score: 100 + normCat.length })
       continue
     }
-    const matched = words.filter((w) => haystack.includes(w)).length
+    const words = significantWords(stripQualifier(category))
+    if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
+    const matched = words.filter((w) => haystackHasWord(haystack, w)).length
     const ratio = matched / words.length
     if (ratio >= 0.75) {
       scored.push({ category, score: ratio * 50 + words.length })
