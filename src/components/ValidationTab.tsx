@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { sendLotEmailNow } from '../email/sendLotNow'
-import { listSuppliers, saveLotSupplierLearning } from '../storage'
+import { listSuppliers, saveLotSupplierLearning, saveSupplier } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
+import EmailPreviewModal from './EmailPreviewModal'
 
 export default function ValidationTab({
   submission,
@@ -15,6 +16,7 @@ export default function ValidationTab({
   onEditLot: (lotId: string) => void
 }) {
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
+  const [previewEmailLot, setPreviewEmailLot] = useState<Lot | null>(null)
   const [sendingLotId, setSendingLotId] = useState<string | null>(null)
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; error?: string }>>({})
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
@@ -26,6 +28,22 @@ export default function ValidationTab({
 
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
+  }
+
+  // Fixing a wrong/missing e-mail here also updates the shared supplier record - the same
+  // fournisseur will otherwise keep showing up without an address on every future lot too.
+  function updateSupplierEmail(lot: Lot, supplierId: string, email: string) {
+    updateLot(lot.id, {
+      suppliers: lot.suppliers.map((s) => (s.supplierId === supplierId ? { ...s, email } : s)),
+      followUp: lot.followUp.map((f) => (f.supplierId === supplierId ? { ...f, email } : f)),
+    })
+    const record = suppliers.find((s) => s.id === supplierId)
+    if (record && record.email !== email) {
+      saveSupplier({ ...record, email }).catch(() => {
+        // the lot's own copy is already updated regardless of whether this succeeds
+      })
+      setSuppliers((prev) => prev.map((s) => (s.id === supplierId ? { ...s, email } : s)))
+    }
   }
 
   // Adding a supplier here (rather than via "Modifier fournisseurs / e-mail") means the automatic
@@ -86,7 +104,10 @@ export default function ValidationTab({
       await sendLotEmailNow({
         submission,
         lot,
-        bcc: included.map((s) => s.email),
+        // A lot's suppliers can include the same company more than once - suppliersSeed.json
+        // stores one row per (supplier, category) pair, so a multi-category lot can match the
+        // same physical company/email under several distinct supplierIds.
+        bcc: [...new Set(included.map((s) => s.email))],
         subject: lot.emailSubject ?? '',
         body: lot.emailBody ?? '',
       })
@@ -150,8 +171,13 @@ export default function ValidationTab({
                 >
                   🚀 {sendingLotId === lot.id ? 'Envoi...' : 'Envoyer ce lot'}
                 </button>
-                <button className="btn-secondary !py-1" onClick={() => onEditLot(lot.id)}>
-                  ✎ Modifier fournisseurs / e-mail
+                <button
+                  className="btn-secondary !py-1"
+                  disabled={!lot.emailSubject}
+                  title={!lot.emailSubject ? "Aucun e-mail préparé pour ce lot" : undefined}
+                  onClick={() => setPreviewEmailLot(lot)}
+                >
+                  👁 Prévisualiser
                 </button>
               </div>
             </div>
@@ -186,8 +212,13 @@ export default function ValidationTab({
                   {lot.suppliers.map((s) => (
                     <tr key={s.supplierId} className="border-b border-slate-100">
                       <td className="py-1.5 pr-2">{s.name}</td>
-                      <td className="py-1.5 pr-2 text-slate-500">
-                        {s.email || <span className="text-amber-600">pas d'e-mail</span>}
+                      <td className="py-1.5 pr-2">
+                        <input
+                          className={`input !py-1 ${s.email ? '' : 'border-amber-400'}`}
+                          placeholder="adresse@exemple.ch"
+                          value={s.email}
+                          onChange={(e) => updateSupplierEmail(lot, s.supplierId, e.target.value)}
+                        />
                       </td>
                       <td className="py-1.5 pr-2 text-center">
                         <input
@@ -221,6 +252,34 @@ export default function ValidationTab({
       {previewLot && submission.pdfData && (
         <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
       )}
+
+      {previewEmailLot &&
+        (() => {
+          const included = previewEmailLot.suppliers.filter((s) => s.status !== 'ignore' && s.email)
+          return (
+            <EmailPreviewModal
+              lot={previewEmailLot}
+              submission={submission}
+              bcc={[...new Set(included.map((s) => s.email))]}
+              onClose={() => setPreviewEmailLot(null)}
+              onSent={(subject, body) => {
+                const today = new Date().toISOString().slice(0, 10)
+                const includedIds = new Set(included.map((s) => s.supplierId))
+                updateLot(previewEmailLot.id, {
+                  emailSubject: subject,
+                  emailBody: body,
+                  followUp: previewEmailLot.followUp.map((f) =>
+                    includedIds.has(f.supplierId)
+                      ? { ...f, status: 'envoye' as const, sentDate: f.sentDate ?? today }
+                      : f,
+                  ),
+                })
+                setSendResult((prev) => ({ ...prev, [previewEmailLot.id]: { ok: true } }))
+                setPreviewEmailLot(null)
+              }}
+            />
+          )
+        })()}
     </div>
   )
 }
