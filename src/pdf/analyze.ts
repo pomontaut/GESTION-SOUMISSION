@@ -72,10 +72,33 @@ import { suggestCategories } from '../data/categorize'
  *    checked across the whole highlighted run's text, not just the code's own line.
  *  - The repeating table banner above each chapter's articles ("Pos. Cd. Description...") is
  *    filtered out as boilerplate, but its exact wording differs by bureau ("Pos. Libellé U.
- *    Quant. P.U. Prix", "Article Description des travaux Unité Quantité"...). A banner variant
- *    that isn't recognised doesn't just pollute a zone's text - if its (unrelated) left margin is
- *    lower than the real code column's, it can drag the whole page's computed margin left and
- *    break the alignment check every real header on that page depends on.
+ *    Quant. P.U. Prix", "Article Description des travaux Unité Quantité", "Pos. Descriptif des
+ *    travaux Unité Quantité Prix total"...). A banner variant that isn't recognised doesn't just
+ *    pollute a zone's text - if its (unrelated) left margin is lower than the real code column's,
+ *    it can drag the whole page's computed margin left and break the alignment check every real
+ *    header on that page depends on.
+ *  - A running header/footer with no fixed wording ("OU3 SA" / "Bureau d'ingénieurs... Page 8 /
+ *    38", a bureau's own project-title preamble) is caught without naming its exact text: any
+ *    line that repeats verbatim across a large share of the document's pages is boilerplate, since
+ *    real submission content essentially never does that (see the repeated-line pass before the
+ *    main per-page loop). Wording that embeds a per-page value (a page number, a date) still needs
+ *    its own pattern in FOOTER_RE, since it's never byte-identical twice.
+ *  - One bureau (seen on "26-542 Surélévation Favon") numbers headers AND priced positions with
+ *    the exact same bare-code shape at the exact same left margin ("40 DEMOLITION & TRAVAUX
+ *    PREPARATOIRE" then "41 Démolition du dallage... m2 231.00 -") - decimal-vs-not can't
+ *    distinguish them at all here, and the empty Prix cell is printed as a literal dash, not the
+ *    usual dot-fill. The only signal left is content: a header never carries a quantity, so a
+ *    bare-code line is only treated as a real header if it does NOT also carry a quantity + unit
+ *    (see QUANTITY_UNIT_RE) - a position keeps the current chapter's key instead of overwriting
+ *    it. Confirmed not to regress the decimal-coded documents, since this check only ever
+ *    reclassifies a line that already matched the no-decimal header shape.
+ *  - Not yet solved: a different bureau on the same Favon project (its MA/TP-Démol documents)
+ *    nests multi-level dotted headers ("211.6.520 Isolations sous plafond étage -2") whose priced
+ *    children reset to small flat codes ("001", "002"...) with the quantity landing several
+ *    wrapped lines below the code, not on it - genuinely different enough from every pattern above
+ *    (dotted codes are headers here, never articles) that forcing a fix in without a second
+ *    confirming example risked destabilizing the decimal-article convention everywhere else. Left
+ *    as 0 lots on that document until a second real case confirms the general rule.
  */
 
 interface TextLine {
@@ -110,6 +133,13 @@ const PRICE_ROW_RE = /\.{4,}/
 // to tell that stray leak apart from a genuine priced line, which always carries its code and/or
 // description alongside the dot-fill.
 const MIN_PRICE_ROW_CONTENT = 15
+// A genuine priced position always carries a quantity + unit ("m2 231.00", "kg 154 460,00",
+// "up = gl :PG 1 up") - the one signal that survives even when a bureau gives a priced position
+// the *exact same bare-code shape* as a real header (no decimal point either way, same left
+// margin) and prints an empty/dash Prix column instead of the usual dot-fill (see
+// NONDECIMAL_HEADER_RE usage below). Units are curated from real documents only, never guessed.
+const QUANTITY_UNIT_RE =
+  /\b(?:m²|m2|m³|m3|kg|pce?s?|gl|up|ml|tonnes?)\b\s*[\d']|[\d][\d'.,]*\s*\b(?:m²|m2|m³|m3|kg|pce?s?|gl|up|ml|tonnes?)\b/i
 // A running chapter subtotal ("300 Total Alimentation, évacuation, télécommunication ....") is
 // printed at the same left margin as a real header and also ends in a dot-fill - matches both
 // NONDECIMAL_HEADER_RE and, now, PRICE_ROW_RE, but it's a summary row, not a lot boundary or a
@@ -127,7 +157,7 @@ const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission|Chapitre)\s*:/
 // lower (often the lowest text on the page) - left unfiltered, it silently becomes the computed
 // marginX and breaks the alignment check for every real header on that page (same failure mode as
 // an unrecognised column-header banner, see COLUMN_HEADER_RE below).
-const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d/
+const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d|Page\s+\d+\s*\/\s*\d+|Date\s+d.impression\s*:/
 // The article-table header repeats at the top of every page's article table - same reasoning as
 // FOOTER_RE, it just happens to sit a bit lower on the page (below the y < 775 banner cutoff)
 // whenever a chapter's table starts partway down a page. Wording varies by bureau/software; an
@@ -135,7 +165,7 @@ const FOOTER_RE = /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d/
 // left margin (see marginX below) off the real code column and break every header's alignment
 // check for that whole page.
 const COLUMN_HEADER_RE =
-  /^(?:Pos\.\s+Cd\.\s+Description\b|Pos\.\s+Libellé\b|Article\s+Description\s+des\s+travaux\b)/
+  /^(?:Pos\.\s+Cd\.\s+Description\b|Pos\.\s+Libellé\b|Article\s+Description\s+des\s+travaux\b|Pos\.\s+Descriptif\s+des\s+travaux\b)/
 
 function groupLines(items: Array<{ str: string; transform: number[] }>): TextLine[] {
   const list = items
@@ -225,16 +255,41 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   >()
   const pageRoundKeyAtEnd = new Map<number, ChapterKey | null>()
 
+  const pageAnnots = new Map<number, unknown[]>()
+
+  // First pass: read every page once (text + annotations) - needed up front because the
+  // repeated-boilerplate detection below has to see the whole document before any page's body
+  // lines can be filtered.
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p)
+    const [annots, textContent] = await Promise.all([page.getAnnotations(), page.getTextContent()])
+    pageAnnots.set(p, annots)
+    pageAllLines.set(p, groupLines(textContent.items as Array<{ str: string; transform: number[] }>))
+  }
+
+  // A running header/footer ("OU3 SA" / "Bureau d'ingénieurs... Page 8 / 38", a bureau's own
+  // project-title preamble, a repeated CAN legend paragraph...) has no fixed wording to filter by
+  // name across every bureau - but it's the one kind of line that repeats verbatim across most of
+  // the document, which real submission content essentially never does. Catching it this way
+  // means a new bureau's exact phrasing doesn't need its own regex before it stops contaminating
+  // marginX (see COLUMN_HEADER_RE/FOOTER_RE comments above for the alternative, name-based route
+  // still used for banners that appear too rarely for a frequency threshold to catch).
+  const lineCounts = new Map<string, number>()
+  for (const lines of pageAllLines.values()) {
+    for (const l of lines) lineCounts.set(l.text, (lineCounts.get(l.text) ?? 0) + 1)
+  }
+  const repeatThreshold = Math.max(3, Math.ceil(doc.numPages * 0.3))
+  const repeatedTexts = new Set(
+    [...lineCounts.entries()].filter(([, count]) => count >= repeatThreshold).map(([text]) => text),
+  )
+
   let prevPageLastLine: string | null = null
   let currentKey: ChapterKey | null = null
   let currentRoundKey: ChapterKey | null = null
   let currentChapterForKeys: string | undefined
 
   for (let p = 1; p <= doc.numPages; p++) {
-    const page = await doc.getPage(p)
-    const [annots, textContent] = await Promise.all([page.getAnnotations(), page.getTextContent()])
-    const lines = groupLines(textContent.items as Array<{ str: string; transform: number[] }>)
-    pageAllLines.set(p, lines)
+    const lines = pageAllLines.get(p) ?? []
 
     const bannerText = lines.slice(0, 6).map((l) => l.text).join(' ')
     const cfcMatch = bannerText.match(CFC_RE)
@@ -250,11 +305,20 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         !FOOTER_RE.test(l.text) &&
         !COLUMN_HEADER_RE.test(l.text) &&
         !TOTAL_ROW_RE.test(l.text) &&
+        !repeatedTexts.has(l.text) &&
         l.y < 775,
     )
     pageBodyLines.set(p, bodyLines)
 
-    const marginCandidates = bodyLines.filter((l) => !/^R\b/.test(l.text))
+    // A bureau's project-title/subtitle preamble ("Structure béton armé", "CAHIER DE
+    // L'INGENIEUR CIVIL"...) sits above the column-header banner and, unlike BANNER_RE's
+    // colon-suffixed keywords, has no fixed wording to filter by name - but it's always above
+    // the "Pos. ..." table banner, so once that banner's y is known, nothing real ever appears
+    // higher up on the same page. Anchoring marginX to below it sidesteps the wording entirely.
+    const columnHeaderY = lines.find((l) => COLUMN_HEADER_RE.test(l.text))?.y
+    const marginCandidates = bodyLines.filter(
+      (l) => !/^R\b/.test(l.text) && (columnHeaderY === undefined || l.y < columnHeaderY),
+    )
     const marginX = marginCandidates.length ? Math.min(...marginCandidates.map((l) => l.xStart)) : null
 
     if (pageCanChapter.get(p) !== currentChapterForKeys) {
@@ -268,7 +332,10 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     bodyLines.forEach((line, idx) => {
       if (!(idx === 0 && endedWithAReporter)) {
         const m = line.text.match(NONDECIMAL_HEADER_RE) ?? line.text.match(HEADER_DOT_ZERO_RE)
-        if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6) {
+        // A bare-code line carrying its own quantity ("41 Démolition du dallage... m2 231.00")
+        // is a priced position wearing a header's clothing, not a real header - some bureaux use
+        // the exact same shape (no decimal, same margin) for both. A genuine header never has one.
+        if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6 && !QUANTITY_UNIT_RE.test(line.text)) {
           const code = m[1]
           const title = line.text.slice(m[0].length - 1).trim()
           currentKey = { code, title }
@@ -281,7 +348,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     pageRoundKeyAtEnd.set(p, currentRoundKey)
     prevPageLastLine = bodyLines.length ? bodyLines[bodyLines.length - 1].text : prevPageLastLine
 
-    const typedAnnots = annots as Array<{
+    const typedAnnots = (pageAnnots.get(p) ?? []) as Array<{
       subtype: string
       color?: Uint8ClampedArray
       rect: number[]
@@ -401,7 +468,9 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         const hasPriceRowWithContent =
           dotIndex > 0 && runText.slice(0, dotIndex).replace(/\s+/g, '').length >= MIN_PRICE_ROW_CONTENT
         const hasPricedLine =
-          run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim())) || hasPriceRowWithContent
+          run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim())) ||
+          hasPriceRowWithContent ||
+          run.some((r) => QUANTITY_UNIT_RE.test(r.line.text))
         if (key && hasPricedLine) {
           const pending = pendingHeaderText.get(key.code)
           highlights.push({

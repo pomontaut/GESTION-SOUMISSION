@@ -36,14 +36,28 @@ function stripQualifier(category: string): string {
   return category.replace(/\s*\([^)]*\)\s*$/, '').trim()
 }
 
+// A category's required word and the word a real chapter title actually uses are sometimes a
+// different derivation of the same real-world term, not just a plural - curated one confirmed
+// pair at a time from real submissions, same spirit as STOPWORDS above:
+//  - "ISOLANTS" (category noun) vs "isolation/isolations" (the verb-derived noun CAN titles use).
+//  - "DESAMIANTAGE" (the trade name) vs "amiante" (what the text actually names: the material).
+//  - "EXTRUDES" (category qualifier) vs "XPS" (the material's own name for extruded polystyrene,
+//    almost always how a real position names it - "Swisspor XPS 300 SF").
+const WORD_ALIASES: Record<string, string[]> = {
+  ISOLANTS: ['ISOLATION', 'ISOLATIONS'],
+  ISOLANT: ['ISOLATION', 'ISOLATIONS'],
+  DESAMIANTAGE: ['AMIANTE'],
+  EXTRUDES: ['XPS'],
+}
+
 // Tolerates a simple singular/plural mismatch between a category's word and the submission
 // text ("APPUIS"/"un appui", "ETANCHEITE"/"étanchéités") - real chapter titles don't reliably
 // use the same number as the category list, and the plain substring check below would
 // otherwise miss both directions.
 function haystackHasWord(haystack: string, word: string): boolean {
   if (haystack.includes(word)) return true
-  if (word.endsWith('S')) return haystack.includes(word.slice(0, -1))
-  return haystack.includes(`${word}S`)
+  if (word.endsWith('S') ? haystack.includes(word.slice(0, -1)) : haystack.includes(`${word}S`)) return true
+  return (WORD_ALIASES[word] ?? []).some((alias) => haystack.includes(alias))
 }
 
 /** Suggests likely supplier categories for a lot based on its title/content text. */
