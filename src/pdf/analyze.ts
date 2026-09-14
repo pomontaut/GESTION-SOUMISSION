@@ -487,7 +487,14 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       const contained = chapters.filter(({ line }) =>
         line.items.some((it) => it.x >= rx0 - 3 && it.x <= rx1 + 3 && it.y >= ry0 - 3 && it.y <= ry1 + 3),
       )
-      const isYellow = h.color[0] > 200 && h.color[1] > 200 && h.color[2] < 100
+      // Threshold on blue widened from 100 to 160: one bureau ("DRNK" software, seen on 26-54,
+      // 26-57 Clarens, 26-58 HEP) highlights in a duller/golder yellow, RGB(252,244,133), that
+      // failed the original check and got misclassified as "autre" (fourniture+pose) instead of
+      // "jaune" (fourniture seule) - confirmed by the user directly reading the PDF. Checked
+      // against every other highlight colour confirmed "autre" across the full test corpus (the
+      // oranges and cyan used elsewhere all fail on R or G already, independently of B), so this
+      // stays a safe margin, not just a fit to this one shade.
+      const isYellow = h.color[0] > 200 && h.color[1] > 200 && h.color[2] < 160
       const color: 'jaune' | 'autre' = isYellow ? 'jaune' : 'autre'
 
       let isL0 = false
