@@ -40,6 +40,19 @@ import { suggestCategories } from '../data/categorize'
  * highlighted), the chapter pointer was still set when the header line was read, so the children
  * resolve to the right lot regardless.
  *
+ * That grouping code is only ever the bare sub-chapter code ("511"), never the full CFC path, so
+ * two entirely unrelated top-level CFC chapters that each happen to have their own sub-chapter
+ * numbered "511" (seen on "26-58 HEP": CFC 172 "Drainage de surfaces..." and CFC 241 "Aciers
+ * d'armature...", both coded "511") would otherwise merge into one nonsensical lot spanning both -
+ * betrayed by the merged lot's suggested categories belonging to only one of the two chapters. The
+ * fix scopes every code-keyed grouping/dedup step (the final lot key, `pendingHeaderText`,
+ * `highlightCodesByRound`/`wholeChapterNoteCodes`) by the top-level CFC chapter (`pageCanChapter`)
+ * active on the page the run was read from, via a `topChapter` field on `RawHighlight`/`RawNote` -
+ * while keeping the *displayed* `Lot.chapterCode`/title as the bare code the preparer would
+ * recognise. A document with no recognised top-level chapter banner at all has `topChapter` empty
+ * everywhere, which collapses the scoped key back to the bare code - i.e. bureaux without this
+ * banner convention keep their pre-existing grouping behaviour unchanged.
+ *
  * Separately, some preparers drop a `FreeText` annotation (a text box, often boxed in red) next
  * to a chapter instead of highlighting it - typically a logistics note ("livraison groupée ~800m3
  * pour les 2 soumissions") that applies to the whole chapter rather than one article. Whenever
@@ -226,6 +239,13 @@ interface RawHighlight {
    *  tell apart a genuine lot from highlighter spillover into a chapter a FreeText note already
    *  claims whole (see the filter right after the main page loop below). */
   roundCode: string
+  /** The top-level CFC chapter (pageCanChapter) active on the page this run was found on, e.g.
+   *  "172" or "241" - NOT shown to the user, only used to scope the grouping/dedup keys below so
+   *  that two unrelated top-level chapters which happen to share the same bare sub-chapter code
+   *  (e.g. both have a "511") never collide into a single lot. Empty when the document has no
+   *  recognised "CAN Construction:"/"Chapitre" banner at all, in which case every scoped key below
+   *  degrades back to the bare code, exactly the pre-existing behaviour for such bureaux. */
+  topChapter: string
   pages: number[]
   cfc: string
   text: string
@@ -237,6 +257,17 @@ interface RawNote {
   pages: number[]
   cfc: string
   text: string
+  /** See RawHighlight.topChapter above - same purpose, same fallback when absent. */
+  topChapter: string
+}
+
+/** Scopes a bare sub-chapter/round code by the top-level CFC chapter it was read under, so the
+ *  same code reused by two unrelated chapters (see file-header comment on the HEP "511"/"111"
+ *  collision) never gets merged. Falls back to the bare code untouched when topChapter is empty
+ *  (bureau with no recognised top-level chapter banner) - this must never artificially split runs
+ *  that were correctly merged before this scoping was introduced. */
+function scopedKey(topChapter: string, code: string): string {
+  return topChapter ? `${topChapter}::${code}` : code
 }
 
 export interface AnalyzeResult {
@@ -449,6 +480,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const isChapterStartPage = pageCanChapter.get(p) !== undefined && pageCanChapter.get(p) !== pageCanChapter.get(p - 1)
     const firstBodyLine = bodyLines[0]
     const cfc = pageCfc.get(p) ?? ''
+    const topChapter = pageCanChapter.get(p) ?? ''
 
     for (const h of pageHighlightAnnots.get(p) ?? []) {
       const [rx0, ry0, rx1, ry1] = h.rect
@@ -473,6 +505,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           code: pageCanChapter.get(p) ?? '',
           title: pageCanChapterTitle.get(p) ?? '',
           roundCode: '',
+          topChapter,
           pages: Array.from({ length: endPage - p + 1 }, (_, i) => p + i),
           cfc,
           text: pageCanChapterTitle.get(p) ?? '',
@@ -504,20 +537,23 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           hasPriceRowWithContent ||
           run.some((r) => QUANTITY_UNIT_RE.test(r.line.text))
         if (key && hasPricedLine) {
-          const pending = pendingHeaderText.get(key.code)
+          const pendingKey = scopedKey(topChapter, key.code)
+          const pending = pendingHeaderText.get(pendingKey)
           highlights.push({
             kind: 'article',
             color,
             code: key.code,
             title: key.title,
             roundCode: run[0].roundKey?.code ?? '',
+            topChapter,
             pages: [p],
             cfc,
             text: pending ? `${pending} ${runText}` : runText,
           })
-          pendingHeaderText.delete(key.code)
+          pendingHeaderText.delete(pendingKey)
         } else if (key) {
-          pendingHeaderText.set(key.code, `${pendingHeaderText.get(key.code) ?? ''} ${runText}`.trim())
+          const pendingKey = scopedKey(topChapter, key.code)
+          pendingHeaderText.set(pendingKey, `${pendingHeaderText.get(pendingKey) ?? ''} ${runText}`.trim())
         }
         runStart = i
       }
@@ -526,17 +562,26 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     for (const note of pageNoteAnnots.get(p) ?? []) {
       const [, , , ny1] = note.rect
       let roundKey: ChapterKey | null = null
+      let noteTopChapter = topChapter
       for (const c of chapters) {
         if (c.line.y >= ny1 - 3) roundKey = c.roundKey
         else break
       }
-      if (!roundKey) roundKey = pageRoundKeyAtEnd.get(p - 1) ?? null
+      if (!roundKey) {
+        roundKey = pageRoundKeyAtEnd.get(p - 1) ?? null
+        // The round chapter was still the previous page's when nothing on this page's own
+        // banner/header lines has been read yet (note sits above the first header on the new
+        // page) - scope it by the previous page's top chapter, not this page's, so a note that
+        // trails the tail end of one CFC chapter is never mis-scoped to the chapter starting here.
+        if (roundKey) noteTopChapter = pageCanChapter.get(p - 1) ?? ''
+      }
       if (!roundKey) continue
 
       const endPage = roundKeyPageRange(p, roundKey.code)
       notes.push({
         code: roundKey.code,
         title: roundKey.title,
+        topChapter: noteTopChapter,
         pages: Array.from({ length: Math.max(endPage - p + 1, 1) }, (_, i) => p + i),
         cfc,
         text: note.contents,
@@ -556,13 +601,16 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   const highlightCodesByRound = new Map<string, Set<string>>()
   for (const h of highlights) {
     if (!h.roundCode) continue
-    const set = highlightCodesByRound.get(h.roundCode) ?? new Set<string>()
+    const roundKey = scopedKey(h.topChapter, h.roundCode)
+    const set = highlightCodesByRound.get(roundKey) ?? new Set<string>()
     set.add(h.code)
-    highlightCodesByRound.set(h.roundCode, set)
+    highlightCodesByRound.set(roundKey, set)
   }
-  const wholeChapterNotes = notes.filter((n) => (highlightCodesByRound.get(n.code)?.size ?? 0) < 2)
-  const wholeChapterNoteCodes = new Set(wholeChapterNotes.map((n) => n.code))
-  highlights = highlights.filter((h) => !wholeChapterNoteCodes.has(h.roundCode))
+  const wholeChapterNotes = notes.filter(
+    (n) => (highlightCodesByRound.get(scopedKey(n.topChapter, n.code))?.size ?? 0) < 2,
+  )
+  const wholeChapterNoteCodes = new Set(wholeChapterNotes.map((n) => scopedKey(n.topChapter, n.code)))
+  highlights = highlights.filter((h) => !wholeChapterNoteCodes.has(scopedKey(h.topChapter, h.roundCode)))
 
   // ---- Build zones (one per highlight run / note, for display and traceability) ----
   const zones: DetectedZone[] = [
@@ -604,7 +652,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
 
   highlights.forEach((h, idx) => {
     const zoneId = zones[idx].id
-    const key = `${h.color}|${h.code}`
+    const key = `${h.color}|${scopedKey(h.topChapter, h.code)}`
     const existing = lotGroups.get(key)
     if (existing) {
       h.pages.forEach((pg) => existing.pages.add(pg))
