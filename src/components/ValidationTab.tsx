@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import type { Lot, Submission } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { sendLotEmailNow } from '../email/sendLotNow'
+import { listSuppliers, saveLotSupplierLearning } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
 
 export default function ValidationTab({
@@ -16,9 +17,46 @@ export default function ValidationTab({
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
   const [sendingLotId, setSendingLotId] = useState<string | null>(null)
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; error?: string }>>({})
+  const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
+  const [searchByLot, setSearchByLot] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    listSuppliers().then(setSuppliers)
+  }, [])
 
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
+  }
+
+  // Adding a supplier here (rather than via "Modifier fournisseurs / e-mail") means the automatic
+  // match missed it - worth remembering for next time (see saveLotSupplierLearning). A follow-up
+  // row is seeded immediately too, so the new supplier shows up in the Suivi tab right away
+  // instead of only after the lot's e-mail gets (re)generated.
+  function addSupplierToLot(lot: Lot, supplier: SupplierRecord) {
+    if (lot.suppliers.some((x) => x.supplierId === supplier.id)) return
+    updateLot(lot.id, {
+      suppliers: [
+        ...lot.suppliers,
+        { supplierId: supplier.id, name: supplier.name, email: supplier.email, status: 'valide' },
+      ],
+      followUp: [
+        ...lot.followUp,
+        {
+          supplierId: supplier.id,
+          name: supplier.name,
+          email: supplier.email,
+          status: 'a_envoyer',
+          conforme: true,
+          retained: false,
+        },
+      ],
+    })
+    saveLotSupplierLearning({ cfcCode: lot.cfcCode, chapterCode: lot.chapterCode, supplierId: supplier.id }).catch(
+      () => {
+        // best-effort memory - the supplier is added to the lot regardless of whether this succeeds
+      },
+    )
+    setSearchByLot((prev) => ({ ...prev, [lot.id]: '' }))
   }
 
   // Reuses SupplierAssignment.status (otherwise unused elsewhere) as the send checkbox:
@@ -134,15 +172,9 @@ export default function ValidationTab({
             )}
 
             {lot.suppliers.length === 0 ? (
-              <p className="text-sm text-slate-400">
-                Aucun fournisseur trouvé automatiquement pour ce lot —{' '}
-                <button className="underline" onClick={() => onEditLot(lot.id)}>
-                  ouvrez-le pour en ajouter manuellement
-                </button>
-                .
-              </p>
+              <p className="text-sm text-slate-400 mb-2">Aucun fournisseur trouvé automatiquement pour ce lot.</p>
             ) : (
-              <table className="w-full text-sm min-w-[500px]">
+              <table className="w-full text-sm min-w-[500px] mb-3">
                 <thead>
                   <tr className="text-left text-slate-500 border-b border-slate-200">
                     <th className="py-1.5 pr-2">Fournisseur</th>
@@ -169,6 +201,15 @@ export default function ValidationTab({
                 </tbody>
               </table>
             )}
+
+            <SupplierSearchAdd
+              lot={lot}
+              suppliers={suppliers}
+              query={searchByLot[lot.id] ?? ''}
+              onQueryChange={(q) => setSearchByLot((prev) => ({ ...prev, [lot.id]: q }))}
+              onAdd={(s) => addSupplierToLot(lot, s)}
+              onOpenFullEditor={() => onEditLot(lot.id)}
+            />
           </div>
         )
       })}
@@ -180,6 +221,67 @@ export default function ValidationTab({
       {previewLot && submission.pdfData && (
         <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
       )}
+    </div>
+  )
+}
+
+// Inline search over the whole supplier base (not just the lot's matched category) - lets you add
+// a fournisseur to a lot right here, without leaving for the full lot editor, which is what
+// "ouvrez-le pour en ajouter manuellement" used to force you to do.
+function SupplierSearchAdd({
+  lot,
+  suppliers,
+  query,
+  onQueryChange,
+  onAdd,
+  onOpenFullEditor,
+}: {
+  lot: Lot
+  suppliers: SupplierRecord[]
+  query: string
+  onQueryChange: (q: string) => void
+  onAdd: (s: SupplierRecord) => void
+  onOpenFullEditor: () => void
+}) {
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (q.length < 2) return []
+    return suppliers
+      .filter((s) => s.name.toLowerCase().includes(q) && !lot.suppliers.some((x) => x.supplierId === s.id))
+      .slice(0, 8)
+  }, [query, suppliers, lot.suppliers])
+
+  return (
+    <div className="mt-1">
+      <input
+        className="input"
+        placeholder="Rechercher un fournisseur à ajouter (par nom)..."
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+      />
+      {query.trim().length >= 2 &&
+        (matches.length > 0 ? (
+          <div className="space-y-1.5 mt-2">
+            {matches.map((s) => (
+              <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
+                <span>
+                  <strong>{s.name}</strong> · {s.category}
+                  {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
+                </span>
+                <button className="btn-secondary !py-1" onClick={() => onAdd(s)}>
+                  Ajouter
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 mt-2">
+            Aucun fournisseur trouvé pour « {query} ».{' '}
+            <button className="underline" onClick={onOpenFullEditor}>
+              Créer un nouveau fournisseur
+            </button>
+          </p>
+        ))}
     </div>
   )
 }
