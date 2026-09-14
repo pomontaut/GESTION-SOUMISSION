@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
+import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import { listSuppliers, saveLotSupplierLearning, saveSupplier } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
@@ -87,6 +88,48 @@ export default function ValidationTab({
     })
   }
 
+  // The algorithm always splits by sub-chapter code, which is correct on most bureaux (see
+  // analyze.ts file header) but not every one - some buyers genuinely consult the same suppliers
+  // for a run of adjacent sub-chapters (e.g. armature + treillis + accessoires all going to the
+  // same ferrailleurs). No signal in the PDF tells the two cases apart, so merging is manual here
+  // rather than a guess baked into the detection itself. Regenerates the merged lot's page range,
+  // fournisseurs/suivi (deduped by supplierId) and e-mail draft; the PDF attachment is derived from
+  // `pages` on demand everywhere else, so it updates for free.
+  function mergeLotIntoPrevious(lotId: string) {
+    const idx = submission.lots.findIndex((l) => l.id === lotId)
+    if (idx <= 0) return
+    const prev = submission.lots[idx - 1]
+    const current = submission.lots[idx]
+
+    const mergedSuppliers = [...prev.suppliers]
+    for (const s of current.suppliers) {
+      if (!mergedSuppliers.some((x) => x.supplierId === s.supplierId)) mergedSuppliers.push(s)
+    }
+    const mergedFollowUp = [...prev.followUp]
+    for (const f of current.followUp) {
+      if (!mergedFollowUp.some((x) => x.supplierId === f.supplierId)) mergedFollowUp.push(f)
+    }
+
+    const merged: Lot = {
+      ...prev,
+      pages: Array.from(new Set([...prev.pages, ...current.pages])).sort((a, b) => a - b),
+      positionCount: prev.positionCount + current.positionCount,
+      zoneIds: [...prev.zoneIds, ...current.zoneIds],
+      categories: Array.from(new Set([...prev.categories, ...current.categories])),
+      suppliers: mergedSuppliers,
+      followUp: mergedFollowUp,
+    }
+    const { subject, body } = buildLotEmail(merged, submission.info)
+    merged.emailSubject = subject
+    merged.emailBody = body
+    merged.emailGeneratedAt = new Date().toISOString()
+
+    onUpdate({
+      ...submission,
+      lots: submission.lots.map((l) => (l.id === prev.id ? merged : l)).filter((l) => l.id !== current.id),
+    })
+  }
+
   const heterogeneityByLot = useMemo(() => {
     const map = new Map<string, ReturnType<typeof detectLotHeterogeneity>>()
     for (const lot of submission.lots) {
@@ -137,7 +180,7 @@ export default function ValidationTab({
         l'onglet Suivi.
       </p>
 
-      {submission.lots.map((lot) => {
+      {submission.lots.map((lot, idx) => {
         const heterogeneity = heterogeneityByLot.get(lot.id)
         const included = lot.suppliers.filter((s) => s.status !== 'ignore')
         return (
@@ -162,6 +205,16 @@ export default function ValidationTab({
                 {lot.suppliers.length} fournisseur(s) sélectionné(s)
               </span>
               <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
+              {idx > 0 && (
+                <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={false}
+                    onChange={(e) => e.target.checked && mergeLotIntoPrevious(lot.id)}
+                  />
+                  Grouper avec le lot précédent
+                </label>
+              )}
               <div className="flex gap-2 ml-auto">
                 <button
                   className="btn-primary !py-1"
