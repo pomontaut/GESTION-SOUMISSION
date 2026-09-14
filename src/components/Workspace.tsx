@@ -3,18 +3,21 @@ import type { Submission } from '../types'
 import { saveSubmission } from '../storage'
 import ExtractionTab from './ExtractionTab'
 import LotsTab from './LotsTab'
+import ValidationTab from './ValidationTab'
 import DashboardTab from './DashboardTab'
 import AnnexeTab from './AnnexeTab'
 
-type TabKey = 'extraction' | 'lots' | 'dashboard' | 'annexe'
+type TabKey = 'extraction' | 'lots' | 'validation' | 'dashboard' | 'annexe'
 
 // "lots" has no nav button - the agent (runLotAgent) now does that work automatically right
 // after the PDF is imported. The tab itself stays reachable as a per-lot correction screen,
-// opened from the dashboard when a lot's automatic suppliers/e-mail need a manual fix.
+// opened from "validation" or "dashboard" when a lot's automatic suppliers/e-mail need a
+// manual fix - it returns to whichever of the two opened it (see editReturnTab below).
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'extraction', label: '1. Soumission' },
-  { key: 'dashboard', label: '2. Suivi & envois' },
-  { key: 'annexe', label: '3. Annexe — Méthode de détection' },
+  { key: 'validation', label: '2. Validation & envoi' },
+  { key: 'dashboard', label: '3. Suivi' },
+  { key: 'annexe', label: '4. Annexe — Méthode de détection' },
 ]
 
 export default function Workspace({
@@ -28,10 +31,12 @@ export default function Workspace({
 }) {
   const [tab, setTab] = useState<TabKey>('extraction')
   const [editLotId, setEditLotId] = useState<string | null>(null)
+  const [editReturnTab, setEditReturnTab] = useState<TabKey>('validation')
   const saveTimeout = useRef<number | null>(null)
 
   function openLotEditor(lotId: string) {
     setEditLotId(lotId)
+    setEditReturnTab(tab === 'dashboard' ? 'dashboard' : 'validation')
     setTab('lots')
   }
 
@@ -74,15 +79,18 @@ export default function Workspace({
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         {tab === 'extraction' && (
-          <ExtractionTab submission={submission} onUpdate={update} onImported={() => setTab('dashboard')} />
+          <ExtractionTab submission={submission} onUpdate={update} onImported={() => setTab('validation')} />
         )}
         {tab === 'lots' && (
           <LotsTab
             submission={submission}
             onUpdate={update}
             initialSelectedId={editLotId}
-            onBack={() => setTab('dashboard')}
+            onBack={() => setTab(editReturnTab)}
           />
+        )}
+        {tab === 'validation' && (
+          <ValidationTab submission={submission} onUpdate={update} onEditLot={openLotEditor} />
         )}
         {tab === 'dashboard' && <DashboardTab submission={submission} onUpdate={update} onEditLot={openLotEditor} />}
         {tab === 'annexe' && <AnnexeTab />}
