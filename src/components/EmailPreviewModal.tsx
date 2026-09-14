@@ -18,10 +18,18 @@ export default function EmailPreviewModal({
 }) {
   const [subject, setSubject] = useState(lot.emailSubject ?? '')
   const [body, setBody] = useState(lot.emailBody ?? '')
+  // Editable as free text (not just the read-only bcc prop) - lets you add a second address for
+  // a fournisseur that has several, or fix a typo, without leaving this modal.
+  const [bccText, setBccText] = useState(bcc.join(', '))
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+
+  const bccList = bccText
+    .split(/[,;\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
 
   useEffect(() => {
     if (!submission.pdfData) return
@@ -42,7 +50,7 @@ export default function EmailPreviewModal({
     setSending(true)
     setSendError(null)
     try {
-      await sendLotEmailNow({ submission, lot, bcc, subject, body })
+      await sendLotEmailNow({ submission, lot, bcc: bccList, subject, body })
       onSent(subject, body)
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Échec de l'envoi")
@@ -67,9 +75,13 @@ export default function EmailPreviewModal({
           <div className="md:w-1/2 p-4 overflow-y-auto space-y-3 border-b md:border-b-0 md:border-r border-slate-200">
             <div>
               <label className="label">Destinataires (Cci)</label>
-              <p className="text-sm text-slate-600 bg-slate-50 rounded px-2 py-1.5 break-words">
-                {bcc.join(', ') || 'Aucun destinataire sélectionné'}
-              </p>
+              <textarea
+                className="input h-16 text-sm"
+                placeholder="adresse@exemple.ch, autre@exemple.ch"
+                value={bccText}
+                onChange={(e) => setBccText(e.target.value)}
+              />
+              <p className="text-xs text-slate-400 mt-0.5">Séparez plusieurs adresses par une virgule.</p>
             </div>
             <div>
               <label className="label">Objet</label>
@@ -84,7 +96,7 @@ export default function EmailPreviewModal({
               />
             </div>
             {sendError && <p className="text-sm text-red-600">⚠ {sendError}</p>}
-            <button className="btn-primary w-full" disabled={sending || bcc.length === 0} onClick={handleSend}>
+            <button className="btn-primary w-full" disabled={sending || bccList.length === 0} onClick={handleSend}>
               🚀 {sending ? 'Envoi...' : 'Envoyer'}
             </button>
           </div>
