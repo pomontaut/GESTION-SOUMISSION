@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
-import { listSuppliers, saveSupplier } from '../storage'
+import { listSuppliers, saveLotSupplierLearning, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
@@ -329,11 +329,22 @@ function LotDetail({
   const [sendBusy, setSendBusy] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [sendOk, setSendOk] = useState(false)
+  const [manualSearch, setManualSearch] = useState('')
 
   const categoryMatches = useMemo(
     () => matchSuppliersForCategories(suppliers, lot.categories, lot.prestationType),
     [suppliers, lot.categories, lot.prestationType],
   )
+
+  // Independent of category matching, for when suggestCategories() missed or misfired and
+  // there's nothing to browse otherwise (search the whole base by name, not by category).
+  const manualMatches = useMemo(() => {
+    const q = manualSearch.trim().toLowerCase()
+    if (q.length < 2) return []
+    return suppliers
+      .filter((s) => s.name.toLowerCase().includes(q) && !lot.suppliers.some((x) => x.supplierId === s.id))
+      .slice(0, 8)
+  }, [manualSearch, suppliers, lot.suppliers])
 
   const lotZones = useMemo(
     () => submission.zones.filter((z) => lot.zoneIds.includes(z.id)),
@@ -359,9 +370,20 @@ function LotDetail({
     onChange({ categories: lot.categories.filter((x) => x !== c) })
   }
 
-  function addSupplierToLot(s: SupplierRecord) {
+  // `learn` records that this supplier belongs with this CFC/chapter (a national CAN code, not
+  // project-specific) for next time - reserved for the cases where a human had to step in
+  // because suggestCategories() missed or misfired, not for confirming an already-correct
+  // automatic suggestion (that would just add noise to the learned table).
+  function addSupplierToLot(s: SupplierRecord, learn = false) {
     if (lot.suppliers.some((x) => x.supplierId === s.id)) return
     onChange({ suppliers: [...lot.suppliers, { supplierId: s.id, name: s.name, email: s.email, status: 'valide' }] })
+    if (learn) {
+      saveLotSupplierLearning({ cfcCode: lot.cfcCode, chapterCode: lot.chapterCode, supplierId: s.id }).catch(
+        () => {
+          // best-effort memory - the supplier is added to the lot regardless of whether this succeeds
+        },
+      )
+    }
   }
 
   function removeSupplierFromLot(supplierId: string) {
@@ -373,7 +395,7 @@ function LotDetail({
     const record: SupplierRecord = { id: uid(), ...newSupplier, status: 'Actif / à confirmer' }
     await saveSupplier(record)
     onSuppliersChange([...suppliers, record])
-    addSupplierToLot(record)
+    addSupplierToLot(record, true)
     setNewSupplier({ name: '', email: '', category: '' })
   }
 
@@ -638,7 +660,41 @@ function LotDetail({
           </div>
         )}
 
-        <details className="mt-2">
+        <div className="mt-3">
+          <label className="label">Rechercher un fournisseur existant dans la base</label>
+          <input
+            className="input"
+            placeholder="Nom du fournisseur..."
+            value={manualSearch}
+            onChange={(e) => setManualSearch(e.target.value)}
+          />
+          {manualSearch.trim().length >= 2 &&
+            (manualMatches.length > 0 ? (
+              <div className="space-y-1.5 mt-2">
+                {manualMatches.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
+                    <span>
+                      <strong>{s.name}</strong> · {s.category}
+                      {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
+                    </span>
+                    <button
+                      className="btn-secondary !py-1"
+                      onClick={() => {
+                        addSupplierToLot(s, true)
+                        setManualSearch('')
+                      }}
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 mt-2">Aucun fournisseur trouvé pour « {manualSearch} ».</p>
+            ))}
+        </div>
+
+        <details className="mt-3">
           <summary className="cursor-pointer text-sm text-indigo-600">+ Ajouter un nouveau fournisseur à la base</summary>
           <div className="grid grid-cols-2 gap-3 mt-3">
             <input

@@ -1,4 +1,5 @@
 import type { Lot, SubmissionInfo, SupplierRecord } from '../types'
+import type { LotSupplierLearning } from '../storage'
 import { isSupplierActive, matchSuppliersForCategories } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 
@@ -9,13 +10,30 @@ import { buildLotEmail } from '../email/draftEmail'
  * drafts the group e-mail. Lots are still freely editable afterwards (add/remove a supplier,
  * rewrite the e-mail) - this just removes the mandatory manual pass for the common case where the
  * automatic match is already right.
+ *
+ * `learnings` are past manual supplier picks recorded per (CFC code, chapter code) - CAN codes
+ * are a national standard, not project-specific, so "chapter 172 under CFC 211.5" means the same
+ * thing on every submission. They're applied on top of the category match, not instead of it, so
+ * a chapter that categorize.ts still handles fine keeps working exactly as before.
  */
-export function runLotAgent(lots: Lot[], suppliers: SupplierRecord[], info: SubmissionInfo): Lot[] {
+export function runLotAgent(
+  lots: Lot[],
+  suppliers: SupplierRecord[],
+  info: SubmissionInfo,
+  learnings: LotSupplierLearning[] = [],
+): Lot[] {
+  const suppliersById = new Map(suppliers.map((s) => [s.id, s]))
   return lots.map((lot) => {
     const matches = matchSuppliersForCategories(suppliers, lot.categories, lot.prestationType).filter(
       isSupplierActive,
     )
-    const lotSuppliers = matches.map((s) => ({
+    const learnedMatches = learnings
+      .filter((l) => l.cfcCode === lot.cfcCode && l.chapterCode === lot.chapterCode)
+      .map((l) => suppliersById.get(l.supplierId))
+      .filter((s): s is SupplierRecord => s !== undefined)
+      .filter(isSupplierActive)
+    const allMatches = [...matches, ...learnedMatches.filter((s) => !matches.some((m) => m.id === s.id))]
+    const lotSuppliers = allMatches.map((s) => ({
       supplierId: s.id,
       name: s.name,
       email: s.email,

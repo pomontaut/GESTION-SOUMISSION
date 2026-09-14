@@ -3,7 +3,7 @@ import type { Submission, SubmissionInfo } from '../types'
 import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
-import { listSuppliers } from '../storage'
+import { listLotSupplierLearnings, listSuppliers } from '../storage'
 import { runLotAgent } from '../agent/runLotAgent'
 
 const CALCULATOR_CUSTOM = '__custom__'
@@ -63,8 +63,8 @@ export default function ExtractionTab({
       const result = hasText
         ? await analyzeSubmissionPdf(buffer)
         : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
-      const suppliers = await listSuppliers()
-      const lots = runLotAgent(result.lots, suppliers, submission.info)
+      const [suppliers, learnings] = await Promise.all([listSuppliers(), listLotSupplierLearnings()])
+      const lots = runLotAgent(result.lots, suppliers, submission.info, learnings)
       onUpdate({
         ...submission,
         name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),

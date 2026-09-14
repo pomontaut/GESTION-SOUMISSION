@@ -109,6 +109,32 @@ export async function deleteOfferFile(submissionId: string, fileId: string): Pro
   await assertOk(await fetch(`/api/submissions/${submissionId}/offers/${fileId}`, { method: 'DELETE' }))
 }
 
+export interface LotSupplierLearning {
+  cfcCode: string
+  chapterCode: string
+  supplierId: string
+}
+
+export async function listLotSupplierLearnings(): Promise<LotSupplierLearning[]> {
+  const res = await assertOk(await fetch('/api/learnings'))
+  return res.json()
+}
+
+/**
+ * Records that a supplier was manually attached to a lot for this CFC/chapter, so the next
+ * submission with the same (standardized) code proposes it automatically instead of relying
+ * only on suggestCategories, which can miss or misfire on some chapter titles.
+ */
+export async function saveLotSupplierLearning(entry: LotSupplierLearning): Promise<void> {
+  await assertOk(
+    await fetch('/api/learnings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    }),
+  )
+}
+
 export async function sendLotEmail(params: {
   bcc: string[]
   subject: string

@@ -41,5 +41,18 @@ export async function initSchema(): Promise<void> {
       file_data BYTEA NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    -- CFC/chapter codes are standardized by the CAN legend, not project-specific - "chapter 172
+    -- under CFC 211.5" means the same thing on every submission. Whenever a supplier is added by
+    -- hand to a lot (because automatic category/supplier matching missed it), we remember that
+    -- pairing here so the next submission with the same CFC+chapter proposes it automatically.
+    CREATE TABLE IF NOT EXISTS lot_supplier_learnings (
+      id TEXT PRIMARY KEY,
+      cfc_code TEXT NOT NULL,
+      chapter_code TEXT NOT NULL,
+      supplier_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (cfc_code, chapter_code, supplier_id)
+    );
   `)
 }
