@@ -4,6 +4,8 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
+import { sendLotEmailNow } from '../email/sendLotNow'
+import PdfPreviewModal from './PdfPreviewModal'
 
 export default function DashboardTab({
   submission,
@@ -15,6 +17,9 @@ export default function DashboardTab({
   onEditLot: (lotId: string) => void
 }) {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const [previewLot, setPreviewLot] = useState<Lot | null>(null)
+  const [sendingLotId, setSendingLotId] = useState<string | null>(null)
+  const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; error?: string }>>({})
 
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
@@ -57,6 +62,30 @@ export default function DashboardTab({
       // The reference is cleared locally regardless - a stray blob server-side isn't worth blocking on.
     }
     updateFollowUp(lotId, supplierId, { offerFileId: undefined, offerFileName: undefined })
+  }
+
+  // Sends a lot's already-prepared e-mail (subject/body/PDF set up by the agent at import time,
+  // or edited since via "Modifier fournisseurs / e-mail") straight from the dashboard - no extra
+  // screen to open when the automatic draft is already good to go.
+  async function sendLotNow(lot: Lot) {
+    const bcc = lot.suppliers.map((s) => s.email).filter(Boolean)
+    setSendingLotId(lot.id)
+    setSendResult((prev) => ({ ...prev, [lot.id]: { ok: false } }))
+    try {
+      await sendLotEmailNow({ submission, lot, bcc, subject: lot.emailSubject ?? '', body: lot.emailBody ?? '' })
+      setSendResult((prev) => ({ ...prev, [lot.id]: { ok: true } }))
+      const today = new Date().toISOString().slice(0, 10)
+      updateLot(lot.id, {
+        followUp: lot.followUp.map((f) => ({ ...f, status: 'envoye' as const, sentDate: f.sentDate ?? today })),
+      })
+    } catch (err) {
+      setSendResult((prev) => ({
+        ...prev,
+        [lot.id]: { ok: false, error: err instanceof Error ? err.message : "Échec de l'envoi" },
+      }))
+    } finally {
+      setSendingLotId(null)
+    }
   }
 
   // Flags lots the agent grouped together that actually mix distinct product categories - worth a
@@ -160,6 +189,14 @@ export default function DashboardTab({
         return (
         <div key={lot.id} className="card overflow-x-auto">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <button
+              title="Voir le PDF et la zone détectée pour ce lot"
+              className="text-slate-400 hover:text-indigo-600 text-lg leading-none"
+              onClick={() => setPreviewLot(lot)}
+              disabled={!submission.pdfData}
+            >
+              🔍
+            </button>
             <h3 className="font-semibold text-slate-800">
               CFC {lot.cfcCode} — {lot.title}
             </h3>
@@ -171,10 +208,27 @@ export default function DashboardTab({
               {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
-            <button className="btn-secondary !py-1 ml-auto" onClick={() => onEditLot(lot.id)}>
-              ✎ Modifier fournisseurs / e-mail
-            </button>
+            <div className="flex gap-2 ml-auto">
+              <button
+                className="btn-primary !py-1"
+                disabled={sendingLotId === lot.id || lot.suppliers.every((s) => !s.email) || !lot.emailSubject}
+                title={!lot.emailSubject ? "Aucun e-mail préparé pour ce lot" : undefined}
+                onClick={() => sendLotNow(lot)}
+              >
+                🚀 {sendingLotId === lot.id ? 'Envoi...' : 'Envoi'}
+              </button>
+              <button className="btn-secondary !py-1" onClick={() => onEditLot(lot.id)}>
+                ✎ Modifier fournisseurs / e-mail
+              </button>
+            </div>
           </div>
+
+          {sendResult[lot.id]?.ok && (
+            <p className="text-sm text-green-600 mb-3">✅ E-mail envoyé et suivi marqué "Envoyé".</p>
+          )}
+          {sendResult[lot.id]?.error && (
+            <p className="text-sm text-red-600 mb-3">⚠ {sendResult[lot.id].error}</p>
+          )}
 
           {heterogeneity && (
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
@@ -302,6 +356,10 @@ export default function DashboardTab({
         </div>
         )
       })}
+
+      {previewLot && submission.pdfData && (
+        <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
+      )}
     </div>
   )
 }
