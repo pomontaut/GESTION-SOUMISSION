@@ -141,13 +141,18 @@ interface ChapterKey {
   title: string
 }
 
-const NONDECIMAL_HEADER_RE = /^((?:R)?\d{2,4})\s+[A-ZÀ-Þ]/
+// "R" prefix tolerates an optional space before the digits ("R 433", "R 500") as well as the
+// glued form ("R592") - bureau Pillet SA (seen on "26-23 Rolliet A/B/C - BA", "2267 - CFC
+// 211.5-212-217...") writes the preparer's custom "R"-prefixed codes as two separate tokens.
+// Same semantic role either way; the code is normalised (space stripped) where it's captured
+// below, so "R 433" and "R433" share the same identity.
+const NONDECIMAL_HEADER_RE = /^((?:R\s?)?\d{2,4})\s+[A-ZÀ-Þ]/
 // Alternate header shape used by bureaux that give every code a decimal point ("1.00", "3.00")
 // instead of reserving the bare (no-dot) form for headers - see the file-header comment above.
-const HEADER_DOT_ZERO_RE = /^((?:R)?\d{1,4})\.00\s+[A-ZÀ-Þ]/
+const HEADER_DOT_ZERO_RE = /^((?:R\s?)?\d{1,4})\.00\s+[A-ZÀ-Þ]/
 // Prefix widened to 1-4 digits (some bureaux use "1.01" or "1110.101"); a bare ".00" suffix is
 // excluded because that's exactly the alternate header shape above, never a priced article.
-const DECIMAL_ARTICLE_RE = /^(?:R)?\d{1,4}\.(?!00\b)\d+\b/
+const DECIMAL_ARTICLE_RE = /^(?:R\s?)?\d{1,4}\.(?!00\b)\d+\b/
 // A priced row's Prix/Montant columns are printed blank (to be filled in by hand) as a long run
 // of dots - "................. ................." or "up = kg ... .......... .........." - the
 // one signal that survives even when the code itself is an orphan ".NNN" with no chapter prefix
@@ -338,6 +343,34 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     [...lineCounts.entries()].filter(([, count]) => count >= repeatThreshold).map(([text]) => text),
   )
 
+  // Whole-document count of "R"-prefixed vs. bare-numeric header-shaped lines, used below to
+  // decide whether "R"-prefixed lines should be excluded from a page's margin vote (marginX). In
+  // every bureau confirmed so far (Biopole, HEP, Soum IC, OMB Prilly, 26-47...), "R"-prefixed
+  // codes are the rare, preparer-added extra sitting a few points to the LEFT of that bureau's
+  // real header column (e.g. "R 229 Ensemble des places..." at x=18.8 vs. the native "220 Places,
+  // surfaces de dépôt" at x=31.3 a few lines above on "Soum IC") - if included in the margin vote,
+  // marginX collapses to that leftward offset and breaks the alignment check for every real
+  // (non-"R") header on the page. But bureau Pillet SA (seen on "26-23 Rolliet A/B/C - BA" and
+  // "2267 - CFC 211.5...") writes essentially EVERY header/article in the whole document with the
+  // "R" prefix - there is no separate "native" column to fall back on, so excluding "R" lines
+  // there leaves only indented description/continuation text as margin candidates, which collapses
+  // the whole document into one lot. The one signal that tells the two situations apart without
+  // guessing per-page is document-wide volume: a bureau where "R" is a rare add-on has far more
+  // bare-numeric headers than "R"-prefixed ones; a bureau where "R" is the norm has the opposite
+  // ratio (confirmed 128 "R" vs 10 bare on Rolliet A, versus e.g. 20 "R" vs 253 bare on Biopole).
+  let rHeaderCount = 0
+  let bareHeaderCount = 0
+  for (const lines of pageAllLines.values()) {
+    for (const l of lines) {
+      if (l.y >= 775) continue
+      const m = l.text.match(NONDECIMAL_HEADER_RE) ?? l.text.match(HEADER_DOT_ZERO_RE)
+      if (!m) continue
+      if (/^R/.test(m[1])) rHeaderCount++
+      else bareHeaderCount++
+    }
+  }
+  const rHeadersAreTheNorm = rHeaderCount > 0 && rHeaderCount > bareHeaderCount
+
   let prevPageLastLine: string | null = null
   let currentKey: ChapterKey | null = null
   let currentRoundKey: ChapterKey | null = null
@@ -379,8 +412,12 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     // the "Pos. ..." table banner, so once that banner's y is known, nothing real ever appears
     // higher up on the same page. Anchoring marginX to below it sidesteps the wording entirely.
     const columnHeaderY = lines.find((l) => COLUMN_HEADER_RE.test(l.text))?.y
+    // Only exclude "R"-something lines from the margin vote when this document's "R" prefix is
+    // the rare preparer add-on (see rHeadersAreTheNorm above) - for a Pillet SA document where "R"
+    // is used on essentially every header/article, keeping the exclusion would leave only indented
+    // description lines as margin candidates, which is wrong.
     const marginCandidates = bodyLines.filter(
-      (l) => !/^R\b/.test(l.text) && (columnHeaderY === undefined || l.y < columnHeaderY),
+      (l) => (rHeadersAreTheNorm || !/^R\b/.test(l.text)) && (columnHeaderY === undefined || l.y < columnHeaderY),
     )
     const marginX = marginCandidates.length ? Math.min(...marginCandidates.map((l) => l.xStart)) : null
 
@@ -399,7 +436,9 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         // is a priced position wearing a header's clothing, not a real header - some bureaux use
         // the exact same shape (no decimal, same margin) for both. A genuine header never has one.
         if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6 && !QUANTITY_UNIT_RE.test(line.text)) {
-          const code = m[1]
+          // Normalise "R 433" -> "R433" so the space-separated convention groups under the same
+          // code identity as the glued one used elsewhere ("R592").
+          const code = m[1].replace(/\s+/g, '')
           const title = line.text.slice(m[0].length - 1).trim()
           currentKey = { code, title }
           if (Number(code.replace(/^R/, '')) % 100 === 0) currentRoundKey = { code, title }
