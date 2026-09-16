@@ -4,6 +4,7 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
+import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import PdfPreviewModal from './PdfPreviewModal'
 
 export default function DashboardTab({
@@ -17,6 +18,7 @@ export default function DashboardTab({
 }) {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
+  const [generatingTcoId, setGeneratingTcoId] = useState<string | null>(null)
 
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
@@ -111,6 +113,18 @@ export default function DashboardTab({
     downloadBlob(csv, `${submission.info.projectName || 'soumission'}-suivi.csv`, 'text/csv')
   }
 
+  async function handleGenerateTco(lot: Lot) {
+    setGeneratingTcoId(lot.id)
+    try {
+      const blob = await generateTcoWorkbook(lot, submission)
+      downloadBlobFile(blob, tcoFilename(lot))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Échec de la génération du TCO')
+    } finally {
+      setGeneratingTcoId(null)
+    }
+  }
+
   function exportJson() {
     const { pdfData: _pdfData, ...rest } = submission
     downloadBlob(JSON.stringify(rest, null, 2), `${submission.info.projectName || 'soumission'}.json`, 'application/json')
@@ -181,9 +195,19 @@ export default function DashboardTab({
               {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
-            <button className="btn-secondary !py-1 ml-auto" onClick={() => onEditLot(lot.id)}>
-              ✎ Modifier fournisseurs / e-mail
-            </button>
+            <div className="flex gap-2 ml-auto">
+              <button
+                className="btn-secondary !py-1"
+                disabled={lot.followUp.length === 0 || generatingTcoId === lot.id}
+                title={lot.followUp.length === 0 ? 'Aucun fournisseur à comparer pour ce lot' : undefined}
+                onClick={() => handleGenerateTco(lot)}
+              >
+                📊 {generatingTcoId === lot.id ? 'Génération...' : 'Générer un TCO'}
+              </button>
+              <button className="btn-secondary !py-1" onClick={() => onEditLot(lot.id)}>
+                ✎ Modifier fournisseurs / e-mail
+              </button>
+            </div>
           </div>
 
           {heterogeneity && (
@@ -398,7 +422,10 @@ function OfferDropCell({
 }
 
 function downloadBlob(content: string, filename: string, type: string) {
-  const blob = new Blob([content], { type })
+  downloadBlobFile(new Blob([content], { type }), filename)
+}
+
+function downloadBlobFile(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
