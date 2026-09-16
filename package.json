@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:server": "tsx watch server/src/index.ts",
     "dev:all": "concurrently -n web,api -c blue,green \"npm:dev\" \"npm:dev:server\"",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:server",
     "build:server": "tsc -p server/tsconfig.json && cp server/package.json server-dist/package.json",
     "start": "node server-dist/index.js",
     "preview": "vite preview",
