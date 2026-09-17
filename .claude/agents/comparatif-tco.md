@@ -174,6 +174,22 @@ Le TCO produit par Claude.ai (fichier `TCO_HT_HGC_vs_LAMI_21012336.xlsx` fourni 
 
 **Point à retenir pour toute évolution future de cette fonctionnalité** : ne jamais revenir à une conception qui ne fait raisonner l'IA que sur des champs résumés/tapés à la main quand le document source existe déjà dans l'app (`offerFileId`) - c'est précisément ce qui bridait la qualité avant ce correctif, et rien dans le prompt ou la mémoire de ce fichier ne pouvait compenser l'absence du document lui-même.
 
+## Bug résolu (17.09.2026) : "Réponse vide/coupée" sur les lots à plusieurs fournisseurs - le vrai coupable était le "thinking" par défaut, pas `max_tokens` en absolu
+
+Après le correctif multimodal ci-dessus, un cas réel en production ("511 Aciers d'armature", CFC 211.5, **5 fournisseurs** avec chacun un vrai PDF joint) échouait systématiquement avec "Réponse vide du modèle", puis après une première tentative de correction (augmenter `max_tokens` avec le nombre de documents, jusqu'à 16000) avec "Réponse du modèle coupée". Le vrai diagnostic n'est apparu qu'en loggant la réponse brute de l'API sur ce cas précis :
+
+```json
+"content": [{"type": "thinking", "thinking": "", "signature": "..."}],
+"stop_reason": "max_tokens",
+"usage": {"output_tokens": 6000, "output_tokens_details": {"thinking_tokens": 6000}}
+```
+
+Le modèle avait consommé la **totalité** du budget de sortie (6000 tokens, la moitié du `max_tokens: 12000` envoyé pour 5 documents) dans un bloc `thinking` interne, sans écrire le moindre caractère de la réponse JSON attendue. `claude-sonnet-5` raisonne par défaut avant de répondre, et ce raisonnement partage le même budget `max_tokens` que la réponse finale - avec 5 vrais PDF à lire/apparier/comparer, le modèle a besoin de "réfléchir" longuement, et sur ce cas précis la réflexion à elle seule a épuisé le budget avant même de commencer à écrire le JSON. Augmenter encore `max_tokens` sans toucher au `thinking` n'aurait fait que repousser le problème (le raisonnement se serait simplement étendu d'autant), jamais vraiment corrigé.
+
+**Correctif appliqué** (`server/src/anthropic.ts`, commit `05b873b`) : ajout de `thinking: { type: 'disabled' }` dans le corps de la requête. Cet appel ne produit qu'un objet JSON structuré, jamais un raisonnement destiné à être lu - désactiver le thinking garantit que tout le budget `max_tokens` va à la réponse elle-même.
+
+**Point à retenir pour toute évolution future touchant `generateTcoAnalysis`** : si un "Réponse vide/coupée du modèle" réapparaît malgré `thinking: {type: 'disabled'}`, le diagnostic correct est de logger et lire `stop_reason` + `usage.output_tokens_details` de la réponse brute avant de simplement remonter `max_tokens` au hasard - un budget de sortie qui semble généreux en absolu peut être entièrement absorbé par un mécanisme invisible (thinking, ou un futur équivalent) plutôt que par la vraie taille de la réponse utile. Ne jamais traiter "augmenter le chiffre" comme LE correctif sans avoir d'abord confirmé, depuis la réponse brute, où les tokens sont réellement partis.
+
 ## Méthode de travail
 
 1. Pour étudier un fichier Excel réel, utilise Python (`openpyxl`, déjà utilisé pour parser les Grilles de suivi sur ce projet) plutôt que de deviner depuis un simple `unzip`/aperçu - lis les cellules, les formules, la mise en forme conditionnelle (couleurs de fond signalant souvent le moins-disant ou le retenu), les en-têtes de colonnes exacts, les totaux/sous-totaux.
