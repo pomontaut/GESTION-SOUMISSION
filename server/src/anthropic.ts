@@ -163,7 +163,12 @@ export async function generateTcoAnalysis(params: {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: hasDocuments ? 4096 : 1500,
+      // Reading several real offer documents and extracting/matching every line item across all
+      // of them (5 fournisseurs confirmed to genuinely need this in production) produces a much
+      // longer JSON response than a short note - 4096 was cutting the response off before any
+      // complete text block came out, surfacing as a misleading "Réponse vide du modèle" rather
+      // than a token-limit error. Scale the budget with how many documents are actually attached.
+      max_tokens: hasDocuments ? Math.min(2000 + (params.offerDocuments?.length ?? 0) * 2000, 16000) : 1500,
       system,
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -172,14 +177,24 @@ export async function generateTcoAnalysis(params: {
     const body = await res.text()
     throw new Error(`Échec de la génération de l'analyse (${res.status}) : ${body}`)
   }
-  const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> }
+  const data = (await res.json()) as {
+    content?: Array<{ type?: string; text?: string }>
+    stop_reason?: string
+  }
   // Don't assume content[0] is the text block - a "thinking" block (or any other block type) can
   // come first in the array, which silently produced an empty note before this fix.
   const textBlock = data.content?.find((block) => block.type === 'text' && block.text)
   const text = textBlock?.text
   if (!text) {
-    console.error('generateTcoAnalysis: pas de bloc texte dans la réponse Claude', JSON.stringify(data))
-    throw new Error('Réponse vide du modèle')
+    console.error(
+      `generateTcoAnalysis: pas de bloc texte dans la réponse Claude (stop_reason=${data.stop_reason})`,
+      JSON.stringify(data),
+    )
+    throw new Error(
+      data.stop_reason === 'max_tokens'
+        ? 'Réponse du modèle coupée (trop de contenu à traiter pour ce lot) - réessayez ou réduisez le nombre de documents joints'
+        : 'Réponse vide du modèle',
+    )
   }
 
   const cleaned = text
@@ -190,8 +205,15 @@ export async function generateTcoAnalysis(params: {
   try {
     parsed = JSON.parse(cleaned)
   } catch {
-    console.error('generateTcoAnalysis: JSON invalide reçu du modèle', text)
-    throw new Error('Réponse JSON invalide du modèle')
+    console.error(
+      `generateTcoAnalysis: JSON invalide reçu du modèle (stop_reason=${data.stop_reason})`,
+      text,
+    )
+    throw new Error(
+      data.stop_reason === 'max_tokens'
+        ? 'Réponse du modèle coupée (trop de contenu à traiter pour ce lot) - réessayez ou réduisez le nombre de documents joints'
+        : 'Réponse JSON invalide du modèle',
+    )
   }
   const obj = parsed as { note?: unknown; technical?: unknown; offersComparison?: unknown }
   const note = typeof obj.note === 'string' ? obj.note.trim() : ''
