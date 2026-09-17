@@ -98,9 +98,15 @@ export async function generateTcoAnalysis(params: {
     const body = await res.text()
     throw new Error(`Échec de la génération de l'analyse (${res.status}) : ${body}`)
   }
-  const data = (await res.json()) as { content?: Array<{ text?: string }> }
-  const text = data.content?.[0]?.text
-  if (!text) throw new Error('Réponse vide du modèle')
+  const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> }
+  // Don't assume content[0] is the text block - a "thinking" block (or any other block type) can
+  // come first in the array, which silently produced an empty note before this fix.
+  const textBlock = data.content?.find((block) => block.type === 'text' && block.text)
+  const text = textBlock?.text
+  if (!text) {
+    console.error('generateTcoAnalysis: pas de bloc texte dans la réponse Claude', JSON.stringify(data))
+    throw new Error('Réponse vide du modèle')
+  }
 
   const cleaned = text
     .trim()
@@ -110,6 +116,7 @@ export async function generateTcoAnalysis(params: {
   try {
     parsed = JSON.parse(cleaned)
   } catch {
+    console.error('generateTcoAnalysis: JSON invalide reçu du modèle', text)
     throw new Error('Réponse JSON invalide du modèle')
   }
   const obj = parsed as { note?: unknown; technical?: unknown }
