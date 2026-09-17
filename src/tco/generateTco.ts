@@ -20,11 +20,23 @@ function formatAmount(n: number): string {
   return n.toLocaleString('fr-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// Best-effort: the AI-drafted "Note acheteur" is a bonus on top of the deterministic tabular
-// comparatif above, never a requirement for it. If the API key isn't configured, the call fails,
-// or the server is unreachable, the workbook still generates correctly without this section -
-// just surfaced as a one-line note in the sheet itself, so the gap isn't silently invisible.
-async function fetchTcoNote(lot: Lot, submission: Submission): Promise<string | null> {
+interface TcoTechnicalCriterion {
+  criterion: string
+  values: Record<string, string>
+  analysis?: string
+}
+
+interface TcoAnalysisResult {
+  note: string | null
+  technical: TcoTechnicalCriterion[]
+}
+
+// Best-effort: the AI-drafted note and technical comparison are a bonus on top of the
+// deterministic tabular comparatif above, never a requirement for it. If the API key isn't
+// configured, the call fails, or the server is unreachable, the workbook still generates
+// correctly without this section - just surfaced as a one-line note in the sheet itself, so the
+// gap isn't silently invisible.
+async function fetchTcoAnalysis(lot: Lot, submission: Submission): Promise<TcoAnalysisResult> {
   try {
     const res = await fetch('/api/tco/analyze', {
       method: 'POST',
@@ -40,17 +52,34 @@ async function fetchTcoNote(lot: Lot, submission: Submission): Promise<string | 
           conforme: f.conforme,
           notes: f.notes,
           retained: f.retained,
+          deliveryTime: f.deliveryTime,
+          offerValidUntil: f.offerValidUntil,
+          paymentTerms: f.paymentTerms,
+          nonConformityReason: f.nonConformityReason,
+        })),
+        positions: lot.positions?.map((p) => ({
+          code: p.code,
+          title: p.title,
+          prices: Object.fromEntries(
+            Object.entries(p.prices).map(([supplierId, amount]) => [
+              lot.followUp.find((f) => f.supplierId === supplierId)?.name ?? supplierId,
+              amount,
+            ]),
+          ),
         })),
       }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => null)
-      return `Note IA indisponible (${body?.error ?? res.status}).`
+      return { note: `Note IA indisponible (${body?.error ?? res.status}).`, technical: [] }
     }
     const data = await res.json()
-    return typeof data.note === 'string' ? data.note : null
+    return {
+      note: typeof data.note === 'string' ? data.note : null,
+      technical: Array.isArray(data.technical) ? data.technical : [],
+    }
   } catch {
-    return 'Note IA indisponible (serveur injoignable).'
+    return { note: 'Note IA indisponible (serveur injoignable).', technical: [] }
   }
 }
 
@@ -85,6 +114,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
 
   sheet.getColumn(1).width = 26
   for (let i = 2; i <= colCount; i++) sheet.getColumn(i).width = 22
+  sheet.getColumn(colCount + 1).width = 40 // "Analyse / Recommandation" column of the technical section, if any
 
   sheet.mergeCells(1, 1, 1, colCount)
   const titleCell = sheet.getCell(1, 1)
@@ -143,15 +173,27 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     (f, i) => (amounts[i] !== null ? formatAmount(amounts[i]!) : f.offeredAmount || '—'),
     (_f, i) => (amounts[i] !== null && minAmount !== null && amounts[i] === minAmount ? 'lowest' : undefined),
   )
-  addRow('Écart vs. moins-disant', (_f, i) => {
+  addRow('Écart vs. moins-disant (%)', (_f, i) => {
     if (amounts[i] === null || minAmount === null) return '—'
     if (amounts[i] === minAmount) return 'Moins-disant'
     const pct = ((amounts[i]! - minAmount) / minAmount) * 100
     return `+${pct.toFixed(1)}%`
   })
+  addRow('Écart vs. moins-disant (CHF HT)', (_f, i) => {
+    if (amounts[i] === null || minAmount === null) return '—'
+    if (amounts[i] === minAmount) return '—'
+    return `+${formatAmount(amounts[i]! - minAmount)}`
+  })
+  addRow('Délai', (f) => f.deliveryTime || '—')
+  addRow('Validité offre', (f) => {
+    if (!f.offerValidUntil) return '—'
+    const expired = new Date(f.offerValidUntil) < new Date()
+    return expired ? `${f.offerValidUntil} ⚠ expirée` : f.offerValidUntil
+  })
+  addRow('Conditions de paiement', (f) => f.paymentTerms || '—')
   addRow(
     'Conforme',
-    (f) => (f.conforme ? 'Oui' : 'Non'),
+    (f) => (f.conforme ? 'Oui' : `Non${f.nonConformityReason ? ` — ${f.nonConformityReason}` : ''}`),
     (f) => (f.conforme ? undefined : 'nonconforme'),
   )
   addRow('Date de retour', (f) => f.returnDate || '—')
@@ -182,7 +224,120 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   }
   r++
 
-  const note = await fetchTcoNote(lot, submission)
+  if (lot.positions && lot.positions.length > 0) {
+    r++
+    const posColCount = suppliers.length + 2
+    sheet.mergeCells(r, 1, r, Math.max(colCount, posColCount))
+    const posTitleCell = sheet.getCell(r, 1)
+    posTitleCell.value = 'Comparatif par article CAN'
+    posTitleCell.font = { bold: true, size: 12 }
+    r++
+
+    const posHeaderRow = sheet.getRow(r)
+    posHeaderRow.getCell(1).value = 'Code'
+    posHeaderRow.getCell(2).value = 'Désignation'
+    suppliers.forEach((f, i) => {
+      posHeaderRow.getCell(i + 3).value = f.name
+    })
+    posHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    })
+    r++
+
+    const supplierTotals = new Array(suppliers.length).fill(0)
+    const pricedCount = new Array(suppliers.length).fill(0)
+
+    for (const pos of lot.positions) {
+      const row = sheet.getRow(r)
+      row.getCell(1).value = pos.code || '—'
+      row.getCell(2).value = pos.title || '—'
+      const rowAmounts = suppliers.map((f) => parseAmount(pos.prices[f.supplierId]))
+      const rowValid = rowAmounts.filter((a): a is number => a !== null)
+      const rowMin = rowValid.length ? Math.min(...rowValid) : null
+      suppliers.forEach((f, i) => {
+        const cell = row.getCell(i + 3)
+        const amt = rowAmounts[i]
+        cell.value = amt !== null ? formatAmount(amt) : pos.prices[f.supplierId] || '—'
+        cell.alignment = { horizontal: 'center' }
+        if (amt !== null) {
+          supplierTotals[i] += amt
+          pricedCount[i]++
+          if (rowMin !== null && amt === rowMin) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LOWEST_FILL } }
+            cell.font = { bold: true }
+          }
+        }
+      })
+      r++
+    }
+
+    const totalRow = sheet.getRow(r)
+    totalRow.getCell(1).value = 'Total'
+    totalRow.getCell(1).font = { bold: true }
+    totalRow.getCell(2).value = `${lot.positions.length} article(s)`
+    const completeTotals = suppliers
+      .map((_, i) => (pricedCount[i] === lot.positions!.length ? supplierTotals[i] : null))
+      .filter((v): v is number => v !== null)
+    const minTotal = completeTotals.length ? Math.min(...completeTotals) : null
+    suppliers.forEach((f, i) => {
+      const cell = totalRow.getCell(i + 3)
+      const complete = pricedCount[i] === lot.positions!.length
+      cell.value = complete
+        ? `${formatAmount(supplierTotals[i])} HT`
+        : pricedCount[i] > 0
+          ? `${formatAmount(supplierTotals[i])} HT (partiel, ${pricedCount[i]}/${lot.positions!.length})`
+          : '—'
+      cell.font = { bold: true }
+      cell.alignment = { horizontal: 'center', wrapText: true }
+      if (complete && minTotal !== null && supplierTotals[i] === minTotal) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LOWEST_FILL } }
+      }
+    })
+    r++
+  }
+
+  const { note, technical } = await fetchTcoAnalysis(lot, submission)
+
+  if (technical.length > 0) {
+    r++
+    sheet.mergeCells(r, 1, r, colCount + 1)
+    const techTitleCell = sheet.getCell(r, 1)
+    techTitleCell.value = 'Comparatif technique'
+    techTitleCell.font = { bold: true, size: 12 }
+    r++
+
+    const techHeaderRow = sheet.getRow(r)
+    techHeaderRow.getCell(1).value = 'Critère'
+    suppliers.forEach((f, i) => {
+      techHeaderRow.getCell(i + 2).value = f.name
+    })
+    techHeaderRow.getCell(colCount + 1).value = 'Analyse / Recommandation'
+    techHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    })
+    r++
+
+    for (const tech of technical) {
+      const row = sheet.getRow(r)
+      row.getCell(1).value = tech.criterion
+      row.getCell(1).font = { bold: true }
+      row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LABEL_FILL } }
+      suppliers.forEach((f, i) => {
+        const cell = row.getCell(i + 2)
+        cell.value = tech.values[f.name] ?? 'non précisé'
+        cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true }
+      })
+      const analysisCell = row.getCell(colCount + 1)
+      analysisCell.value = tech.analysis || '—'
+      analysisCell.alignment = { wrapText: true, vertical: 'top' }
+      r++
+    }
+  }
+
   if (note) {
     r++
     sheet.mergeCells(r, 1, r, colCount)

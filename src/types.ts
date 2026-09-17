@@ -79,6 +79,24 @@ export interface FollowUpEntry {
   offerFileName?: string
   offerFileId?: string
   retained: boolean
+  // Minimal structured fields confirmed recurring across nearly every real comparatif studied
+  // (see .claude/agents/comparatif-tco.md) - short free strings, not controlled dropdowns, since
+  // the real corpus uses too many different units/formats (weeks, dates, %/days, one-line
+  // motives) for a controlled field to fit without becoming friction or too restrictive.
+  deliveryTime?: string // "8 semaines" / "12.11.2026"
+  offerValidUntil?: string // date - lets the generated TCO flag an offer that's already expired
+  paymentTerms?: string // "30 jours net" / "40/50/10%"
+  nonConformityReason?: string // shown only when conforme === false
+}
+
+/** One CAN métré article/position within a lot, priced per fournisseur - no supplier sends this
+ *  back in a common structured format, so it's entered by hand (see ValidationTab/DashboardTab)
+ *  rather than extracted automatically, unlike the single lump `offeredAmount` in FollowUpEntry. */
+export interface LotPosition {
+  id: string
+  code: string // e.g. "541.201"
+  title: string
+  prices: Record<string, string> // supplierId -> amount (HT, free text like the other CHF fields)
 }
 
 export interface Lot {
@@ -97,6 +115,7 @@ export interface Lot {
   categories: string[]
   suppliers: SupplierAssignment[]
   followUp: FollowUpEntry[]
+  positions?: LotPosition[]
   emailSubject?: string
   emailBody?: string
   emailGeneratedAt?: string

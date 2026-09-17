@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import type { FollowUpEntry, Lot, Submission } from '../types'
+import type { FollowUpEntry, Lot, LotPosition, Submission } from '../types'
 import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
@@ -239,6 +239,9 @@ export default function DashboardTab({
                   <th className="py-1.5 pr-2">Offre reçue</th>
                   <th className="py-1.5 pr-2">Montant estimé (HT)</th>
                   <th className="py-1.5 pr-2">Montant offert (HT)</th>
+                  <th className="py-1.5 pr-2">Délai</th>
+                  <th className="py-1.5 pr-2">Validité offre</th>
+                  <th className="py-1.5 pr-2">Conditions paiement</th>
                   <th className="py-1.5 pr-2">Conforme</th>
                   <th className="py-1.5 pr-2">Date retour</th>
                   <th className="py-1.5 pr-2">Notes</th>
@@ -300,12 +303,44 @@ export default function DashboardTab({
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { offeredAmount: e.target.value })}
                       />
                     </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        className="input !py-1 w-24"
+                        placeholder="8 semaines"
+                        value={f.deliveryTime ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { deliveryTime: e.target.value })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        type="date"
+                        className="input !py-1"
+                        value={f.offerValidUntil ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { offerValidUntil: e.target.value })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        className="input !py-1 w-28"
+                        placeholder="30 jours net"
+                        value={f.paymentTerms ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { paymentTerms: e.target.value })}
+                      />
+                    </td>
                     <td className="py-1.5 pr-2 text-center">
                       <input
                         type="checkbox"
                         checked={f.conforme}
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { conforme: e.target.checked })}
                       />
+                      {!f.conforme && (
+                        <input
+                          className="input !py-1 w-28 mt-1"
+                          placeholder="Motif"
+                          value={f.nonConformityReason ?? ''}
+                          onChange={(e) => updateFollowUp(lot.id, f.supplierId, { nonConformityReason: e.target.value })}
+                        />
+                      )}
                     </td>
                     <td className="py-1.5 pr-2">
                       <input
@@ -335,6 +370,8 @@ export default function DashboardTab({
               </tbody>
             </table>
           )}
+
+          {lot.followUp.length > 0 && <PositionsGrid lot={lot} onUpdate={(patch) => updateLot(lot.id, patch)} />}
         </div>
         )
       })}
@@ -434,6 +471,94 @@ function downloadBlobFile(blob: Blob, filename: string) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// Per-CAN-article price grid (see types.ts Lot.positions) - no supplier returns this in a common
+// structured format, so it's entered by hand here rather than extracted automatically, unlike the
+// single lump "Montant offert" above. Collapsed by default since most lots won't need this level
+// of detail; useful when the lump-sum totals alone don't explain why offers differ.
+function PositionsGrid({ lot, onUpdate }: { lot: Lot; onUpdate: (patch: Partial<Lot>) => void }) {
+  const positions = lot.positions ?? []
+
+  function addPosition() {
+    onUpdate({ positions: [...positions, { id: uid(), code: '', title: '', prices: {} }] })
+  }
+  function updatePosition(id: string, patch: Partial<LotPosition>) {
+    onUpdate({ positions: positions.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+  }
+  function removePosition(id: string) {
+    onUpdate({ positions: positions.filter((p) => p.id !== id) })
+  }
+  function updatePrice(posId: string, supplierId: string, amount: string) {
+    onUpdate({
+      positions: positions.map((p) =>
+        p.id === posId ? { ...p, prices: { ...p.prices, [supplierId]: amount } } : p,
+      ),
+    })
+  }
+
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer text-sm text-slate-500 hover:text-indigo-600">
+        📐 Comparatif par article CAN {positions.length > 0 ? `(${positions.length})` : ''}
+      </summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="text-sm min-w-[600px]">
+          <thead>
+            <tr className="text-left text-slate-500 border-b border-slate-200">
+              <th className="py-1 pr-2">Code</th>
+              <th className="py-1 pr-2">Désignation</th>
+              {lot.followUp.map((f) => (
+                <th key={f.supplierId} className="py-1 pr-2">
+                  {f.name}
+                </th>
+              ))}
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((p) => (
+              <tr key={p.id} className="border-b border-slate-100">
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-20"
+                    placeholder="541.201"
+                    value={p.code}
+                    onChange={(e) => updatePosition(p.id, { code: e.target.value })}
+                  />
+                </td>
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-40"
+                    value={p.title}
+                    onChange={(e) => updatePosition(p.id, { title: e.target.value })}
+                  />
+                </td>
+                {lot.followUp.map((f) => (
+                  <td key={f.supplierId} className="py-1 pr-2">
+                    <input
+                      className="input !py-1 w-24"
+                      placeholder="CHF HT"
+                      value={p.prices[f.supplierId] ?? ''}
+                      onChange={(e) => updatePrice(p.id, f.supplierId, e.target.value)}
+                    />
+                  </td>
+                ))}
+                <td>
+                  <button onClick={() => removePosition(p.id)} className="text-slate-400 hover:text-red-600">
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button className="btn-secondary !py-1 mt-2" onClick={addPosition}>
+          + Ajouter un article
+        </button>
+      </div>
+    </details>
+  )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
