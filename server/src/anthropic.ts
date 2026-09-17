@@ -169,6 +169,14 @@ export async function generateTcoAnalysis(params: {
       // complete text block came out, surfacing as a misleading "Réponse vide du modèle" rather
       // than a token-limit error. Scale the budget with how many documents are actually attached.
       max_tokens: hasDocuments ? Math.min(2000 + (params.offerDocuments?.length ?? 0) * 2000, 16000) : 1500,
+      // Without this, claude-sonnet-5 reasons in an internal "thinking" block by default before
+      // writing the answer, and that reasoning shares the same max_tokens budget as the answer
+      // itself - confirmed on a real 5-fournisseur/5-document lot where the model spent the
+      // *entire* budget thinking (stop_reason "max_tokens", output_tokens_details.thinking_tokens
+      // equal to the whole cap) and produced zero characters of the actual JSON answer. This call
+      // only ever needs the final structured JSON, never a visible chain of thought, so disabling
+      // thinking guarantees the whole budget goes to the answer.
+      thinking: { type: 'disabled' },
       system,
       messages: [{ role: 'user', content: userContent }],
     }),
