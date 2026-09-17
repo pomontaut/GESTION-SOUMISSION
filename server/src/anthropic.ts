@@ -17,6 +17,7 @@ function loadComparatifMemory(): string {
 
 export interface TcoSupplierInput {
   name: string
+  offerFileId?: string
   estimatedAmount?: string
   offeredAmount?: string
   conforme: boolean
@@ -28,30 +29,66 @@ export interface TcoSupplierInput {
   nonConformityReason?: string
 }
 
+/** A supplier's own uploaded offer file (PDF or image), read as base64 - passed to Claude as a
+ *  real document/image content block so it can extract line items itself, the same way a plain
+ *  Claude.ai chat reads an uploaded PDF directly instead of only seeing a hand-typed summary. */
+export interface TcoOfferDocument {
+  supplierName: string
+  mediaType: string
+  base64: string
+}
+
 export interface TcoTechnicalCriterion {
   criterion: string
   values: Record<string, string>
   analysis?: string
 }
 
+export interface TcoOfferLineValue {
+  unitPrice?: string
+  currency?: string
+  amount?: string
+  matchStatus: 'exact' | 'assumed' | 'none'
+  note?: string
+}
+
+export interface TcoOfferLine {
+  label: string
+  quantity?: string
+  unit?: string
+  values: Record<string, TcoOfferLineValue>
+}
+
+/** Only produced when at least one offer document was attached and readable - a line-by-line
+ *  match across the fournisseurs' own offers, extracted directly from the documents rather than
+ *  from hand-typed summary fields. See comparatif-tco.md for why transparency about assumed
+ *  matches/exchange rates matters as much as the numbers themselves. */
+export interface TcoOffersComparison {
+  lines: TcoOfferLine[]
+  exchangeRates: Record<string, number>
+  assumptions: string[]
+}
+
 export interface TcoAnalysis {
   note: string
   technical: TcoTechnicalCriterion[]
+  offersComparison?: TcoOffersComparison
 }
 
 /**
- * Drafts the "Note acheteur" and, when the fournisseurs' free-text notes actually contain
- * technical substance, a structured "Comparatif technique" (one row per criterion actually
- * mentioned, one column per fournisseur) - by asking Claude to reason like the professional buyer
- * whose real comparatifs were studied to build `comparatif-tco.md`. That memory (structures,
- * recurring criteria, how technical criteria are extracted and separated from price in the real
- * corpus) is included verbatim as system context on every call, never summarised or baked in
- * ahead of time, so quality tracks whatever that memory currently knows.
+ * Drafts the "Note acheteur", a "Comparatif technique" when fournisseur notes carry technical
+ * substance, and - when actual offer documents are attached - a full line-by-line
+ * "offersComparison" extracted directly from those documents, by asking Claude to reason like the
+ * professional buyer whose real comparatifs were studied to build `comparatif-tco.md`. That memory
+ * is included verbatim as system context on every call, never summarised or baked in ahead of
+ * time, so quality tracks whatever that memory currently knows.
  *
- * Per that memory's explicit recommendation: there is no fixed universal set of technical fields
- * across trades (a caniveau's EN124 load class has nothing in common with a fenêtre's Ug/Uf/Uw
- * coefficients) - so the technical criteria are extracted dynamically from what's actually present
- * in this lot's supplier notes, never a fixed list, and never invented when notes are thin/absent.
+ * The offer documents are the key difference from earlier versions of this function: previously
+ * the model only ever saw hand-typed summary fields (a single lump `offeredAmount` per fournisseur)
+ * - it could comment on them but never actually read a fournisseur's own PDF, match its line items
+ * against another fournisseur's differently-formatted offer, or catch a currency it needs to
+ * convert. Passing the real documents through (as `document`/`image` content blocks, exactly what
+ * a plain Claude.ai chat does when a PDF is uploaded directly) closes that gap.
  */
 export async function generateTcoAnalysis(params: {
   lotTitle: string
@@ -59,26 +96,63 @@ export async function generateTcoAnalysis(params: {
   projectName: string
   suppliers: TcoSupplierInput[]
   positions?: Array<{ code: string; title: string; quantity?: string; unit?: string; unitPrices: Record<string, string> }>
+  offerDocuments?: TcoOfferDocument[]
 }): Promise<TcoAnalysis> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY n'est pas configurée sur le serveur")
   }
 
+  const hasDocuments = (params.offerDocuments?.length ?? 0) > 0
   const memory = loadComparatifMemory()
   const system = [
     "Tu es un acheteur professionnel dans la construction (Suisse romande). Tu produis l'analyse d'un comparatif d'offres (TCO) pour un lot, dans le même esprit que les meilleurs comparatifs réels étudiés sur ce projet, résumés ci-dessous.",
     memory || '(mémoire de comparatifs réels non disponible pour cet appel - base-toi sur les bonnes pratiques générales d\'achat construction)',
     [
       'Consignes strictes :',
-      "- Base-toi UNIQUEMENT sur les données fournies dans le message utilisateur. N'invente jamais un montant, un fournisseur, un délai, une valeur technique ou un fait qui n'y figure pas.",
-      '- Tous les montants fournis (estimatedAmount, offeredAmount, et les prix unitaires "unitPrices" de la grille "positions" le cas échéant) sont HT (hors taxe) - compare-les systématiquement sur cette base, ne les qualifie jamais de TTC et ne les mélange jamais avec de la TVA. Dans "positions", "quantity"/"unit" sont communs à tous les fournisseurs (le métré de l\'acheteur) - le total d\'un article pour un fournisseur se calcule en multipliant sa valeur dans "unitPrices" par "quantity", même si ce fournisseur n\'a donné qu\'un prix unitaire sans total ni quantité propre.',
+      "- Base-toi UNIQUEMENT sur les données et documents fournis. N'invente jamais un montant, un fournisseur, un délai, une valeur technique ou une ligne de prix qui n'y figure pas.",
+      '- Tous les montants HT (hors taxe) - compare-les systématiquement sur cette base, ne les qualifie jamais de TTC et ne les mélange jamais avec de la TVA. Dans "positions", "quantity"/"unit" sont communs à tous les fournisseurs (le métré de l\'acheteur) - le total d\'un article pour un fournisseur se calcule en multipliant sa valeur dans "unitPrices" par "quantity", même si ce fournisseur n\'a donné qu\'un prix unitaire sans total ni quantité propre.',
       "- Distingue explicitement l'offre la moins disante du fournisseur retenu si ce sont deux entités différentes, et explique en une phrase pourquoi ce choix a du sens au vu des données (non-conformité, notes, écart de prix) - ou signale-le comme point à clarifier si rien dans les données ne le justifie.",
       '- Signale toute non-conformité relevée (voir conforme/nonConformityReason).',
       '- Pour le "technical" : liste UNIQUEMENT les critères techniques réellement mentionnés dans les champs "notes" des fournisseurs de ce lot (jamais une liste générique imposée a priori - un caniveau et une fenêtre n\'ont pas les mêmes critères). Si un fournisseur ne précise rien sur un critère qu\'un autre mentionne, mets "non précisé" pour lui plutôt que de deviner. Si aucune note ne contient de contenu technique substantiel, retourne un tableau "technical" vide - ne fabrique jamais un tableau technique creux ou générique.',
-      '- Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown, de la forme exacte : {"note": "...", "technical": [{"criterion": "...", "values": {"<nom exact du fournisseur>": "..."}, "analysis": "..."}]}. "note" : 150 à 250 mots, en français, ton direct et professionnel, sans markdown ni puces - commente aussi brièvement les aspects techniques/qualitatifs séparément du prix, sans dupliquer le détail déjà dans "technical". "analysis" par critère technique (optionnel) : une phrase expliquant en quoi ce critère influence ou non la recommandation.',
+      ...(hasDocuments
+        ? [
+            '- Des documents d\'offre (PDF/image) sont joints, chacun précédé d\'une ligne indiquant à quel fournisseur il appartient. LIS-LES intégralement toi-même : extrais chaque position/ligne de chaque offre jointe (désignation, quantité, unité, prix unitaire, montant, devise), même si les fournisseurs utilisent des formats, langues ou systèmes de codes totalement différents (traduis mentalement si besoin, ex. italien "raggio" = français "rayon").',
+            '- Mets en correspondance les lignes qui décrivent le MÊME article/la même prestation d\'un fournisseur à l\'autre. Une correspondance évidente (même désignation ou code) est "exact". Une correspondance déduite du libellé/contexte (pas certaine) est "assumed" et DOIT avoir une "note" expliquant le rapprochement fait - ne présente jamais un rapprochement incertain comme une certitude. Une ligne sans correspondance chez un fournisseur donné est "none" pour lui, jamais devinée ou approximée sans le signaler.',
+            '- La quantité d\'une ligne est celle du métré de l\'acheteur (visible dans l\'offre qui la détaille le plus précisément, ou dans "positions" si fourni) - reprends-la pour calculer le montant d\'un fournisseur qui n\'a donné qu\'un prix unitaire sans détailler sa propre quantité.',
+            '- Si une offre est dans une devise autre que CHF, indique le taux de change utilisé dans "exchangeRates" (ex. {"EUR": 0.945}) et précise dans "assumptions" qu\'il s\'agit d\'un taux indicatif à confirmer par l\'acheteur au jour de la commande - ne calcule jamais un montant CHF sans que ce taux soit traçable dans "exchangeRates".',
+            '- Remplis "offersComparison.assumptions" avec CHAQUE hypothèse ou rapprochement incertain fait (correspondance de produit supposée, quantité reprise d\'un autre fournisseur, taux de change utilisé, poste sans correspondance, frais annexes non chiffrés comme transport/emballage/dédouanement...) - cette transparence est ce qui rend le comparatif utilisable par l\'acheteur, pas seulement le tableau de chiffres.',
+          ]
+        : [
+            '- Aucun document d\'offre n\'est joint pour cet appel : omets entièrement le champ "offersComparison" (ne le déduis jamais des seules données résumées, qui ont leur propre affichage séparé dans l\'app).',
+          ]),
+      `- Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown, de la forme exacte : {"note": "...", "technical": [{"criterion": "...", "values": {"<nom exact du fournisseur>": "..."}, "analysis": "..."}]${hasDocuments ? ', "offersComparison": {"lines": [{"label": "...", "quantity": "...", "unit": "...", "values": {"<nom exact du fournisseur>": {"unitPrice": "...", "currency": "CHF", "amount": "...", "matchStatus": "exact", "note": "..."}}}], "exchangeRates": {"EUR": 0.945}, "assumptions": ["..."]}' : ''}}. "note" : 150 à 250 mots, en français, ton direct et professionnel, sans markdown ni puces - commente aussi brièvement les aspects techniques/qualitatifs séparément du prix, sans dupliquer le détail déjà dans "technical"${hasDocuments ? '/"offersComparison"' : ''}. "analysis" par critère technique (optionnel) : une phrase expliquant en quoi ce critère influence ou non la recommandation.`,
     ].join('\n'),
   ].join('\n\n')
+
+  const userContent: Array<Record<string, unknown>> = [
+    {
+      type: 'text',
+      text: JSON.stringify(
+        {
+          lotTitle: params.lotTitle,
+          cfcCode: params.cfcCode,
+          projectName: params.projectName,
+          suppliers: params.suppliers,
+          positions: params.positions,
+        },
+        null,
+        2,
+      ),
+    },
+  ]
+  for (const doc of params.offerDocuments ?? []) {
+    userContent.push({ type: 'text', text: `Offre du fournisseur "${doc.supplierName}" (document ci-dessous) :` })
+    userContent.push({
+      type: doc.mediaType.startsWith('image/') ? 'image' : 'document',
+      source: { type: 'base64', media_type: doc.mediaType, data: doc.base64 },
+    })
+  }
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -89,9 +163,9 @@ export async function generateTcoAnalysis(params: {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: 1500,
+      max_tokens: hasDocuments ? 4096 : 1500,
       system,
-      messages: [{ role: 'user', content: JSON.stringify(params, null, 2) }],
+      messages: [{ role: 'user', content: userContent }],
     }),
   })
   if (!res.ok) {
@@ -119,7 +193,7 @@ export async function generateTcoAnalysis(params: {
     console.error('generateTcoAnalysis: JSON invalide reçu du modèle', text)
     throw new Error('Réponse JSON invalide du modèle')
   }
-  const obj = parsed as { note?: unknown; technical?: unknown }
+  const obj = parsed as { note?: unknown; technical?: unknown; offersComparison?: unknown }
   const note = typeof obj.note === 'string' ? obj.note.trim() : ''
   if (!note) throw new Error('Note absente de la réponse du modèle')
   const technical: TcoTechnicalCriterion[] = Array.isArray(obj.technical)
@@ -141,5 +215,56 @@ export async function generateTcoAnalysis(params: {
         .filter((t) => t.criterion)
     : []
 
-  return { note, technical }
+  let offersComparison: TcoOffersComparison | undefined
+  const oc = obj.offersComparison as
+    | { lines?: unknown; exchangeRates?: unknown; assumptions?: unknown }
+    | undefined
+  if (oc && typeof oc === 'object') {
+    const lines: TcoOfferLine[] = Array.isArray(oc.lines)
+      ? oc.lines
+          .filter((l): l is Record<string, unknown> => typeof l === 'object' && l !== null)
+          .map((l) => ({
+            label: typeof l.label === 'string' ? l.label : '',
+            quantity: typeof l.quantity === 'string' ? l.quantity : undefined,
+            unit: typeof l.unit === 'string' ? l.unit : undefined,
+            values:
+              typeof l.values === 'object' && l.values !== null
+                ? Object.fromEntries(
+                    Object.entries(l.values as Record<string, unknown>).map(([supplier, v]) => {
+                      const val = v as Record<string, unknown>
+                      const matchStatus =
+                        val?.matchStatus === 'exact' || val?.matchStatus === 'assumed' || val?.matchStatus === 'none'
+                          ? val.matchStatus
+                          : 'none'
+                      return [
+                        supplier,
+                        {
+                          unitPrice: typeof val?.unitPrice === 'string' ? val.unitPrice : undefined,
+                          currency: typeof val?.currency === 'string' ? val.currency : undefined,
+                          amount: typeof val?.amount === 'string' ? val.amount : undefined,
+                          matchStatus,
+                          note: typeof val?.note === 'string' ? val.note : undefined,
+                        } satisfies TcoOfferLineValue,
+                      ]
+                    }),
+                  )
+                : {},
+          }))
+          .filter((l) => l.label)
+      : []
+    const exchangeRates: Record<string, number> =
+      typeof oc.exchangeRates === 'object' && oc.exchangeRates !== null
+        ? Object.fromEntries(
+            Object.entries(oc.exchangeRates as Record<string, unknown>)
+              .map(([k, v]) => [k, Number(v)])
+              .filter(([, v]) => Number.isFinite(v)),
+          )
+        : {}
+    const assumptions: string[] = Array.isArray(oc.assumptions)
+      ? oc.assumptions.filter((a): a is string => typeof a === 'string')
+      : []
+    if (lines.length > 0) offersComparison = { lines, exchangeRates, assumptions }
+  }
+
+  return { note, technical, offersComparison }
 }

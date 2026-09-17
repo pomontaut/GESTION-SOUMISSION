@@ -20,15 +20,47 @@ function formatAmount(n: number): string {
   return n.toLocaleString('fr-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function colLetter(n: number): string {
+  let s = ''
+  while (n > 0) {
+    const rem = (n - 1) % 26
+    s = String.fromCharCode(65 + rem) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
+}
+
 interface TcoTechnicalCriterion {
   criterion: string
   values: Record<string, string>
   analysis?: string
 }
 
+interface TcoOfferLineValue {
+  unitPrice?: string
+  currency?: string
+  amount?: string
+  matchStatus: 'exact' | 'assumed' | 'none'
+  note?: string
+}
+
+interface TcoOfferLine {
+  label: string
+  quantity?: string
+  unit?: string
+  values: Record<string, TcoOfferLineValue>
+}
+
+interface TcoOffersComparison {
+  lines: TcoOfferLine[]
+  exchangeRates: Record<string, number>
+  assumptions: string[]
+}
+
 interface TcoAnalysisResult {
   note: string | null
   technical: TcoTechnicalCriterion[]
+  offersComparison?: TcoOffersComparison
 }
 
 // Best-effort: the AI-drafted note and technical comparison are a bonus on top of the
@@ -42,11 +74,13 @@ async function fetchTcoAnalysis(lot: Lot, submission: Submission): Promise<TcoAn
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        submissionId: submission.id,
         lotTitle: lot.title,
         cfcCode: lot.cfcCode,
         projectName: submission.info.projectName,
         suppliers: lot.followUp.map((f) => ({
           name: f.name,
+          offerFileId: f.offerFileId,
           estimatedAmount: f.estimatedAmount,
           offeredAmount: f.offeredAmount,
           conforme: f.conforme,
@@ -79,6 +113,7 @@ async function fetchTcoAnalysis(lot: Lot, submission: Submission): Promise<TcoAn
     return {
       note: typeof data.note === 'string' ? data.note : null,
       technical: Array.isArray(data.technical) ? data.technical : [],
+      offersComparison: data.offersComparison ?? undefined,
     }
   } catch {
     return { note: 'Note IA indisponible (serveur injoignable).', technical: [] }
@@ -117,6 +152,12 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   sheet.getColumn(1).width = 26
   for (let i = 2; i <= colCount; i++) sheet.getColumn(i).width = 22
   sheet.getColumn(colCount + 1).width = 40 // "Analyse / Recommandation" column of the technical section, if any
+  // "Comparatif détaillé des offres" section columns (Désignation/Quantité/Unité, then PU/Montant
+  // per fournisseur, then Remarques) - sized proactively since it can be wider than the sections
+  // above; harmless if the AI-extracted comparison ends up empty for this lot.
+  const ocColCountForWidths = 3 + suppliers.length * 2 + 1
+  for (let i = 4; i <= ocColCountForWidths - 1; i++) sheet.getColumn(i).width = 18
+  sheet.getColumn(ocColCountForWidths).width = 45
 
   sheet.mergeCells(1, 1, 1, colCount)
   const titleCell = sheet.getCell(1, 1)
@@ -321,7 +362,144 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     r++
   }
 
-  const { note, technical } = await fetchTcoAnalysis(lot, submission)
+  const { note, technical, offersComparison } = await fetchTcoAnalysis(lot, submission)
+
+  if (offersComparison && offersComparison.lines.length > 0) {
+    r++
+    const ocColCount = 3 + suppliers.length * 2 + 1
+    sheet.mergeCells(r, 1, r, Math.max(colCount, ocColCount))
+    const ocTitleCell = sheet.getCell(r, 1)
+    ocTitleCell.value = 'Comparatif détaillé des offres (extrait des documents joints)'
+    ocTitleCell.font = { bold: true, size: 12 }
+    r++
+    sheet.mergeCells(r, 1, r, Math.max(colCount, ocColCount))
+    sheet.getCell(r, 1).value =
+      "Extrait automatiquement des offres PDF/image déposées par chaque fournisseur - vérifiez les correspondances signalées comme suppositions avant de valider."
+    sheet.getCell(r, 1).font = { italic: true, color: { argb: 'FF64748B' } }
+    r++
+
+    // Editable exchange-rate cells (one per non-CHF currency used) - every "Montant CHF" cell
+    // below references one of these by formula, so correcting the rate here recalculates the
+    // whole comparison instead of requiring the numbers to be redone by hand.
+    const rateCellRefs: Record<string, string> = {}
+    const currencies = Object.keys(offersComparison.exchangeRates)
+    if (currencies.length > 0) {
+      sheet.getCell(r, 1).value = 'Taux de change utilisés (à vérifier / ajuster) :'
+      sheet.getCell(r, 1).font = { bold: true }
+      r++
+      for (const currency of currencies) {
+        sheet.getCell(r, 1).value = `${currency} → CHF`
+        const rateCell = sheet.getCell(r, 2)
+        rateCell.value = offersComparison.exchangeRates[currency]
+        rateCell.font = { color: { argb: 'FF1E40AF' } }
+        rateCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCE6FF' } }
+        rateCellRefs[currency] = `$${colLetter(2)}$${r}`
+        r++
+      }
+      r++
+    }
+
+    const ocHeaderRowIdx = r
+    const ocHeaderRow = sheet.getRow(ocHeaderRowIdx)
+    ocHeaderRow.getCell(1).value = 'Désignation'
+    ocHeaderRow.getCell(2).value = 'Quantité'
+    ocHeaderRow.getCell(3).value = 'Unité'
+    suppliers.forEach((f, i) => {
+      const base = 4 + i * 2
+      ocHeaderRow.getCell(base).value = `${f.name} — PU`
+      ocHeaderRow.getCell(base + 1).value = `${f.name} — Montant HT (CHF)`
+    })
+    ocHeaderRow.getCell(4 + suppliers.length * 2).value = 'Remarques'
+    ocHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    })
+    r++
+
+    const ocTotals = new Array(suppliers.length).fill(0)
+    const ocPricedCount = new Array(suppliers.length).fill(0)
+
+    for (const line of offersComparison.lines) {
+      const rowIdx = r
+      const row = sheet.getRow(rowIdx)
+      row.getCell(1).value = line.label
+      row.getCell(2).value = line.quantity || '—'
+      row.getCell(3).value = line.unit || '—'
+      const qtyNum = parseAmount(line.quantity)
+      const qtyCellRef = qtyNum !== null ? `${colLetter(2)}${rowIdx}` : null
+      const remarks: string[] = []
+
+      suppliers.forEach((f, i) => {
+        const val = line.values[f.name]
+        const puCol = 4 + i * 2
+        const amountCol = puCol + 1
+        const puCell = row.getCell(puCol)
+        const amountCell = row.getCell(amountCol)
+        if (!val || val.matchStatus === 'none') {
+          puCell.value = '—'
+          amountCell.value = '—'
+          puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }
+          amountCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }
+          if (val?.note) remarks.push(`${f.name} : ${val.note}`)
+          return
+        }
+        const puNum = parseAmount(val.unitPrice)
+        if (puNum !== null) puCell.value = puNum
+        else puCell.value = val.unitPrice || '—'
+        if (val.currency && val.currency.toUpperCase() !== 'CHF') puCell.note = `Devise : ${val.currency}`
+
+        if (puNum !== null && qtyCellRef) {
+          const rate = val.currency && val.currency.toUpperCase() !== 'CHF' ? rateCellRefs[val.currency.toUpperCase()] : undefined
+          amountCell.value = { formula: rate ? `${colLetter(puCol)}${rowIdx}*${qtyCellRef}*${rate}` : `${colLetter(puCol)}${rowIdx}*${qtyCellRef}` }
+          ocPricedCount[i]++
+        } else {
+          amountCell.value = val.amount || '—'
+        }
+        if (val.matchStatus === 'assumed') {
+          puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }
+          amountCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }
+        }
+        if (val.note) remarks.push(`${f.name} : ${val.note}`)
+      })
+
+      const remarksCell = row.getCell(4 + suppliers.length * 2)
+      remarksCell.value = remarks.join(' / ') || '—'
+      remarksCell.alignment = { wrapText: true, vertical: 'top' }
+      r++
+    }
+
+    // Totals only where every line resolved to a computed amount for that fournisseur - matches
+    // the "partiel" convention already used for the manual per-article grid above.
+    const ocTotalRow = sheet.getRow(r)
+    ocTotalRow.getCell(1).value = 'Total'
+    ocTotalRow.getCell(1).font = { bold: true }
+    suppliers.forEach((f, i) => {
+      const amountCol = 5 + i * 2
+      const complete = ocPricedCount[i] === offersComparison.lines.length
+      const firstRow = ocHeaderRowIdx + 1
+      const lastRow = r - 1
+      const cell = ocTotalRow.getCell(amountCol)
+      cell.value = { formula: `SUM(${colLetter(amountCol)}${firstRow}:${colLetter(amountCol)}${lastRow})` }
+      cell.font = { bold: true }
+      if (!complete) cell.note = `Partiel : ${ocPricedCount[i]}/${offersComparison.lines.length} article(s) chiffré(s)`
+    })
+    r += 2
+
+    if (offersComparison.assumptions.length > 0) {
+      sheet.getCell(r, 1).value = 'Hypothèses et points à vérifier :'
+      sheet.getCell(r, 1).font = { bold: true }
+      r++
+      for (const assumption of offersComparison.assumptions) {
+        sheet.mergeCells(r, 1, r, Math.max(colCount, ocColCount))
+        const cell = sheet.getCell(r, 1)
+        cell.value = `• ${assumption}`
+        cell.alignment = { wrapText: true }
+        r++
+      }
+    }
+    r++
+  }
 
   if (technical.length > 0) {
     r++
