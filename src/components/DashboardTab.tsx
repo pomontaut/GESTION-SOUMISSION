@@ -478,10 +478,12 @@ function downloadBlobFile(blob: Blob, filename: string) {
 // single lump "Montant offert" above. Collapsed by default since most lots won't need this level
 // of detail; useful when the lump-sum totals alone don't explain why offers differ.
 function PositionsGrid({ lot, onUpdate }: { lot: Lot; onUpdate: (patch: Partial<Lot>) => void }) {
-  const positions = lot.positions ?? []
+  // `unitPrices` defaults to {} defensively - a position saved before this field existed (or any
+  // future shape drift) must never crash the grid, just show empty PU cells.
+  const positions = (lot.positions ?? []).map((p) => ({ ...p, unitPrices: p.unitPrices ?? {} }))
 
   function addPosition() {
-    onUpdate({ positions: [...positions, { id: uid(), code: '', title: '', prices: {} }] })
+    onUpdate({ positions: [...positions, { id: uid(), code: '', title: '', unitPrices: {} }] })
   }
   function updatePosition(id: string, patch: Partial<LotPosition>) {
     onUpdate({ positions: positions.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
@@ -489,10 +491,10 @@ function PositionsGrid({ lot, onUpdate }: { lot: Lot; onUpdate: (patch: Partial<
   function removePosition(id: string) {
     onUpdate({ positions: positions.filter((p) => p.id !== id) })
   }
-  function updatePrice(posId: string, supplierId: string, amount: string) {
+  function updateUnitPrice(posId: string, supplierId: string, amount: string) {
     onUpdate({
       positions: positions.map((p) =>
-        p.id === posId ? { ...p, prices: { ...p.prices, [supplierId]: amount } } : p,
+        p.id === posId ? { ...p, unitPrices: { ...p.unitPrices, [supplierId]: amount } } : p,
       ),
     })
   }
@@ -502,15 +504,22 @@ function PositionsGrid({ lot, onUpdate }: { lot: Lot; onUpdate: (patch: Partial<
       <summary className="cursor-pointer text-sm text-slate-500 hover:text-indigo-600">
         📐 Comparatif par article CAN {positions.length > 0 ? `(${positions.length})` : ''}
       </summary>
+      <p className="text-xs text-slate-400 mt-1">
+        La quantité est celle du métré, commune à tous les fournisseurs - un fournisseur qui ne
+        donne que son prix unitaire (PU) sans quantité ni total reste comparable : le total par
+        article se calcule automatiquement (PU × quantité).
+      </p>
       <div className="mt-2 overflow-x-auto">
-        <table className="text-sm min-w-[600px]">
+        <table className="text-sm min-w-[700px]">
           <thead>
             <tr className="text-left text-slate-500 border-b border-slate-200">
               <th className="py-1 pr-2">Code</th>
               <th className="py-1 pr-2">Désignation</th>
+              <th className="py-1 pr-2">Quantité</th>
+              <th className="py-1 pr-2">Unité</th>
               {lot.followUp.map((f) => (
                 <th key={f.supplierId} className="py-1 pr-2">
-                  {f.name}
+                  {f.name} (PU HT)
                 </th>
               ))}
               <th></th>
@@ -534,13 +543,29 @@ function PositionsGrid({ lot, onUpdate }: { lot: Lot; onUpdate: (patch: Partial<
                     onChange={(e) => updatePosition(p.id, { title: e.target.value })}
                   />
                 </td>
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-20"
+                    placeholder="120.5"
+                    value={p.quantity ?? ''}
+                    onChange={(e) => updatePosition(p.id, { quantity: e.target.value })}
+                  />
+                </td>
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-16"
+                    placeholder="m2"
+                    value={p.unit ?? ''}
+                    onChange={(e) => updatePosition(p.id, { unit: e.target.value })}
+                  />
+                </td>
                 {lot.followUp.map((f) => (
                   <td key={f.supplierId} className="py-1 pr-2">
                     <input
                       className="input !py-1 w-24"
                       placeholder="CHF HT"
-                      value={p.prices[f.supplierId] ?? ''}
-                      onChange={(e) => updatePrice(p.id, f.supplierId, e.target.value)}
+                      value={p.unitPrices[f.supplierId] ?? ''}
+                      onChange={(e) => updateUnitPrice(p.id, f.supplierId, e.target.value)}
                     />
                   </td>
                 ))}

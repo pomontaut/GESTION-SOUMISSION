@@ -58,7 +58,7 @@ export async function generateTcoAnalysis(params: {
   cfcCode: string
   projectName: string
   suppliers: TcoSupplierInput[]
-  positions?: Array<{ code: string; title: string; prices: Record<string, string> }>
+  positions?: Array<{ code: string; title: string; quantity?: string; unit?: string; unitPrices: Record<string, string> }>
 }): Promise<TcoAnalysis> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -72,7 +72,7 @@ export async function generateTcoAnalysis(params: {
     [
       'Consignes strictes :',
       "- Base-toi UNIQUEMENT sur les données fournies dans le message utilisateur. N'invente jamais un montant, un fournisseur, un délai, une valeur technique ou un fait qui n'y figure pas.",
-      '- Tous les montants fournis (estimatedAmount, offeredAmount, et les prix de la grille "positions" le cas échéant) sont HT (hors taxe) - compare-les systématiquement sur cette base, ne les qualifie jamais de TTC et ne les mélange jamais avec de la TVA.',
+      '- Tous les montants fournis (estimatedAmount, offeredAmount, et les prix unitaires "unitPrices" de la grille "positions" le cas échéant) sont HT (hors taxe) - compare-les systématiquement sur cette base, ne les qualifie jamais de TTC et ne les mélange jamais avec de la TVA. Dans "positions", "quantity"/"unit" sont communs à tous les fournisseurs (le métré de l\'acheteur) - le total d\'un article pour un fournisseur se calcule en multipliant sa valeur dans "unitPrices" par "quantity", même si ce fournisseur n\'a donné qu\'un prix unitaire sans total ni quantité propre.',
       "- Distingue explicitement l'offre la moins disante du fournisseur retenu si ce sont deux entités différentes, et explique en une phrase pourquoi ce choix a du sens au vu des données (non-conformité, notes, écart de prix) - ou signale-le comme point à clarifier si rien dans les données ne le justifie.",
       '- Signale toute non-conformité relevée (voir conforme/nonConformityReason).',
       '- Pour le "technical" : liste UNIQUEMENT les critères techniques réellement mentionnés dans les champs "notes" des fournisseurs de ce lot (jamais une liste générique imposée a priori - un caniveau et une fenêtre n\'ont pas les mêmes critères). Si un fournisseur ne précise rien sur un critère qu\'un autre mentionne, mets "non précisé" pour lui plutôt que de deviner. Si aucune note ne contient de contenu technique substantiel, retourne un tableau "technical" vide - ne fabrique jamais un tableau technique creux ou générique.',

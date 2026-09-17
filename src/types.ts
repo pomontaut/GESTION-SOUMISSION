@@ -90,13 +90,23 @@ export interface FollowUpEntry {
 }
 
 /** One CAN métré article/position within a lot, priced per fournisseur - no supplier sends this
- *  back in a common structured format, so it's entered by hand (see ValidationTab/DashboardTab)
- *  rather than extracted automatically, unlike the single lump `offeredAmount` in FollowUpEntry. */
+ *  back in a common structured format, so it's entered by hand (see DashboardTab) rather than
+ *  extracted automatically, unlike the single lump `offeredAmount` in FollowUpEntry.
+ *
+ *  `quantity`/`unit` are shared across every fournisseur (it's the buyer's own métré, not
+ *  supplier-specific), while `unitPrices` is the fournisseur's PU (prix unitaire, HT) for this
+ *  article - the position's total is always computed as quantity × PU, never entered directly.
+ *  This is deliberate: a fournisseur's offer routinely gives only a PU per line with no total and
+ *  no quantity of its own (confirmed real case) - since the quantity is the same métré for every
+ *  fournisseur regardless of who supplied it, entering it once here means a fournisseur who only
+ *  gave PUs is still fully comparable, instead of that position staying uncomputable for them. */
 export interface LotPosition {
   id: string
   code: string // e.g. "541.201"
   title: string
-  prices: Record<string, string> // supplierId -> amount (HT, free text like the other CHF fields)
+  quantity?: string
+  unit?: string // e.g. "m2", "kg", "pce"
+  unitPrices: Record<string, string> // supplierId -> PU (HT, free text like the other CHF fields)
 }
 
 export interface Lot {

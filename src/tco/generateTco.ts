@@ -60,8 +60,10 @@ async function fetchTcoAnalysis(lot: Lot, submission: Submission): Promise<TcoAn
         positions: lot.positions?.map((p) => ({
           code: p.code,
           title: p.title,
-          prices: Object.fromEntries(
-            Object.entries(p.prices).map(([supplierId, amount]) => [
+          quantity: p.quantity,
+          unit: p.unit,
+          unitPrices: Object.fromEntries(
+            Object.entries(p.unitPrices ?? {}).map(([supplierId, amount]) => [
               lot.followUp.find((f) => f.supplierId === supplierId)?.name ?? supplierId,
               amount,
             ]),
@@ -224,9 +226,12 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   }
   r++
 
-  if (lot.positions && lot.positions.length > 0) {
+  // `unitPrices` defaults to {} defensively - a position saved before this field existed must
+  // never crash generation, just show empty PU cells.
+  const positions = lot.positions?.map((p) => ({ ...p, unitPrices: p.unitPrices ?? {} }))
+  if (positions && positions.length > 0) {
     r++
-    const posColCount = suppliers.length + 2
+    const posColCount = suppliers.length + 4
     sheet.mergeCells(r, 1, r, Math.max(colCount, posColCount))
     const posTitleCell = sheet.getCell(r, 1)
     posTitleCell.value = 'Comparatif par article CAN'
@@ -236,8 +241,10 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     const posHeaderRow = sheet.getRow(r)
     posHeaderRow.getCell(1).value = 'Code'
     posHeaderRow.getCell(2).value = 'Désignation'
+    posHeaderRow.getCell(3).value = 'Quantité'
+    posHeaderRow.getCell(4).value = 'Unité'
     suppliers.forEach((f, i) => {
-      posHeaderRow.getCell(i + 3).value = f.name
+      posHeaderRow.getCell(i + 5).value = `${f.name} (Total HT)`
     })
     posHeaderRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
@@ -249,22 +256,38 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     const supplierTotals = new Array(suppliers.length).fill(0)
     const pricedCount = new Array(suppliers.length).fill(0)
 
-    for (const pos of lot.positions) {
+    for (const pos of positions) {
       const row = sheet.getRow(r)
       row.getCell(1).value = pos.code || '—'
       row.getCell(2).value = pos.title || '—'
-      const rowAmounts = suppliers.map((f) => parseAmount(pos.prices[f.supplierId]))
-      const rowValid = rowAmounts.filter((a): a is number => a !== null)
+      row.getCell(3).value = pos.quantity || '—'
+      row.getCell(4).value = pos.unit || '—'
+      // The quantity is the buyer's own métré, shared across every fournisseur - a fournisseur who
+      // only gave a PU (no total, no quantity of their own) is still fully priced here, since the
+      // total is always computed as qty × PU rather than read directly from the fournisseur.
+      const qty = parseAmount(pos.quantity)
+      const rowTotals = suppliers.map((f) => {
+        const pu = parseAmount(pos.unitPrices[f.supplierId])
+        return pu !== null && qty !== null ? pu * qty : null
+      })
+      const rowValid = rowTotals.filter((a): a is number => a !== null)
       const rowMin = rowValid.length ? Math.min(...rowValid) : null
       suppliers.forEach((f, i) => {
-        const cell = row.getCell(i + 3)
-        const amt = rowAmounts[i]
-        cell.value = amt !== null ? formatAmount(amt) : pos.prices[f.supplierId] || '—'
-        cell.alignment = { horizontal: 'center' }
-        if (amt !== null) {
-          supplierTotals[i] += amt
+        const cell = row.getCell(i + 5)
+        const pu = parseAmount(pos.unitPrices[f.supplierId])
+        const total = rowTotals[i]
+        if (total !== null) {
+          cell.value = `${formatAmount(total)} (PU ${formatAmount(pu!)})`
+        } else if (pu !== null) {
+          cell.value = `PU ${formatAmount(pu)} (quantité manquante)`
+        } else {
+          cell.value = pos.unitPrices[f.supplierId] || '—'
+        }
+        cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true }
+        if (total !== null) {
+          supplierTotals[i] += total
           pricedCount[i]++
-          if (rowMin !== null && amt === rowMin) {
+          if (rowMin !== null && total === rowMin) {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LOWEST_FILL } }
             cell.font = { bold: true }
           }
@@ -276,18 +299,18 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     const totalRow = sheet.getRow(r)
     totalRow.getCell(1).value = 'Total'
     totalRow.getCell(1).font = { bold: true }
-    totalRow.getCell(2).value = `${lot.positions.length} article(s)`
+    totalRow.getCell(2).value = `${positions.length} article(s)`
     const completeTotals = suppliers
-      .map((_, i) => (pricedCount[i] === lot.positions!.length ? supplierTotals[i] : null))
+      .map((_, i) => (pricedCount[i] === positions.length ? supplierTotals[i] : null))
       .filter((v): v is number => v !== null)
     const minTotal = completeTotals.length ? Math.min(...completeTotals) : null
     suppliers.forEach((f, i) => {
-      const cell = totalRow.getCell(i + 3)
-      const complete = pricedCount[i] === lot.positions!.length
+      const cell = totalRow.getCell(i + 5)
+      const complete = pricedCount[i] === positions.length
       cell.value = complete
         ? `${formatAmount(supplierTotals[i])} HT`
         : pricedCount[i] > 0
-          ? `${formatAmount(supplierTotals[i])} HT (partiel, ${pricedCount[i]}/${lot.positions!.length})`
+          ? `${formatAmount(supplierTotals[i])} HT (partiel, ${pricedCount[i]}/${positions.length})`
           : '—'
       cell.font = { bold: true }
       cell.alignment = { horizontal: 'center', wrapText: true }
