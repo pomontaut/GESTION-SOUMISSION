@@ -237,8 +237,8 @@ export default function DashboardTab({
                   <th className="py-1.5 pr-2">Date envoi</th>
                   <th className="py-1.5 pr-2">Relance</th>
                   <th className="py-1.5 pr-2">Offre reçue</th>
-                  <th className="py-1.5 pr-2">Montant estimé</th>
-                  <th className="py-1.5 pr-2">Montant offert</th>
+                  <th className="py-1.5 pr-2">Montant estimé (HT)</th>
+                  <th className="py-1.5 pr-2">Montant offert (HT)</th>
                   <th className="py-1.5 pr-2">Conforme</th>
                   <th className="py-1.5 pr-2">Date retour</th>
                   <th className="py-1.5 pr-2">Notes</th>
@@ -285,7 +285,8 @@ export default function DashboardTab({
                     <td className="py-1.5 pr-2">
                       <input
                         className="input !py-1 w-24"
-                        placeholder="CHF"
+                        placeholder="CHF HT"
+                        title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
                         value={f.estimatedAmount ?? ''}
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { estimatedAmount: e.target.value })}
                       />
@@ -293,7 +294,8 @@ export default function DashboardTab({
                     <td className="py-1.5 pr-2">
                       <input
                         className="input !py-1 w-24"
-                        placeholder="CHF"
+                        placeholder="CHF HT"
+                        title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
                         value={f.offeredAmount ?? ''}
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { offeredAmount: e.target.value })}
                       />

@@ -94,7 +94,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   sheet.mergeCells(2, 1, 2, colCount)
   const subtitleCell = sheet.getCell(2, 1)
   const projectBits = [submission.info.projectName, submission.info.siteLocation].filter(Boolean).join(' — ')
-  subtitleCell.value = `${projectBits ? projectBits + ' · ' : ''}Généré le ${new Date().toLocaleDateString('fr-CH')}`
+  subtitleCell.value = `${projectBits ? projectBits + ' · ' : ''}Généré le ${new Date().toLocaleDateString('fr-CH')} · Tous les montants sont hors taxe (HT)`
   subtitleCell.font = { italic: true, color: { argb: 'FF64748B' } }
 
   const headerRowIdx = 4
@@ -137,9 +137,9 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   }
 
   addRow('Statut', (f) => (f.offeredAmount ? 'Offre reçue' : f.status === 'envoye' ? 'Envoyé, en attente' : 'À envoyer'))
-  addRow('Montant estimé (CHF)', (f) => f.estimatedAmount || '—')
+  addRow('Montant estimé (CHF HT)', (f) => f.estimatedAmount || '—')
   addRow(
-    'Montant offert (CHF)',
+    'Montant offert (CHF HT)',
     (f, i) => (amounts[i] !== null ? formatAmount(amounts[i]!) : f.offeredAmount || '—'),
     (_f, i) => (amounts[i] !== null && minAmount !== null && amounts[i] === minAmount ? 'lowest' : undefined),
   )
@@ -169,7 +169,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   if (minSupplierName && minAmount !== null) {
     sheet.mergeCells(r, 1, r, colCount)
     const cell = sheet.getCell(r, 1)
-    cell.value = `Offre la moins disante : ${minSupplierName} — CHF ${formatAmount(minAmount)}`
+    cell.value = `Offre la moins disante : ${minSupplierName} — CHF ${formatAmount(minAmount)} HT`
     cell.font = { bold: true }
     r++
   }

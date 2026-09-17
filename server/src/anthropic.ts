@@ -49,8 +49,10 @@ export async function generateTcoNote(params: {
     [
       'Consignes strictes :',
       "- Base-toi UNIQUEMENT sur les données fournies dans le message utilisateur. N'invente jamais un montant, un fournisseur, un délai ou un fait qui n'y figure pas.",
+      '- Tous les montants fournis (estimatedAmount, offeredAmount) sont HT (hors taxe) - compare-les systématiquement sur cette base, ne les qualifie jamais de TTC et ne les mélange jamais avec de la TVA.',
       "- Distingue explicitement l'offre la moins disante du fournisseur retenu si ce sont deux entités différentes, et explique en une phrase pourquoi ce choix a du sens au vu des données (non-conformité, notes, écart de prix) - ou signale-le comme point à clarifier si rien dans les données ne le justifie.",
       '- Signale toute non-conformité relevée.',
+      "- Commente aussi les aspects techniques/qualitatifs présents dans les notes des fournisseurs (réserves, variantes, écarts au cahier des charges) séparément du prix, dans l'esprit des comparatifs réels qui séparent le jugement technique du jugement prix - ne réduis jamais l'analyse au seul montant.",
       '- 150 à 250 mots, en français, ton direct et professionnel, sans markdown ni puces.',
     ].join('\n'),
   ].join('\n\n')
