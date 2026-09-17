@@ -6,6 +6,7 @@ import submissionsRoutes from './routes/submissions'
 import suppliersRoutes from './routes/suppliers'
 import emailRoutes from './routes/email'
 import learningsRoutes from './routes/learnings'
+import tcoRoutes from './routes/tco'
 
 const app = express()
 app.use(express.json({ limit: '20mb' }))
@@ -14,6 +15,7 @@ app.use('/api/submissions', submissionsRoutes)
 app.use('/api/suppliers', suppliersRoutes)
 app.use('/api/send-email', emailRoutes)
 app.use('/api/learnings', learningsRoutes)
+app.use('/api/tco', tcoRoutes)
 
 const distDir = path.join(__dirname, '..', 'dist')
 app.use(express.static(distDir))

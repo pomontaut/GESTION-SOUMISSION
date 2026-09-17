@@ -20,6 +20,40 @@ function formatAmount(n: number): string {
   return n.toLocaleString('fr-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// Best-effort: the AI-drafted "Note acheteur" is a bonus on top of the deterministic tabular
+// comparatif above, never a requirement for it. If the API key isn't configured, the call fails,
+// or the server is unreachable, the workbook still generates correctly without this section -
+// just surfaced as a one-line note in the sheet itself, so the gap isn't silently invisible.
+async function fetchTcoNote(lot: Lot, submission: Submission): Promise<string | null> {
+  try {
+    const res = await fetch('/api/tco/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lotTitle: lot.title,
+        cfcCode: lot.cfcCode,
+        projectName: submission.info.projectName,
+        suppliers: lot.followUp.map((f) => ({
+          name: f.name,
+          estimatedAmount: f.estimatedAmount,
+          offeredAmount: f.offeredAmount,
+          conforme: f.conforme,
+          notes: f.notes,
+          retained: f.retained,
+        })),
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      return `Note IA indisponible (${body?.error ?? res.status}).`
+    }
+    const data = await res.json()
+    return typeof data.note === 'string' ? data.note : null
+  } catch {
+    return 'Note IA indisponible (serveur injoignable).'
+  }
+}
+
 const HEADER_FILL = 'FF1E293B'
 const LOWEST_FILL = 'FF92D050' // green - lowest offer / retained supplier, same convention seen across the real comparatifs studied
 const NONCONFORME_FILL = 'FFFCDCDC' // pale red - non-conformity flag
@@ -145,6 +179,27 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     cell.value = `Fournisseur retenu : ${suppliers[retainedIdx].name}`
     cell.font = { bold: true, color: { argb: 'FF1F7A3D' } }
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LOWEST_FILL } }
+  }
+  r++
+
+  const note = await fetchTcoNote(lot, submission)
+  if (note) {
+    r++
+    sheet.mergeCells(r, 1, r, colCount)
+    const noteHeaderCell = sheet.getCell(r, 1)
+    noteHeaderCell.value = 'Note acheteur'
+    noteHeaderCell.font = { bold: true, size: 12 }
+    r++
+    const noteRowStart = r
+    sheet.mergeCells(r, 1, r, colCount)
+    const noteCell = sheet.getCell(r, 1)
+    noteCell.value = note
+    noteCell.alignment = { wrapText: true, vertical: 'top' }
+    // exceljs can't autosize a wrapped merged row - estimate a line count from the text length
+    // against the sheet's total width so the note doesn't get clipped.
+    const charsPerLine = 14 * colCount
+    const lines = Math.max(1, Math.ceil(note.length / charsPerLine))
+    sheet.getRow(noteRowStart).height = lines * 15 + 10
   }
 
   sheet.getRow(1).height = 22
