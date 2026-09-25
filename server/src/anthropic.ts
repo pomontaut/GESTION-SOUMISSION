@@ -42,6 +42,9 @@ export interface TcoTechnicalCriterion {
   criterion: string
   values: Record<string, string>
   analysis?: string
+  // Only set when the criteria naturally cluster (e.g. "Normes", "Matériaux", "Sécurité") - see
+  // the prompt instruction below and comparatif-tco.md for why this must never be fabricated.
+  category?: string
 }
 
 export interface TcoOfferLineValue {
@@ -115,6 +118,7 @@ export async function generateTcoAnalysis(params: {
       "- Distingue explicitement l'offre la moins disante du fournisseur retenu si ce sont deux entités différentes, et explique en une phrase pourquoi ce choix a du sens au vu des données (non-conformité, notes, écart de prix) - ou signale-le comme point à clarifier si rien dans les données ne le justifie.",
       '- Signale toute non-conformité relevée (voir conforme/nonConformityReason).',
       '- Pour le "technical" : liste UNIQUEMENT les critères techniques réellement mentionnés dans les champs "notes" des fournisseurs de ce lot (jamais une liste générique imposée a priori - un caniveau et une fenêtre n\'ont pas les mêmes critères). Si un fournisseur ne précise rien sur un critère qu\'un autre mentionne, mets "non précisé" pour lui plutôt que de deviner. Si aucune note ne contient de contenu technique substantiel, retourne un tableau "technical" vide - ne fabrique jamais un tableau technique creux ou générique.',
+      '- Pour chaque critère de "technical", ajoute "category" UNIQUEMENT si plusieurs critères de ce lot se regroupent naturellement sous un même thème (ex. "Normes", "Matériaux", "Sécurité", "Dimensions") - reprends alors le même intitulé de catégorie pour chaque critère qui en fait partie. S\'il n\'y a qu\'un ou deux critères, ou si aucun regroupement naturel n\'apparaît, omets "category" plutôt que d\'en inventer un artificiel.',
       ...(hasDocuments
         ? [
             '- Des documents d\'offre (PDF/image) sont joints, chacun précédé d\'une ligne indiquant à quel fournisseur il appartient. LIS-LES intégralement toi-même : extrais chaque position/ligne de chaque offre jointe (désignation, quantité, unité, prix unitaire, montant, devise), même si les fournisseurs utilisent des formats, langues ou systèmes de codes totalement différents (traduis mentalement si besoin, ex. italien "raggio" = français "rayon").',
@@ -126,7 +130,7 @@ export async function generateTcoAnalysis(params: {
         : [
             '- Aucun document d\'offre n\'est joint pour cet appel : omets entièrement le champ "offersComparison" (ne le déduis jamais des seules données résumées, qui ont leur propre affichage séparé dans l\'app).',
           ]),
-      `- Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown, de la forme exacte : {"note": "...", "technical": [{"criterion": "...", "values": {"<nom exact du fournisseur>": "..."}, "analysis": "..."}]${hasDocuments ? ', "offersComparison": {"lines": [{"label": "...", "quantity": "...", "unit": "...", "values": {"<nom exact du fournisseur>": {"unitPrice": "...", "currency": "CHF", "amount": "...", "matchStatus": "exact", "note": "..."}}}], "exchangeRates": {"EUR": 0.945}, "assumptions": ["..."]}' : ''}}. "note" : 150 à 250 mots, en français, ton direct et professionnel, sans markdown ni puces - commente aussi brièvement les aspects techniques/qualitatifs séparément du prix, sans dupliquer le détail déjà dans "technical"${hasDocuments ? '/"offersComparison"' : ''}. "analysis" par critère technique (optionnel) : une phrase expliquant en quoi ce critère influence ou non la recommandation.`,
+      `- Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown, de la forme exacte : {"note": "...", "technical": [{"criterion": "...", "values": {"<nom exact du fournisseur>": "..."}, "analysis": "...", "category": "..."}]${hasDocuments ? ', "offersComparison": {"lines": [{"label": "...", "quantity": "...", "unit": "...", "values": {"<nom exact du fournisseur>": {"unitPrice": "...", "currency": "CHF", "amount": "...", "matchStatus": "exact", "note": "..."}}}], "exchangeRates": {"EUR": 0.945}, "assumptions": ["..."]}' : ''}}. "note" : 150 à 250 mots, en français, ton direct et professionnel, sans markdown ni puces - commente aussi brièvement les aspects techniques/qualitatifs séparément du prix, sans dupliquer le détail déjà dans "technical"${hasDocuments ? '/"offersComparison"' : ''}. "analysis" par critère technique (optionnel) : une phrase expliquant en quoi ce critère influence ou non la recommandation.`,
     ].join('\n'),
   ].join('\n\n')
 
@@ -229,7 +233,7 @@ export async function generateTcoAnalysis(params: {
   const technical: TcoTechnicalCriterion[] = Array.isArray(obj.technical)
     ? obj.technical
         .filter(
-          (t): t is { criterion: unknown; values: unknown; analysis?: unknown } =>
+          (t): t is { criterion: unknown; values: unknown; analysis?: unknown; category?: unknown } =>
             typeof t === 'object' && t !== null,
         )
         .map((t) => ({
@@ -241,6 +245,7 @@ export async function generateTcoAnalysis(params: {
                 )
               : {},
           analysis: typeof t.analysis === 'string' ? t.analysis : undefined,
+          category: typeof t.category === 'string' && t.category.trim() ? t.category.trim() : undefined,
         }))
         .filter((t) => t.criterion)
     : []

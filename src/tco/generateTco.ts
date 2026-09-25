@@ -75,6 +75,10 @@ interface TcoTechnicalCriterion {
   criterion: string
   values: Record<string, string>
   analysis?: string
+  // Only set when the criteria naturally cluster (e.g. "Normes", "Matériaux", "Sécurité") - a lot
+  // whose notes don't cluster this way still gets the flat list this section always rendered, per
+  // the anti-fabrication rule already applied to the criteria themselves (see anthropic.ts).
+  category?: string
 }
 
 interface TcoOfferLineValue {
@@ -165,6 +169,7 @@ const HEADER_FILL = 'FF1E293B'
 const LOWEST_FILL = 'FF92D050' // green - lowest offer / retained supplier, same convention seen across the real comparatifs studied
 const NONCONFORME_FILL = 'FFFCDCDC' // pale red - non-conformity flag
 const LABEL_FILL = 'FFF1F5F9'
+const CATEGORY_FILL = 'FFE2E8F0' // category sub-header within "Comparatif technique" (e.g. Normes, Matériaux)
 
 /**
  * Builds a "Structure B" comparatif (one row per criterion, one column per fournisseur, last
@@ -181,7 +186,11 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   wb.creator = 'GESTION-SOUMISSION'
   wb.created = new Date()
 
-  const sheet = wb.addWorksheet('TCO', { views: [{ state: 'frozen', xSplit: 1, ySplit: 5 }] })
+  // Frozen at the price table's header row once its position is known below - the technical
+  // section (fetched here, before any row is written) now renders first, matching the real
+  // comparatifs studied for this feature: conformité/technique is checked before price is
+  // compared, not after (see .claude/agents/comparatif-tco.md).
+  const sheet = wb.addWorksheet('TCO')
   const suppliers = lot.followUp
   const colCount = suppliers.length + 1
 
@@ -189,6 +198,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   const validAmounts = amounts.filter((a): a is number => a !== null)
   const minAmount = validAmounts.length ? Math.min(...validAmounts) : null
   const retainedIdx = suppliers.findIndex((f) => f.retained)
+  const { note, technical, offersComparison } = await fetchTcoAnalysis(lot, submission)
 
   sheet.getColumn(1).width = 26
   for (let i = 2; i <= colCount; i++) sheet.getColumn(i).width = 22
@@ -211,7 +221,79 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   subtitleCell.value = `${projectBits ? projectBits + ' · ' : ''}Généré le ${new Date().toLocaleDateString('fr-CH')} · Tous les montants sont hors taxe (HT)`
   subtitleCell.font = { italic: true, color: { argb: 'FF64748B' } }
 
-  const headerRowIdx = 4
+  // Row 3 is a deliberate blank gap under the subtitle - row 4 is where the first section starts,
+  // whether that's "Comparatif technique" (when there's something to show) or, same as before this
+  // section existed, straight into the price table's own header.
+  let r = 4
+
+  if (technical.length > 0) {
+    sheet.mergeCells(r, 1, r, colCount + 1)
+    const techTitleCell = sheet.getCell(r, 1)
+    techTitleCell.value = 'Comparatif technique'
+    techTitleCell.font = { bold: true, size: 12 }
+    r++
+
+    const techHeaderRow = sheet.getRow(r)
+    techHeaderRow.getCell(1).value = 'Critère'
+    suppliers.forEach((f, i) => {
+      techHeaderRow.getCell(i + 2).value = f.name
+    })
+    techHeaderRow.getCell(colCount + 1).value = 'Analyse / Recommandation'
+    techHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    })
+    r++
+
+    // Group by category only when the AI actually provided one for at least one criterion - a lot
+    // whose criteria don't cluster naturally still renders as the flat list this section always
+    // was, never a fabricated single bucket.
+    const hasCategories = technical.some((t) => t.category)
+    const groups: Array<{ category: string | null; items: TcoTechnicalCriterion[] }> = []
+    if (hasCategories) {
+      for (const tech of technical) {
+        const cat = tech.category || 'Autres critères'
+        let group = groups.find((g) => g.category === cat)
+        if (!group) {
+          group = { category: cat, items: [] }
+          groups.push(group)
+        }
+        group.items.push(tech)
+      }
+    } else {
+      groups.push({ category: null, items: technical })
+    }
+
+    for (const group of groups) {
+      if (group.category) {
+        sheet.mergeCells(r, 1, r, colCount + 1)
+        const catCell = sheet.getCell(r, 1)
+        catCell.value = group.category
+        catCell.font = { bold: true, italic: true }
+        catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CATEGORY_FILL } }
+        r++
+      }
+      for (const tech of group.items) {
+        const row = sheet.getRow(r)
+        row.getCell(1).value = tech.criterion
+        row.getCell(1).font = { bold: true }
+        row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LABEL_FILL } }
+        suppliers.forEach((f, i) => {
+          const cell = row.getCell(i + 2)
+          cell.value = tech.values[f.name] ?? 'non précisé'
+          cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true }
+        })
+        const analysisCell = row.getCell(colCount + 1)
+        analysisCell.value = tech.analysis || '—'
+        analysisCell.alignment = { wrapText: true, vertical: 'top' }
+        r++
+      }
+    }
+    r++
+  }
+
+  const headerRowIdx = r
   const headerRow = sheet.getRow(headerRowIdx)
   headerRow.getCell(1).value = 'Critère'
   suppliers.forEach((f, i) => {
@@ -222,8 +304,9 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
   })
+  sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowIdx + 1 }]
 
-  let r = headerRowIdx + 1
+  r = headerRowIdx + 1
 
   function addRow(
     label: string,
@@ -404,8 +487,6 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     r++
   }
 
-  const { note, technical, offersComparison } = await fetchTcoAnalysis(lot, submission)
-
   if (offersComparison && offersComparison.lines.length > 0) {
     r++
     const ocColCount = 3 + suppliers.length * 2 + 1
@@ -541,44 +622,6 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
       }
     }
     r++
-  }
-
-  if (technical.length > 0) {
-    r++
-    sheet.mergeCells(r, 1, r, colCount + 1)
-    const techTitleCell = sheet.getCell(r, 1)
-    techTitleCell.value = 'Comparatif technique'
-    techTitleCell.font = { bold: true, size: 12 }
-    r++
-
-    const techHeaderRow = sheet.getRow(r)
-    techHeaderRow.getCell(1).value = 'Critère'
-    suppliers.forEach((f, i) => {
-      techHeaderRow.getCell(i + 2).value = f.name
-    })
-    techHeaderRow.getCell(colCount + 1).value = 'Analyse / Recommandation'
-    techHeaderRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
-    })
-    r++
-
-    for (const tech of technical) {
-      const row = sheet.getRow(r)
-      row.getCell(1).value = tech.criterion
-      row.getCell(1).font = { bold: true }
-      row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LABEL_FILL } }
-      suppliers.forEach((f, i) => {
-        const cell = row.getCell(i + 2)
-        cell.value = tech.values[f.name] ?? 'non précisé'
-        cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true }
-      })
-      const analysisCell = row.getCell(colCount + 1)
-      analysisCell.value = tech.analysis || '—'
-      analysisCell.alignment = { wrapText: true, vertical: 'top' }
-      r++
-    }
   }
 
   if (note) {
