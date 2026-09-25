@@ -5,6 +5,7 @@ import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
 import { listLotSupplierLearnings, listSuppliers } from '../storage'
 import { runLotAgent } from '../agent/runLotAgent'
+import { buildLotEmail } from '../email/draftEmail'
 
 const CALCULATOR_CUSTOM = '__custom__'
 
@@ -26,8 +27,21 @@ export default function ExtractionTab({
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Every lot's e-mail draft is generated once (at extraction, or on merge) from whatever
+  // "Informations du chantier" holds at that moment - so a field filled in afterwards (typically
+  // "Lien vers les documents", since the OneDrive folder is often created only once lots already
+  // exist) would otherwise stay silently missing from every already-drafted e-mail forever, with
+  // no visible sign anything is stale. Regenerating on every info change keeps drafts in sync;
+  // lots already sent are left untouched since their stored e-mail is now a historical record of
+  // what the fournisseur actually received, not a draft.
   function updateInfo(patch: Partial<SubmissionInfo>) {
-    onUpdate({ ...submission, info: { ...submission.info, ...patch } })
+    const info = { ...submission.info, ...patch }
+    const lots = submission.lots.map((lot) => {
+      if (lot.followUp.some((f) => f.status === 'envoye')) return lot
+      const { subject, body } = buildLotEmail(lot, info)
+      return { ...lot, emailSubject: subject, emailBody: body, emailGeneratedAt: new Date().toISOString() }
+    })
+    onUpdate({ ...submission, info, lots })
   }
 
   function handleEntitySelect(value: string) {

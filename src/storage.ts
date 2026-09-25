@@ -139,6 +139,7 @@ export async function sendLotEmail(params: {
   bcc: string[]
   subject: string
   text: string
+  html?: string
   attachment?: { filename: string; content: string }
 }): Promise<void> {
   await assertOk(

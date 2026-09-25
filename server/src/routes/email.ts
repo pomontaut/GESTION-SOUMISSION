@@ -4,7 +4,7 @@ import { sendResendEmail } from '../resend'
 const router = Router()
 
 router.post('/', async (req, res) => {
-  const { bcc, subject, text, attachment } = req.body ?? {}
+  const { bcc, subject, text, html, attachment } = req.body ?? {}
   if (!Array.isArray(bcc) || bcc.length === 0 || !subject || !text) {
     res.status(400).json({ error: 'Requête incomplète (destinataires, objet ou corps manquant)' })
     return
@@ -18,7 +18,8 @@ router.post('/', async (req, res) => {
     // Bcc addresses are stripped from the delivered message for every recipient, including the
     // "to" one - that's the point of Bcc, but it also means the copy landing in soumissions@induni.ch
     // never shows who the request actually went to. A separate internal-only e-mail (no bcc, so it
-    // reaches nobody else) spells out the recipient list in its own body instead.
+    // reaches nobody else) spells out the recipient list in its own body instead. Kept text-only -
+    // it's an internal audit copy, not what the fournisseur sees.
     await sendResendEmail({
       to: [from],
       bcc: [],
@@ -31,6 +32,7 @@ router.post('/', async (req, res) => {
       bcc,
       subject,
       text,
+      html: typeof html === 'string' ? html : undefined,
       attachment: attachmentParam,
     })
     res.status(204).end()

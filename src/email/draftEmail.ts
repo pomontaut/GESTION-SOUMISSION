@@ -21,7 +21,13 @@ export function buildLotEmail(lot: Lot, info: SubmissionInfo): { subject: string
     'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
     `${info.siteNumber || '[N° de chantier]'} - ${info.projectName || '[Nom du projet]'} - ${info.siteLocation || '[Ville]'}`,
     '',
-    `Calculateur : ${info.calculatorName || '[Nom]'} — ${info.calculatorEmail || ''} — ${info.calculatorPhone || ''}`,
+    `Contact en cas de questions : ${info.calculatorName || '[Nom]'} — ${info.calculatorEmail || ''}${info.calculatorPhone ? ' — ' + info.calculatorPhone : ''}`,
+    '',
+    'Avec nos meilleures salutations.',
+    '',
+    'Service achats',
+    'Avenue des Grandes-Communes 6 | 1213 Petit-Lancy',
+    'www.induni.ch',
   ].join('\n')
 
   return { subject, body }
