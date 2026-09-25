@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { buildLotEmail } from '../email/draftEmail'
@@ -22,10 +22,50 @@ export default function ValidationTab({
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; error?: string }>>({})
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
   const [searchByLot, setSearchByLot] = useState<Record<string, string>>({})
+  const [draggingLotId, setDraggingLotId] = useState<string | null>(null)
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const lotElsRef = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     listSuppliers().then(setSuppliers)
   }, [])
+
+  // Reordering lots is what makes "Grouper avec le lot précédent" actually usable: that checkbox
+  // only ever merges with the lot directly above, but two lots worth grouping (e.g. detected from
+  // non-adjacent pages) aren't always next to each other in the list - dragging one next to the
+  // other first is what lets you then group them. Position is tracked by comparing the pointer's Y
+  // position against each card's own vertical midpoint (via lotElsRef), not by index math on the
+  // move event, so the drop target stays correct as it moves under the finger.
+  function handleLotDragMove(clientY: number) {
+    let insertAt = submission.lots.length
+    for (let i = 0; i < submission.lots.length; i++) {
+      const el = lotElsRef.current.get(submission.lots[i].id)
+      if (!el) continue
+      const rect = el.getBoundingClientRect()
+      if (clientY < rect.top + rect.height / 2) {
+        insertAt = i
+        break
+      }
+    }
+    setDropIndex(insertAt)
+  }
+
+  function handleLotDragEnd() {
+    if (draggingLotId !== null && dropIndex !== null) {
+      const lots = [...submission.lots]
+      const fromIndex = lots.findIndex((l) => l.id === draggingLotId)
+      if (fromIndex !== -1) {
+        const [moved] = lots.splice(fromIndex, 1)
+        // Removing the dragged lot shifts every later index down by one - compensate so the drop
+        // lands where it visually appeared to, not one slot further down the list.
+        const target = Math.max(0, Math.min(fromIndex < dropIndex ? dropIndex - 1 : dropIndex, lots.length))
+        lots.splice(target, 0, moved)
+        onUpdate({ ...submission, lots })
+      }
+    }
+    setDraggingLotId(null)
+    setDropIndex(null)
+  }
 
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
@@ -184,8 +224,23 @@ export default function ValidationTab({
         const heterogeneity = heterogeneityByLot.get(lot.id)
         const included = lot.suppliers.filter((s) => s.status !== 'ignore')
         return (
-          <div key={lot.id} className="card overflow-x-auto">
+          <div key={lot.id}>
+            {draggingLotId && draggingLotId !== lot.id && dropIndex === idx && (
+              <div className="h-1 rounded bg-indigo-400 mb-2" />
+            )}
+            <div
+              ref={(el) => {
+                if (el) lotElsRef.current.set(lot.id, el)
+                else lotElsRef.current.delete(lot.id)
+              }}
+              className={`card overflow-x-auto ${draggingLotId === lot.id ? 'opacity-40' : ''}`}
+            >
             <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <LotDragHandle
+                onDragStart={() => setDraggingLotId(lot.id)}
+                onDragMove={handleLotDragMove}
+                onDragEnd={handleLotDragEnd}
+              />
               <button
                 title="Voir le PDF et la zone détectée pour ce lot"
                 className="text-slate-400 hover:text-indigo-600 text-lg leading-none"
@@ -294,9 +349,13 @@ export default function ValidationTab({
               onAdd={(s) => addSupplierToLot(lot, s)}
               onOpenFullEditor={() => onEditLot(lot.id)}
             />
+            </div>
           </div>
         )
       })}
+      {draggingLotId && dropIndex === submission.lots.length && (
+        <div className="h-1 rounded bg-indigo-400" />
+      )}
 
       {submission.lots.length === 0 && (
         <p className="text-slate-500 text-sm">Aucun lot — importez un PDF dans l'onglet 1.</p>
@@ -334,6 +393,74 @@ export default function ValidationTab({
           )
         })()}
     </div>
+  )
+}
+
+// Starts a drag only after a deliberate long-press (not a plain tap or a scroll gesture) -
+// distinguishing the two matters most on touch devices, where a finger landing on the handle to
+// scroll the page must not be hijacked into a reorder. Pointer capture on the handle itself means
+// the drag keeps tracking correctly even once the finger has moved well past the handle's own
+// bounds, for both touch and mouse.
+function LotDragHandle({
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+}: {
+  onDragStart: () => void
+  onDragMove: (clientY: number) => void
+  onDragEnd: () => void
+}) {
+  const longPressTimer = useRef<number | null>(null)
+  const isDragging = useRef(false)
+  const startPos = useRef({ x: 0, y: 0 })
+
+  function clearLongPressTimer() {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    startPos.current = { x: e.clientX, y: e.clientY }
+    e.currentTarget.setPointerCapture(e.pointerId)
+    longPressTimer.current = window.setTimeout(() => {
+      isDragging.current = true
+      onDragStart()
+    }, 350)
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (isDragging.current) {
+      e.preventDefault()
+      onDragMove(e.clientY)
+      return
+    }
+    const dx = Math.abs(e.clientX - startPos.current.x)
+    const dy = Math.abs(e.clientY - startPos.current.y)
+    if (dx > 8 || dy > 8) clearLongPressTimer()
+  }
+
+  function handlePointerUp() {
+    clearLongPressTimer()
+    if (isDragging.current) {
+      isDragging.current = false
+      onDragEnd()
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing text-lg leading-none px-1 touch-none select-none"
+      title="Maintenir appuyé puis glisser pour déplacer ce lot (utile pour le rapprocher d'un lot à regrouper)"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      ⠿
+    </button>
   )
 }
 

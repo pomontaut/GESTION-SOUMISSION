@@ -14,6 +14,10 @@ export function buildLotEmail(lot: Lot, info: SubmissionInfo): { subject: string
     '',
     `Plans : ${info.projectName || '[Nom du projet]'} - ${info.siteLocation || '[Ville]'}`,
     '',
+    // The e-mail body is sent as plain text (see server/src/resend.ts) - a bare URL on its own
+    // line is what mail clients (Outlook, Gmail, ...) auto-linkify into a clickable link, so no
+    // HTML markup is needed here for the fournisseur to be able to click through.
+    ...(info.documentsLink ? [`Documents de la soumission : ${info.documentsLink}`, ''] : []),
     'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
     `${info.siteNumber || '[N° de chantier]'} - ${info.projectName || '[Nom du projet]'} - ${info.siteLocation || '[Ville]'}`,
     '',
