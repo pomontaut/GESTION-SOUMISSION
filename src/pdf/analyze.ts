@@ -40,6 +40,20 @@ import { suggestCategories } from '../data/categorize'
  * highlighted), the chapter pointer was still set when the header line was read, so the children
  * resolve to the right lot regardless.
  *
+ * A single position's own text/quantity routinely wraps across a page break, still under the same
+ * highlight color, without necessarily repeating the chapter's code prefix at the top of the new
+ * page (some bureaux only print the full code on the first line after a break, see the orphan-code
+ * bullet further down) - the run of highlighted lines on the FIRST page can therefore end with no
+ * decimal/quantity/dot-fill signal of its own (`hasPricedLine` false), deferring its text to
+ * `pendingHeaderText` for the run that resolves the same scoped code on the following page. That
+ * pending map carries the deferred PAGE NUMBER(S) forward too, not just the text, and prepends them
+ * to the resolving run's `pages` - confirmed necessary on a real document (CFC 211.4 "511
+ * Caniveaux, dispositifs de fermeture...": highlighted from its header down through ".111 Aco-drain
+ * multiline..." at the bottom of one page, with the position's quantity/price row only appearing
+ * once "511.111 fonte." resumes at the top of the next page) where the lot's `pages` previously
+ * contained only the later page, silently dropping the earlier page that was genuinely highlighted
+ * - caught by a user manually reading the source PDF ("il manquait la page 32").
+ *
  * That grouping code is only ever the bare sub-chapter code ("511"), never the full CFC path, so
  * two entirely unrelated top-level CFC chapters that each happen to have their own sub-chapter
  * numbered "511" (seen on "26-58 HEP": CFC 172 "Drainage de surfaces..." and CFC 241 "Aciers
@@ -506,11 +520,19 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   const notes: RawNote[] = []
   // Header-only runs (see below) are never lots by themselves, but their title carries real
   // information ("R592 Poteaux métalliques.") that a bare priced line ("Type: RRW 120x120x6,3
-  // S355...") doesn't. Keep that text per chapter code and prepend it to the next priced run
-  // under the same code, even if that run is a different highlight annotation on a later page -
-  // exactly the case where the header sits alone at the bottom of one page and its articles start
-  // on the next.
-  const pendingHeaderText = new Map<string, string>()
+  // S355...") doesn't. Keep that text (and the page(s) it was highlighted on) per chapter code and
+  // prepend/merge it into the next priced run under the same code, even if that run is a different
+  // highlight annotation on a later page - exactly the case where the header (plus maybe a
+  // continuing description, still highlighted) sits at the bottom of one page and the first priced
+  // row for the very same position only lands on the next page after a line wrap (confirmed on a
+  // real document: CFC 211.4 "511 Caniveaux..." highlighted from its header down through ".111
+  // Aco-drain multiline..." at the bottom of one page, with the position's quantity/price row - the
+  // only signal `hasPricedLine` checks for - only appearing once "511.111 fonte." resumes at the
+  // top of the next page). Without carrying the page number forward here too, the resulting lot's
+  // `pages` only ever contained the page where the priced signal was finally found, silently
+  // dropping every earlier page that was genuinely highlighted but never itself contained a
+  // decimal/quantity/dot-fill line - the exact bug a user caught by hand ("il manquait la page 32").
+  const pendingHeaderText = new Map<string, { text: string; pages: number[] }>()
 
   for (let p = 1; p <= doc.numPages; p++) {
     const bodyLines = pageBodyLines.get(p) ?? []
@@ -592,14 +614,18 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
             title: key.title,
             roundCode: run[0].roundKey?.code ?? '',
             topChapter,
-            pages: [p],
+            pages: pending ? [...pending.pages, p] : [p],
             cfc,
-            text: pending ? `${pending} ${runText}` : runText,
+            text: pending ? `${pending.text} ${runText}` : runText,
           })
           pendingHeaderText.delete(pendingKey)
         } else if (key) {
           const pendingKey = scopedKey(topChapter, key.code)
-          pendingHeaderText.set(pendingKey, `${pendingHeaderText.get(pendingKey) ?? ''} ${runText}`.trim())
+          const pending = pendingHeaderText.get(pendingKey)
+          pendingHeaderText.set(pendingKey, {
+            text: `${pending?.text ?? ''} ${runText}`.trim(),
+            pages: [...(pending?.pages ?? []), p],
+          })
         }
         runStart = i
       }
