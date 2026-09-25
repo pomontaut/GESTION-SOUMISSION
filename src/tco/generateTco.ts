@@ -20,6 +20,47 @@ function formatAmount(n: number): string {
   return n.toLocaleString('fr-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// offerValidUntil/returnDate are deliberately free text (see FollowUpEntry) - an acheteur can type
+// an ISO date, a Swiss "08.10.2026", or (confirmed on a real corpus file, "10 jours ⚠⚠") a relative
+// duration since the offer's return date. `new Date("10 jours")` is an Invalid Date, and
+// `Invalid Date < new Date()` silently evaluates to false - a real bug found by studying that file:
+// an unparseable value was being reported as "not expired" instead of not evaluated at all.
+function parseDateLoose(raw: string): Date | null {
+  const iso = new Date(raw)
+  if (!Number.isNaN(iso.getTime())) return iso
+  const m = raw.trim().match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/)
+  if (m) {
+    const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]))
+    if (!Number.isNaN(d.getTime())) return d
+  }
+  return null
+}
+
+function parseRelativeDurationDays(raw: string): number | null {
+  const m = raw.trim().match(/^(\d+)\s*(jour|jours|semaine|semaines|mois)$/i)
+  if (!m) return null
+  const n = Number(m[1])
+  const unit = m[2].toLowerCase()
+  if (unit.startsWith('jour')) return n
+  if (unit.startsWith('semaine')) return n * 7
+  return n * 30
+}
+
+/** Never guesses: returns an expiry Date only when it can be derived from actual data (an
+ *  absolute date, or a relative duration anchored to the offer's own return date) - otherwise
+ *  null, so the caller shows the raw text without a fabricated expired/valid verdict. */
+function resolveOfferExpiry(offerValidUntil: string, returnDate?: string): Date | null {
+  const absolute = parseDateLoose(offerValidUntil)
+  if (absolute) return absolute
+  const days = parseRelativeDurationDays(offerValidUntil)
+  if (days === null || !returnDate) return null
+  const ref = parseDateLoose(returnDate)
+  if (!ref) return null
+  const expiry = new Date(ref)
+  expiry.setDate(expiry.getDate() + days)
+  return expiry
+}
+
 function colLetter(n: number): string {
   let s = ''
   while (n > 0) {
@@ -230,8 +271,9 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   addRow('Délai', (f) => f.deliveryTime || '—')
   addRow('Validité offre', (f) => {
     if (!f.offerValidUntil) return '—'
-    const expired = new Date(f.offerValidUntil) < new Date()
-    return expired ? `${f.offerValidUntil} ⚠ expirée` : f.offerValidUntil
+    const expiry = resolveOfferExpiry(f.offerValidUntil, f.returnDate)
+    if (!expiry) return f.offerValidUntil
+    return expiry < new Date() ? `${f.offerValidUntil} ⚠ expirée` : f.offerValidUntil
   })
   addRow('Conditions de paiement', (f) => f.paymentTerms || '—')
   addRow(
