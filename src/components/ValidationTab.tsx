@@ -179,8 +179,24 @@ export default function ValidationTab({
     return map
   }, [submission.lots, submission.zones])
 
+  // A lot's stored emailSubject/emailBody is only ever a draft until the lot is actually sent -
+  // regenerating it here at the point of use (rather than only reacting to "Informations du
+  // chantier" edits) is what guarantees the acheteur always sees/sends the current chantier info
+  // even if the info was filled in during an earlier session, before a deploy, or without
+  // triggering a change event on the form. Nothing is lost by doing this: a pre-send lot's stored
+  // body is never a manual edit (those only get persisted by EmailPreviewModal's onSent), so
+  // there is no draft to accidentally overwrite. Once sent, the stored body is a historical record
+  // and is left untouched.
+  function freshEmail(lot: Lot): { subject: string; body: string } {
+    if (lot.followUp.some((f) => f.status === 'envoye')) {
+      return { subject: lot.emailSubject ?? '', body: lot.emailBody ?? '' }
+    }
+    return buildLotEmail(lot, submission.info)
+  }
+
   async function sendLot(lot: Lot) {
     const included = lot.suppliers.filter((s) => s.status !== 'ignore' && s.email)
+    const { subject, body } = freshEmail(lot)
     setSendingLotId(lot.id)
     setSendResult((prev) => ({ ...prev, [lot.id]: { ok: false } }))
     try {
@@ -191,8 +207,8 @@ export default function ValidationTab({
         // stores one row per (supplier, category) pair, so a multi-category lot can match the
         // same physical company/email under several distinct supplierIds.
         bcc: [...new Set(included.map((s) => s.email))],
-        subject: lot.emailSubject ?? '',
-        body: lot.emailBody ?? '',
+        subject,
+        body,
       })
       setSendResult((prev) => ({ ...prev, [lot.id]: { ok: true } }))
       const today = new Date().toISOString().slice(0, 10)
@@ -368,10 +384,13 @@ export default function ValidationTab({
       {previewEmailLot &&
         (() => {
           const included = previewEmailLot.suppliers.filter((s) => s.status !== 'ignore' && s.email)
+          const { subject, body } = freshEmail(previewEmailLot)
           return (
             <EmailPreviewModal
               lot={previewEmailLot}
               submission={submission}
+              initialSubject={subject}
+              initialBody={body}
               bcc={[...new Set(included.map((s) => s.email))]}
               onClose={() => setPreviewEmailLot(null)}
               onSent={(subject, body) => {

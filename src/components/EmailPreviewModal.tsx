@@ -6,18 +6,22 @@ import { sendLotEmailNow } from '../email/sendLotNow'
 export default function EmailPreviewModal({
   lot,
   submission,
+  initialSubject,
+  initialBody,
   bcc,
   onClose,
   onSent,
 }: {
   lot: Lot
   submission: Submission
+  initialSubject: string
+  initialBody: string
   bcc: string[]
   onClose: () => void
   onSent: (subject: string, body: string) => void
 }) {
-  const [subject, setSubject] = useState(lot.emailSubject ?? '')
-  const [body, setBody] = useState(lot.emailBody ?? '')
+  const [subject, setSubject] = useState(initialSubject)
+  const [body, setBody] = useState(initialBody)
   // Editable as free text (not just the read-only bcc prop) - lets you add a second address for
   // a fournisseur that has several, or fix a typo, without leaving this modal.
   const [bccText, setBccText] = useState(bcc.join(', '))
