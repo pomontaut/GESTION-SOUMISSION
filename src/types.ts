@@ -4,13 +4,17 @@ export interface Calculator {
   name: string
   email: string
   phone: string
+  // Which entities this calculator handles requests for - the "Calculateur" dropdown filters to
+  // these so the acheteur only ever sees the people actually assigned to the selected entity.
+  entities: string[]
 }
 
 export const KNOWN_CALCULATORS: Calculator[] = [
-  { name: 'Adrien Martino', email: 'amartino@induni.ch', phone: '076 490 58 17' },
-  { name: 'Luca Bottaro', email: 'lbottaro@induni.ch', phone: '076 338 07 36' },
-  { name: 'Bastien Preteseille', email: 'bpreteseille@induni.ch', phone: '022 879 01 01' },
-  { name: 'Joana Rodrigues Dos Santos', email: 'jrodrigues@induni.ch', phone: '076 320 39 71' },
+  { name: 'Adrien Martino', email: 'amartino@induni.ch', phone: '076 490 58 17', entities: ['BAT GE'] },
+  { name: 'Luca Bottaro', email: 'lbottaro@induni.ch', phone: '076 338 07 36', entities: ['GC'] },
+  { name: 'Bastien Preteseille', email: 'bpreteseille@induni.ch', phone: '022 879 01 01', entities: ['GC'] },
+  { name: 'Joana Rodrigues Dos Santos', email: 'jrodrigues@induni.ch', phone: '076 320 39 71', entities: ['BAT VD'] },
+  { name: 'Lucas Mouaz', email: 'lmouaz@induni.ch', phone: '+41 76 380 83 45', entities: ['BAT VD'] },
 ]
 
 export const ENTITY_OPTIONS = ['BAT GE', 'BAT VD', 'GC', 'TRANSFO GE', 'TRANSFO VD']

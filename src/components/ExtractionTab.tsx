@@ -9,6 +9,13 @@ import { buildLotEmail } from '../email/draftEmail'
 
 const CALCULATOR_CUSTOM = '__custom__'
 
+// Entities with no calculator explicitly assigned (e.g. TRANSFO GE/VD) fall back to the full list
+// rather than an empty dropdown - hiding every option would be worse than showing everyone.
+function calculatorsForEntity(entity: string) {
+  const matches = KNOWN_CALCULATORS.filter((c) => c.entities.includes(entity))
+  return matches.length > 0 ? matches : KNOWN_CALCULATORS
+}
+
 export default function ExtractionTab({
   submission,
   onUpdate,
@@ -45,12 +52,19 @@ export default function ExtractionTab({
   }
 
   function handleEntitySelect(value: string) {
+    // The calculator dropdown is scoped to the entity - a calculator picked for the previous
+    // entity that doesn't handle the new one would otherwise stay selected but disappear from the
+    // visible options, an inconsistent state the acheteur can't fix from the dropdown itself. A
+    // free-text ("Autre") calculator isn't tied to any entity, so it's left untouched.
+    const stillValid = calculatorsForEntity(value).some((c) => c.name === submission.info.calculatorName)
+    const calculatorPatch =
+      calculatorCustom || stillValid ? {} : { calculatorName: '', calculatorEmail: '', calculatorPhone: '' }
     if (value === CALCULATOR_CUSTOM) {
       setEntityCustom(true)
-      updateInfo({ entity: '' })
+      updateInfo({ entity: '', ...calculatorPatch })
     } else {
       setEntityCustom(false)
-      updateInfo({ entity: value })
+      updateInfo({ entity: value, ...calculatorPatch })
     }
   }
 
@@ -175,7 +189,7 @@ export default function ExtractionTab({
               onChange={(e) => handleCalculatorSelect(e.target.value)}
             >
               <option value="">— Choisir —</option>
-              {KNOWN_CALCULATORS.map((c) => (
+              {calculatorsForEntity(submission.info.entity).map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
                 </option>
