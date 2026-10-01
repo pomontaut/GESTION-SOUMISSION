@@ -127,10 +127,10 @@
  },
  {
   "category": "ALPHADOCK",
-  "name": "TEBETEC",
+  "name": "Schöck",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "info-ch@schoeck.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -144,7 +144,7 @@
   "name": "Alzo",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "info@alzo.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -158,7 +158,7 @@
   "name": "Rematec",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "rematec.ag@rematec.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -672,6 +672,20 @@
   "comments": ""
  },
  {
+  "category": "BENNES",
+  "name": "TRANSVOIRIE",
+  "nature": "Fourniture",
+  "frequency": "Récurrent",
+  "email": "",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
+ },
+ {
   "category": "BETON GENEVE",
   "name": "Holcim Genève",
   "nature": "Fourniture",
@@ -841,10 +855,10 @@
  },
  {
   "category": "BETON LAUSANNE",
-  "name": "ORLLATI",
+  "name": "Orllati granulats",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -1201,6 +1215,34 @@
   "contactCommande": "",
   "zone": "",
   "status": "Actif / à confirmer",
+  "comments": ""
+ },
+ {
+  "category": "CAROTTAGE",
+  "name": "BETONCOUPE",
+  "nature": "Sous-traitance",
+  "frequency": "Récurrent",
+  "email": "franck.monod@betoncoupe.ch",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
+ },
+ {
+  "category": "CAROTTAGE",
+  "name": "Orllati",
+  "nature": "",
+  "frequency": "",
+  "email": "offre@orllati.ch",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
   "comments": ""
  },
  {
@@ -1961,10 +2003,10 @@
  },
  {
   "category": "DECHARGE - TAXES - BENNE",
-  "name": "ORLLATI",
+  "name": "Orllati",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -2017,10 +2059,10 @@
  },
  {
   "category": "DEMOLITION",
-  "name": "ORLLATI",
+  "name": "Orllati",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "info@orllati.ch",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -2174,7 +2216,7 @@
   "name": "orllati desamiantage",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -2594,7 +2636,7 @@
   "name": "Cap étanchétité",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "info@cap-etancheite.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -2678,7 +2720,7 @@
   "name": "SIKA TRAVAUX",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "soumission-sikatravaux.vd@ch.sika.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -2713,6 +2755,48 @@
   "contactCommande": "",
   "zone": "",
   "status": "Actif / à confirmer",
+  "comments": ""
+ },
+ {
+  "category": "ETANCHEITE JOINT D'INJECTION (EXEMPLE: TYPE FUKO)",
+  "name": "Cap étanchétité",
+  "nature": "Sous-traitance",
+  "frequency": "Récurrent",
+  "email": "info@cap-etancheite.ch",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
+ },
+ {
+  "category": "ETANCHEITE JOINT D'INJECTION (EXEMPLE: TYPE FUKO)",
+  "name": "SIKA TRAVAUX",
+  "nature": "Sous-traitance",
+  "frequency": "Récurrent",
+  "email": "soumission-sikatravaux.vd@ch.sika.com",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
+ },
+ {
+  "category": "ETANCHEITE JOINT D'INJECTION (EXEMPLE: TYPE FUKO)",
+  "name": "Vacca",
+  "nature": "Sous-traitance",
+  "frequency": "Récurrent",
+  "email": "",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
   "comments": ""
  },
  {
@@ -3546,7 +3630,7 @@
   "name": "Sika Travaux",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "macchia.vito@ch.sika.com",
+  "email": "soumission-sikatravaux.vd@ch.sika.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -3630,7 +3714,7 @@
   "name": "Sika Travaux",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "macchia.vito@ch.sika.com",
+  "email": "soumission-sikatravaux.vd@ch.sika.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -4005,10 +4089,10 @@
  },
  {
   "category": "PAROIS CLOUEES",
-  "name": "ORLLATI",
+  "name": "Orllati",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -4218,7 +4302,7 @@
   "name": "Sika Travaux",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "macchia.vito@ch.sika.com",
+  "email": "soumission-sikatravaux.vd@ch.sika.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -4750,7 +4834,7 @@
   "name": "Orllati metal",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -5884,7 +5968,7 @@
   "name": "Orllati",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -6038,7 +6122,7 @@
   "name": "sika travaux",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "soumission-sikatravaux.vd@ch.sika.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -6062,7 +6146,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Reno Sutech",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6076,7 +6160,7 @@
   "comments": "est devenu PHIDA"
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Sateb",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6090,7 +6174,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "DMB (racheté par Orlatti)",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6104,7 +6188,7 @@
   "comments": "Grenaillage, fraisage, ponçage"
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "XL Betonnage",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6118,7 +6202,7 @@
   "comments": "Grenaillage"
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Framix (rabotage)",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6132,7 +6216,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Reproad",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6146,7 +6230,7 @@
   "comments": "GE uniquement"
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Weiss + Appetito",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6160,7 +6244,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "ALPHA BAT",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6174,7 +6258,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "svema",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6188,7 +6272,7 @@
   "comments": "FAILLITE!"
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "dst decap",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6202,7 +6286,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "MS SABLAGE",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6216,7 +6300,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Rénovation ANB SARL",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6230,7 +6314,7 @@
   "comments": "(bonne exp. Fremis Delta)"
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "MEGA SA TRAVAUX SPECIAUX",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
@@ -6696,7 +6780,7 @@
   "name": "Orllati",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -7144,7 +7228,7 @@
   "name": "Orllati",
   "nature": "Sous-traitance",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "offre@orllati.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -9324,7 +9408,7 @@
   "comments": ""
  },
  {
-  "category": "SABLAGE",
+  "category": "SABLAGE/GRENAILLAGE",
   "name": "Ranb",
   "nature": "Sous-traitance",
   "frequency": "",
