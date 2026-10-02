@@ -22,6 +22,9 @@ import { suggestCategories } from '../data/categorize'
  *  - A header code has NO decimal point: "500", "540", "R592", "134", "447"... It only ever
  *    carries a title, never a quantity/price. "R"-prefixed codes are the preparer's own custom
  *    additions (the CAN legend prints this explicitly) and must be recognised as headers too.
+ *    "E"/"e" is a second, independently confirmed custom-prefix letter used the exact same way by
+ *    some bureaux/software versions (see the "26-30 Pôle Bio" bullet further down) - recognised
+ *    identically to "R" everywhere a custom prefix matters.
  *  - A priced article's code always has a decimal point: "511.201", "134.308", "R592.101". Such a
  *    line never changes the current chapter context, it just belongs to it.
  * Headers nest arbitrarily deep with no visual cue ("500 Armatures" > "540 Accessoires
@@ -141,6 +144,23 @@ import { suggestCategories } from '../data/categorize'
  *    code/margin convention rather than one shared cause - left alone rather than guessing a fix
  *    from a single under-investigated case each; revisit once there's time to properly root-cause
  *    them individually (same discipline as the Favon MA/TP-Démol case above).
+ *  - "E"/"e" as a second custom-prefix letter, used exactly like "R" (see NONDECIMAL_HEADER_RE
+ *    comment), confirmed independently on THREE real documents - never built from a single case:
+ *    "26-30 Pôle Bio - BA" ("E 231 Escalier droit, massif, en béton." / "e .100" / "e .110" -
+ *    without this fix the whole chapter was silently dropped, not merged elsewhere, because "E"
+ *    isn't excluded from the margin vote the way "R" is, so it drags marginX down to its own
+ *    leftward x and breaks alignment for every real (bare-numeric) header on that page, including
+ *    the ones before/after the "E" line - see the rHeaderMarginX comment above for the mechanism,
+ *    identical to the "R891...R991 merged into one lot" case but one step worse here because the
+ *    native headers fail too, so currentKey goes to null and the runs are dropped outright rather
+ *    than merged into a neighbour); "26-20 Surville 3 - MA" ("E 142 Maçonnerie..." /
+ *    "E142.142"-shaped decimal children / "e 143 Maçonnerie..." as a second header); "26-15 Casino
+ *    Théâtre" ("E .100"/"E .200"/"E .300"/"E .400"/"e .100" - here used for a purely explanatory
+ *    CAN sub-paragraph, never itself a priced header, but it still needed to be excluded from the
+ *    margin vote to avoid the same corruption). Lowercase "e" never carries a chapter-rooted code
+ *    in any confirmed example (always an orphan "e .NNN", like "R"'s orphan children) - it only
+ *    ever needs the margin-vote exclusion, never fires the header-recognition branch itself, which
+ *    is expected and requires no special-casing beyond what "R"'s orphan children already get.
  */
 
 interface TextLine {
@@ -159,14 +179,26 @@ interface ChapterKey {
 // glued form ("R592") - bureau Pillet SA (seen on "26-23 Rolliet A/B/C - BA", "2267 - CFC
 // 211.5-212-217...") writes the preparer's custom "R"-prefixed codes as two separate tokens.
 // Same semantic role either way; the code is normalised (space stripped) where it's captured
-// below, so "R 433" and "R433" share the same identity.
-const NONDECIMAL_HEADER_RE = /^((?:R\s?)?\d{2,4})\s+[A-ZÀ-Þ]/
+// below, so "R 433" and "R433" share the same identity. "E"/"e" is a second, independently
+// confirmed custom-prefix letter (seen on "26-15 Casino Théâtre" - "E .100"/"e .100" sub-
+// paragraphs; "26-20 Surville 3 - MA" - "E 142"/"e 143" headers with "E142.142"-shaped decimal
+// children; "26-30 Pôle Bio - BA" - "E 231 Escalier droit..."/"e .100"/"e .110") - same spaced-
+// or-glued shape and the same semantic role as "R", just a different letter some bureaux/software
+// versions use. Both letters share the exact same recognition and margin-exclusion treatment
+// below (see CUSTOM_PREFIX_LETTER_RE).
+const NONDECIMAL_HEADER_RE = /^((?:[ERe]\s?)?\d{2,4})\s+[A-ZÀ-Þ]/
 // Alternate header shape used by bureaux that give every code a decimal point ("1.00", "3.00")
 // instead of reserving the bare (no-dot) form for headers - see the file-header comment above.
-const HEADER_DOT_ZERO_RE = /^((?:R\s?)?\d{1,4})\.00\s+[A-ZÀ-Þ]/
+const HEADER_DOT_ZERO_RE = /^((?:[ERe]\s?)?\d{1,4})\.00\s+[A-ZÀ-Þ]/
 // Prefix widened to 1-4 digits (some bureaux use "1.01" or "1110.101"); a bare ".00" suffix is
 // excluded because that's exactly the alternate header shape above, never a priced article.
-const DECIMAL_ARTICLE_RE = /^(?:R\s?)?\d{1,4}\.(?!00\b)\d+\b/
+const DECIMAL_ARTICLE_RE = /^(?:[ERe]\s?)?\d{1,4}\.(?!00\b)\d+\b/
+// Tests whether a header-shaped match's captured code starts with one of the confirmed
+// preparer-custom-code prefix letters ("R" or "E"/"e" - see NONDECIMAL_HEADER_RE comment above).
+// Centralised here so every place that needs "is this a custom-added code, not a native CAN one"
+// (the margin-vote exclusion, the round-key modulo-100 check, the alternate-margin alignment
+// check) agrees on the exact same letter set.
+const CUSTOM_PREFIX_LETTER_RE = /^[ERe]/
 // A priced row's Prix/Montant columns are printed blank (to be filled in by hand) as a long run
 // of dots - "................. ................." or "up = kg ... .......... .........." - the
 // one signal that survives even when the code itself is an orphan ".NNN" with no chapter prefix
@@ -357,30 +389,54 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     [...lineCounts.entries()].filter(([, count]) => count >= repeatThreshold).map(([text]) => text),
   )
 
-  // Whole-document count of "R"-prefixed vs. bare-numeric header-shaped lines, used below to
-  // decide whether "R"-prefixed lines should be excluded from a page's margin vote (marginX). In
-  // every bureau confirmed so far (Biopole, HEP, Soum IC, OMB Prilly, 26-47...), "R"-prefixed
-  // codes are the rare, preparer-added extra sitting a few points to the LEFT of that bureau's
-  // real header column (e.g. "R 229 Ensemble des places..." at x=18.8 vs. the native "220 Places,
-  // surfaces de dépôt" at x=31.3 a few lines above on "Soum IC") - if included in the margin vote,
-  // marginX collapses to that leftward offset and breaks the alignment check for every real
-  // (non-"R") header on the page. But bureau Pillet SA (seen on "26-23 Rolliet A/B/C - BA" and
-  // "2267 - CFC 211.5...") writes essentially EVERY header/article in the whole document with the
-  // "R" prefix - there is no separate "native" column to fall back on, so excluding "R" lines
-  // there leaves only indented description/continuation text as margin candidates, which collapses
-  // the whole document into one lot. The one signal that tells the two situations apart without
-  // guessing per-page is document-wide volume: a bureau where "R" is a rare add-on has far more
-  // bare-numeric headers than "R"-prefixed ones; a bureau where "R" is the norm has the opposite
-  // ratio (confirmed 128 "R" vs 10 bare on Rolliet A, versus e.g. 20 "R" vs 253 bare on Biopole).
+  // Whole-document count of custom-prefixed ("R" or "E"/"e", see CUSTOM_PREFIX_LETTER_RE) vs.
+  // bare-numeric header-shaped lines, used below to decide whether custom-prefixed lines should be
+  // excluded from a page's margin vote (marginX). In every bureau confirmed so far (Biopole, HEP,
+  // Soum IC, OMB Prilly, 26-47...), "R"-prefixed codes are the rare, preparer-added extra sitting a
+  // few points to the LEFT of that bureau's real header column (e.g. "R 229 Ensemble des
+  // places..." at x=18.8 vs. the native "220 Places, surfaces de dépôt" at x=31.3 a few lines above
+  // on "Soum IC") - if included in the margin vote, marginX collapses to that leftward offset and
+  // breaks the alignment check for every real (non-custom) header on the page. But bureau Pillet SA
+  // (seen on "26-23 Rolliet A/B/C - BA" and "2267 - CFC 211.5...") writes essentially EVERY
+  // header/article in the whole document with the "R" prefix - there is no separate "native" column
+  // to fall back on, so excluding "R" lines there leaves only indented description/continuation
+  // text as margin candidates, which collapses the whole document into one lot. The one signal that
+  // tells the two situations apart without guessing per-page is document-wide volume: a bureau
+  // where the custom prefix is a rare add-on has far more bare-numeric headers than custom-prefixed
+  // ones; a bureau where it's the norm has the opposite ratio (confirmed 128 "R" vs 10 bare on
+  // Rolliet A, versus e.g. 20 "R" vs 253 bare on Biopole).
+  // Document-wide left margin of custom-prefixed header-shaped lines specifically, kept separate
+  // from marginX below - confirmed necessary on a real document ("26-30 Pôle Bio - BA"): a bureau
+  // can write a handful of real, multi-position "R" sub-chapters (R891 "Joints" i.e. étanchéité,
+  // R892 "Piliers...", R893/R894 "Toiture..." i.e. poutres précontraintes, R919 "Construction
+  // métallique", R991 "Divers" i.e. tiges filetées et sabots) a few points to the LEFT of that same
+  // page's native (non-custom) header column, exactly like the rare-addition case just below -
+  // except here the custom prefix is not a rare one-off, it is the ONLY way several genuine,
+  // separately-lotted chapters are introduced. Per-page marginX intentionally excludes custom-
+  // prefixed lines from its own vote (see rHeadersAreTheNorm below) specifically so those rare
+  // additions don't drag marginX leftward and break alignment for the real headers - but that same
+  // exclusion then makes every custom header fail ITS OWN alignment check against marginX, silently
+  // freezing the chapter pointer on whatever bare header came before the custom run and merging
+  // every subsequent distinct custom chapter (and all its priced children) into that one frozen lot
+  // (confirmed: the whole R891 through R991 run collapsed into a single "910 Prix global"-titled
+  // lot, hiding Étanchéité, Piliers béton, Poutres précontraintes and Tiges filetées et sabots
+  // entirely). Computed once for the whole document, exactly like rHeadersAreTheNorm, from the same
+  // header-shaped lines. "E"/"e" (lowercase included - see NONDECIMAL_HEADER_RE comment) shares
+  // this exact same count/margin tracking: confirmed on "26-20 Surville 3 - MA" ("E 142"/"e 143"
+  // headers) and "26-15 Casino Théâtre" ("E .100"-style sub-paragraphs) in addition to Pôle Bio, so
+  // it is a second genuine bureau/software convention, not a one-off typo of "R".
   let rHeaderCount = 0
   let bareHeaderCount = 0
+  let rHeaderMarginX: number | null = null
   for (const lines of pageAllLines.values()) {
     for (const l of lines) {
       if (l.y >= 775) continue
       const m = l.text.match(NONDECIMAL_HEADER_RE) ?? l.text.match(HEADER_DOT_ZERO_RE)
       if (!m) continue
-      if (/^R/.test(m[1])) rHeaderCount++
-      else bareHeaderCount++
+      if (CUSTOM_PREFIX_LETTER_RE.test(m[1])) {
+        rHeaderCount++
+        rHeaderMarginX = rHeaderMarginX === null ? l.xStart : Math.min(rHeaderMarginX, l.xStart)
+      } else bareHeaderCount++
     }
   }
   const rHeadersAreTheNorm = rHeaderCount > 0 && rHeaderCount > bareHeaderCount
@@ -426,12 +482,12 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     // the "Pos. ..." table banner, so once that banner's y is known, nothing real ever appears
     // higher up on the same page. Anchoring marginX to below it sidesteps the wording entirely.
     const columnHeaderY = lines.find((l) => COLUMN_HEADER_RE.test(l.text))?.y
-    // Only exclude "R"-something lines from the margin vote when this document's "R" prefix is
-    // the rare preparer add-on (see rHeadersAreTheNorm above) - for a Pillet SA document where "R"
-    // is used on essentially every header/article, keeping the exclusion would leave only indented
-    // description lines as margin candidates, which is wrong.
+    // Only exclude custom-prefixed ("R"/"E"/"e") lines from the margin vote when this document's
+    // custom prefix is the rare preparer add-on (see rHeadersAreTheNorm above) - for a Pillet SA
+    // document where "R" is used on essentially every header/article, keeping the exclusion would
+    // leave only indented description lines as margin candidates, which is wrong.
     const marginCandidates = bodyLines.filter(
-      (l) => (rHeadersAreTheNorm || !/^R\b/.test(l.text)) && (columnHeaderY === undefined || l.y < columnHeaderY),
+      (l) => (rHeadersAreTheNorm || !/^[ERe]\b/.test(l.text)) && (columnHeaderY === undefined || l.y < columnHeaderY),
     )
     const marginX = marginCandidates.length ? Math.min(...marginCandidates.map((l) => l.xStart)) : null
 
@@ -446,16 +502,26 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     bodyLines.forEach((line, idx) => {
       if (!(idx === 0 && endedWithAReporter)) {
         const m = line.text.match(NONDECIMAL_HEADER_RE) ?? line.text.match(HEADER_DOT_ZERO_RE)
+        // A custom-prefixed ("R"/"E"/"e") header candidate may legitimately sit at the document's
+        // separate rHeaderMarginX column instead of the native marginX (see rHeaderMarginX comment
+        // above) - tried as an alternate alignment target, never instead of marginX, so a bureau
+        // where the custom prefix happens to already align with marginX (the norm case, or plain
+        // coincidence) is unaffected.
+        const isRCandidate = !!m && CUSTOM_PREFIX_LETTER_RE.test(m[1])
+        const aligned =
+          m !== null &&
+          ((marginX !== null && Math.abs(line.xStart - marginX) < 6) ||
+            (isRCandidate && rHeaderMarginX !== null && Math.abs(line.xStart - rHeaderMarginX) < 6))
         // A bare-code line carrying its own quantity ("41 Démolition du dallage... m2 231.00")
         // is a priced position wearing a header's clothing, not a real header - some bureaux use
         // the exact same shape (no decimal, same margin) for both. A genuine header never has one.
-        if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6 && !QUANTITY_UNIT_RE.test(line.text)) {
-          // Normalise "R 433" -> "R433" so the space-separated convention groups under the same
-          // code identity as the glued one used elsewhere ("R592").
+        if (m && aligned && !QUANTITY_UNIT_RE.test(line.text)) {
+          // Normalise "R 433" -> "R433" (and "E 142" -> "E142") so the space-separated convention
+          // groups under the same code identity as the glued one used elsewhere ("R592").
           const code = m[1].replace(/\s+/g, '')
           const title = line.text.slice(m[0].length - 1).trim()
           currentKey = { code, title }
-          if (Number(code.replace(/^R/, '')) % 100 === 0) currentRoundKey = { code, title }
+          if (Number(code.replace(CUSTOM_PREFIX_LETTER_RE, '')) % 100 === 0) currentRoundKey = { code, title }
         }
       }
       lineChapters.push({ line, key: currentKey, roundKey: currentRoundKey })
