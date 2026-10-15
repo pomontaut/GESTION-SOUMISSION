@@ -278,6 +278,158 @@ export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<
   for (let c = 3; c <= 20; c++) ws.getColumn(c).width = 18
   ws.getColumn(20).width = 60
 
+  // Feuille « Comparatif piliers » : format « tableau de rentrée d'offres » (préfabrication)
+  const pillarOffers = tco.variantes.flatMap((v) => v.offres).filter((o) => o.prix_lignes.length > 0)
+  if (tco.lignes_besoin.length && pillarOffers.length) {
+    const wp = wb.addWorksheet("Comparatif piliers")
+    wp.getCell('A1').value = "TABLEAU DE RENTRÉE D'OFFRES — " + tco.titre
+    wp.getCell('A1').font = { bold: true, size: 16 }
+    wp.getCell('A2').value = 'Montants HT. Cellules en bleu = saisies modifiables ; fond jaune = hypothèse [H].'
+    wp.getCell('A2').font = { italic: true }
+    const besoinHead = ['Article / pos.', 'Niveau', 'N° pilier', 'Forme', 'Section (mm)', 'Hauteur / vide', 'Charge Nd (kN)', 'Unité', 'Qté']
+    const H = 5 // ligne des en-têtes de colonnes
+    besoinHead.forEach((h, i) => {
+      wp.getCell(H, i + 1).value = h
+      head(wp.getCell(H, i + 1))
+    })
+    const nB = besoinHead.length
+    const first = H + 1
+    const last = H + tco.lignes_besoin.length
+    tco.lignes_besoin.forEach((l, i) => {
+      ;[l.article, l.niveau, l.pilier, l.forme, l.section, l.hauteur, l.charge_nd, l.unite, l.quantite].forEach((v, c) => {
+        wp.getCell(first + i, c + 1).value = v
+        wp.getCell(first + i, c + 1).border = box
+      })
+    })
+
+    // Lignes de pied : forfaits regroupés (câblettes, options, puis transports).
+    const labels: string[] = []
+    for (const o of pillarOffers)
+      for (const f of o.forfaits) if (!labels.some((x) => key(x) === key(f.libelle))) labels.push(f.libelle)
+    const isTransport = (l: string) => /transport|astag/i.test(l)
+    const isCable = (l: string) => /c[aâ]blett|c[aâ]ble/i.test(l)
+    const before = [...labels.filter(isCable), ...labels.filter((l) => !isCable(l) && !isTransport(l))]
+    const after = labels.filter((l) => isTransport(l) && !isCable(l))
+
+    let r = last + 1
+    const rCab = new Map<string, number>()
+    before.forEach((l) => rCab.set(l, r++))
+    const rBrut = r++
+    const rRab = r++
+    const rEsc = r++
+    const rNet = r++
+    const rAfter = new Map<string, number>()
+    after.forEach((l) => rAfter.set(l, r++))
+    const rTot = r++
+    const rEcart = r++
+    const rEcartPct = r++
+    const rRem = r++
+    const tag: [number, string][] = [
+      ...before.map((l): [number, string] => [rCab.get(l)!, l.toUpperCase()]),
+      [rBrut, 'TOTAL BRUT HT'],
+      [rRab, 'RABAIS (%)'],
+      [rEsc, 'ESCOMPTE (CHF)'],
+      [rNet, 'TOTAL NET HT'],
+      ...after.map((l): [number, string] => [rAfter.get(l)!, l.toUpperCase()]),
+      [rTot, 'TOTAL NET HT YC TRANSPORT'],
+      [rEcart, 'Écart vs moins-disant (CHF)'],
+      [rEcartPct, 'Écart vs moins-disant (%)'],
+      [rRem, 'DÉTAILS / REMARQUES'],
+    ]
+    for (const [rr, label] of tag) {
+      wp.mergeCells(rr, 1, rr, nB)
+      wp.getCell(rr, 1).value = label
+      wp.getCell(rr, 1).font = { bold: true }
+      wp.getCell(rr, 1).border = box
+    }
+    const totRefs: string[] = []
+    pillarOffers.forEach((o, k) => {
+      const c0 = nB + 1 + k * 6
+      const cPU = colName(c0)
+      const cRb = colName(c0 + 1)
+      const cTot = colName(c0 + 2)
+      wp.getCell(H - 2, c0).value = `Offre du ${o.date_offre}`
+      wp.getCell(H - 1, c0).value = o.fournisseur
+      wp.mergeCells(H - 2, c0, H - 2, c0 + 5)
+      wp.mergeCells(H - 1, c0, H - 1, c0 + 5)
+      for (const rr of [H - 2, H - 1]) {
+        head(wp.getCell(rr, c0))
+      }
+      ;['PU', 'Rabais (%)', 'Fr. total', 'Détail tête', 'Détail base', 'Remarques'].forEach((h, i) => {
+        wp.getCell(H, c0 + i).value = h
+        head(wp.getCell(H, c0 + i))
+      })
+      for (let i = 0; i < tco.lignes_besoin.length; i++) {
+        const rr = first + i
+        const pl = o.prix_lignes.find((x) => x.ligne === i)
+        const pu = wp.getCell(rr, c0)
+        if (pl && pl.pu != null) {
+          pu.value = pl.pu
+          input(pu)
+        } else {
+          pu.value = 'NON CHIFFRÉ'
+          pu.font = { italic: true, color: { argb: 'FF808080' } }
+          pu.border = box
+        }
+        const rb = wp.getCell(rr, c0 + 1)
+        rb.value = pl?.rabais_pct ?? 0
+        input(rb)
+        rb.numFmt = '0.0"%"'
+        const tt = wp.getCell(rr, c0 + 2)
+        tt.value = { formula: `IF(ISNUMBER(${cPU}${rr}),${cPU}${rr}*$I${rr}*(1-${cRb}${rr}/100),0)` }
+        calc(tt)
+        for (const [off, v] of [[3, pl?.detail_tete], [4, pl?.detail_base], [5, pl?.remarque]] as [number, string | undefined][]) {
+          const cell = wp.getCell(rr, c0 + off)
+          cell.value = v || ''
+          cell.border = box
+          cell.alignment = { wrapText: true, vertical: 'top' }
+        }
+      }
+      const put = (rr: number, v: number | string | { formula: string }, fmt = CHF, bold = false) => {
+        const cell = wp.getCell(rr, c0 + 2)
+        cell.value = v as never
+        cell.numFmt = fmt
+        cell.border = box
+        if (bold) cell.font = { bold: true }
+        return cell
+      }
+      for (const l of before) {
+        const f = o.forfaits.find((x) => key(x.libelle) === key(l))
+        const cell = put(rCab.get(l)!, f ? f.montant : 'NON CHIFFRÉ')
+        if (f) input(cell, f.nature, `[${f.nature}] ${f.source}`)
+        else cell.font = { italic: true, color: { argb: 'FF808080' } }
+      }
+      const T = (rr: number) => `${cTot}${rr}`
+      const lastBefore = before.length ? rCab.get(before[before.length - 1])! : last
+      put(rBrut, { formula: `SUM(${T(first)}:${T(lastBefore)})` }, CHF, true)
+      input(put(rRab, o.rabais_pct, '0.0"%"'))
+      input(put(rEsc, o.escompte))
+      put(rNet, { formula: `${T(rBrut)}*(1-${T(rRab)}/100)-${T(rEsc)}` }, CHF, true)
+      for (const l of after) {
+        const f = o.forfaits.find((x) => key(x.libelle) === key(l))
+        const cell = put(rAfter.get(l)!, f ? f.montant : 'NON CHIFFRÉ')
+        if (f) input(cell, f.nature, `[${f.nature}] ${f.source}`)
+        else cell.font = { italic: true, color: { argb: 'FF808080' } }
+      }
+      put(rTot, { formula: `${T(rNet)}${after.length ? `+SUM(${T(rAfter.get(after[0])!)}:${T(rAfter.get(after[after.length - 1])!)})` : ''}` }, CHF, true)
+      totRefs.push(T(rTot))
+    })
+    pillarOffers.forEach((o, k) => {
+      const c0 = nB + 1 + k * 6
+      const cTot = colName(c0 + 2)
+      const rng = totRefs.join(',')
+      put2(wp, rEcart, c0 + 2, { formula: `${cTot}${rTot}-MIN(${rng})` }, CHF)
+      put2(wp, rEcartPct, c0 + 2, { formula: `IF(MIN(${rng})=0,"",${cTot}${rTot}/MIN(${rng})-1)` }, '0.0%')
+      wp.mergeCells(rRem, c0, rRem, c0 + 5)
+      wp.getCell(rRem, c0).value = o.remarque
+      wp.getCell(rRem, c0).alignment = { wrapText: true, vertical: 'top' }
+      wp.getRow(rRem).height = 90
+    })
+    ;[14, 10, 10, 12, 12, 14, 14, 8, 8].forEach((w, i) => (wp.getColumn(i + 1).width = w))
+    for (let c = nB + 1; c <= nB + pillarOffers.length * 6; c++) wp.getColumn(c).width = 14
+    wp.views = [{ state: 'frozen', xSplit: nB, ySplit: H, showGridLines: false }]
+  }
+
   // Feuille Conditions
   const wc = wb.addWorksheet('Conditions')
   const names = [...new Set(tco.conditions.flatMap((c) => c.valeurs.map((v) => v.fournisseur)))]
@@ -366,3 +518,10 @@ export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<
   URL.revokeObjectURL(url)
 }
 
+
+function put2(ws: import('exceljs').Worksheet, r: number, c: number, v: { formula: string }, fmt: string) {
+  const cell = ws.getCell(r, c)
+  cell.value = v
+  cell.numFmt = fmt
+  cell.border = box
+}

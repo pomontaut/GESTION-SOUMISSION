@@ -27,6 +27,26 @@ export interface OffreTco {
   quantite_offerte: number | null
   plafond_mensuel: number | null
   remarque: string
+  prix_lignes: PrixLigne[]
+}
+export interface LigneBesoin {
+  article: string
+  niveau: string
+  pilier: string
+  forme: string
+  section: string
+  hauteur: string
+  charge_nd: string
+  unite: string
+  quantite: number
+}
+export interface PrixLigne {
+  ligne: number
+  pu: number | null
+  rabais_pct: number
+  detail_tete: string
+  detail_base: string
+  remarque: string
 }
 export interface TcoResult {
   titre: string
@@ -34,6 +54,7 @@ export interface TcoResult {
   unite: string
   quantite_besoin: number
   budget_unitaire: number | null
+  lignes_besoin: LigneBesoin[]
   variantes: { nom: string; offres: OffreTco[] }[]
   conditions: { critere: string; valeurs: { fournisseur: string; valeur: string }[] }[]
   points_a_clarifier: {
@@ -77,6 +98,23 @@ const TCO_TOOL = {
     unite: { ...str, description: 'Unité du besoin (t, m³, pièce, ens…)' },
     quantite_besoin: { ...num, description: 'Quantité du besoin. Si le lot n\'est pas un produit unique (ex. piliers), 1 et unité « ens ».' },
     budget_unitaire: { type: ['number', 'null'], description: 'Budget par unité du besoin, ou null si inconnu' },
+    lignes_besoin: {
+      ...arr(
+        obj({
+          article: { ...str, description: 'Article de soumission ou n° de position' },
+          niveau: str,
+          pilier: { ...str, description: 'N° de pilier' },
+          forme: str,
+          section: { ...str, description: 'Section (mm)' },
+          hauteur: { ...str, description: 'Vide d\'étage / hauteur / longueur' },
+          charge_nd: { ...str, description: 'Charge Nd (kN), moment, choc éventuel' },
+          unite: str,
+          quantite: num,
+        }),
+      ),
+      description:
+        "Préfabrication (piliers) UNIQUEMENT : une entrée par ligne du besoin (liste de l'ingénieur), dans l'ordre. Tableau vide pour les autres lots.",
+    },
     variantes: arr(
       obj({
         nom: { ...str, description: 'Variante comparée (ex. « 0/32 naturel franco »). Ne jamais mélanger des variantes différentes.' },
@@ -106,6 +144,20 @@ const TCO_TOOL = {
             quantite_offerte: { type: ['number', 'null'] },
             plafond_mensuel: { type: ['number', 'null'], description: 'Capacité mensuelle maximale offerte, si plafonnée' },
             remarque: str,
+            prix_lignes: {
+              ...arr(
+                obj({
+                  ligne: { ...num, description: 'Index (0 = première) dans lignes_besoin' },
+                  pu: { type: ['number', 'null'], description: 'PU HT de la ligne, null si non chiffré' },
+                  rabais_pct: { ...num, description: 'Rabais de ligne en %, 0 si aucun' },
+                  detail_tete: str,
+                  detail_base: str,
+                  remarque: str,
+                }),
+              ),
+              description:
+                'Préfabrication : un PU par ligne du besoin, avec détail de tête/base tels que nommés par le fabricant. Dans ce cas : quantite_besoin = 1, unité « ens », et une composante « Piliers (total brut) » = somme PU × qté ; câblettes, ASTAG, transports complémentaires et options vont dans les forfaits (libellés explicites : « Câblettes… », « Transport… », « ASTAG… »). Vide pour les autres lots.',
+            },
           }),
         ),
       }),
