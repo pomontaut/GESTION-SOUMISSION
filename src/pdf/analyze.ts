@@ -1,5 +1,4 @@
 import { pdfjsLib } from './pdfjs'
-import { detectColorBands } from './highlightRegions'
 import type { DetectedZone, Lot, PrestationType } from '../types'
 import { uid } from '../types'
 import { suggestCategories } from '../data/categorize'
@@ -372,36 +371,6 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const [annots, textContent] = await Promise.all([page.getAnnotations(), page.getTextContent()])
     pageAnnots.set(p, annots)
     pageAllLines.set(p, groupLines(textContent.items as Array<{ str: string; transform: number[] }>))
-  }
-
-  // Flattened exports: the highlighter was baked into the page content, so the text layer is
-  // there but there is no Highlight annotation at all. Only when the whole document has none
-  // (so a document with real annotations is never affected), recover the highlighted regions
-  // from the rendered pixels and feed them through the same path as native annotations.
-  if (Array.from(pageAnnots.values()).every((a) => (a as unknown[]).length === 0)) {
-    for (let p = 1; p <= doc.numPages; p++) {
-      const page = await doc.getPage(p)
-      const viewport = page.getViewport({ scale: 2 })
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.ceil(viewport.width)
-      canvas.height = Math.ceil(viewport.height)
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })
-      if (!ctx) continue
-      await page.render({ canvasContext: ctx, viewport }).promise
-      const bands = detectColorBands(ctx.getImageData(0, 0, canvas.width, canvas.height))
-      pageAnnots.set(
-        p,
-        bands.map((b) => {
-          const [px0, py1] = viewport.convertToPdfPoint(b.x0, b.y0)
-          const [px1, py0] = viewport.convertToPdfPoint(b.x1, b.y1)
-          return {
-            subtype: 'Highlight',
-            color: new Uint8ClampedArray(b.color === 'jaune' ? [255, 255, 0] : [0, 255, 0]),
-            rect: [px0, py0, px1, py1],
-          }
-        }),
-      )
-    }
   }
 
   // A running header/footer ("OU3 SA" / "Bureau d'ingénieurs... Page 8 / 38", a bureau's own

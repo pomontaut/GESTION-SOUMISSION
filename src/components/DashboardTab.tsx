@@ -1,15 +1,11 @@
 import { useId, useMemo, useState } from 'react'
 import type { FollowUpEntry, Lot, LotPosition, Submission } from '../types'
 import { uid } from '../types'
-import { localToday } from '../dates'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import PdfPreviewModal from './PdfPreviewModal'
-
-/** An offer counts as received once its file was dropped or a return date is set. */
-const hasAnswered = (f: FollowUpEntry) => !!(f.offerFileId || f.returnDate)
 
 export default function DashboardTab({
   submission,
@@ -45,8 +41,7 @@ export default function DashboardTab({
     try {
       const fileId = uid()
       await uploadOfferFile(submission.id, fileId, file)
-      // Return date = the day the offer was dropped in.
-      const patch: Partial<FollowUpEntry> = { offerFileId: fileId, offerFileName: file.name, returnDate: localToday() }
+      const patch: Partial<FollowUpEntry> = { offerFileId: fileId, offerFileName: file.name }
       if (file.type === 'application/pdf') {
         const amount = await extractAmountFromPdf(await file.arrayBuffer())
         if (amount) patch.estimatedAmount = amount
@@ -80,39 +75,7 @@ export default function DashboardTab({
   }, [submission.lots, submission.zones])
 
   function relance(lotId: string, supplierId: string) {
-    updateFollowUp(lotId, supplierId, { relanceDate: localToday() })
-  }
-
-  /** Only lots/suppliers actually consulted (request sent) appear in the follow-up. */
-  const consultedLots = submission.lots
-    .map((lot) => ({ lot, rows: lot.followUp.filter((f) => f.status === 'envoye') }))
-    .filter((x) => x.rows.length > 0)
-
-  /** Mass reminder: every consulted supplier of the lot that hasn't answered yet. Stamps the
-   *  reminder date and opens a draft (Cci) in the user's mail client - nothing is sent automatically. */
-  function relanceAll(lot: Lot) {
-    const pending = lot.followUp.filter((f) => f.status === 'envoye' && !hasAnswered(f))
-    if (pending.length === 0) return
-    const ids = new Set(pending.map((f) => f.supplierId))
-    const today = localToday()
-    updateLot(lot.id, {
-      followUp: lot.followUp.map((f) => (ids.has(f.supplierId) ? { ...f, relanceDate: today } : f)),
-    })
-    const i = submission.info
-    const deadline = i.deadline ? new Date(i.deadline).toLocaleDateString('fr-CH') : ''
-    const subject = `RELANCE — ${lot.emailSubject ?? `Demande de prix — ${lot.title}`}`
-    const body = [
-      'Bonjour,',
-      '',
-      `Sauf erreur de notre part, nous n'avons pas encore reçu votre offre pour la demande de prix ci-dessous${deadline ? ` (date de réponse souhaitée : ${deadline})` : ''}.`,
-      "Pourriez-vous nous la faire parvenir dans les meilleurs délais ? Si vous ne souhaitez pas offrir, merci de nous l'indiquer.",
-      '',
-      `Références : ${i.siteNumber || '[N° de chantier]'} - ${i.projectName || '[Nom du projet]'} - ${i.siteLocation || '[Ville]'}`,
-      '',
-      `Calculateur : ${i.calculatorName} — ${i.calculatorEmail} — ${i.calculatorPhone}`,
-    ].join('\n')
-    const bcc = pending.map((f) => f.email).filter(Boolean).join(',')
-    window.location.href = `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    updateFollowUp(lotId, supplierId, { relanceDate: new Date().toISOString().slice(0, 10) })
   }
 
   function setRetained(lotId: string, supplierId: string) {
@@ -125,10 +88,10 @@ export default function DashboardTab({
 
   function exportCsv() {
     const rows = [
-      ['Lot', 'CFC', 'Fournisseur', 'Email', 'Statut', 'Date envoi', 'Date relance', 'Montant estimé', 'Conforme', 'Date retour', 'Notes', 'Retenu'],
+      ['Lot', 'CFC', 'Fournisseur', 'Email', 'Statut', 'Date envoi', 'Date relance', 'Montant estimé', 'Montant offert', 'Conforme', 'Date retour', 'Notes', 'Retenu'],
     ]
-    for (const { lot, rows: consulted } of consultedLots) {
-      for (const f of consulted) {
+    for (const lot of submission.lots) {
+      for (const f of lot.followUp) {
         rows.push([
           lot.title,
           lot.cfcCode,
@@ -137,7 +100,8 @@ export default function DashboardTab({
           f.status,
           f.sentDate ?? '',
           f.relanceDate ?? '',
-          lot.tcoGeneratedAt ? (f.estimatedAmount ?? '') : '',
+          f.estimatedAmount ?? '',
+          f.offeredAmount ?? '',
           f.conforme ? 'oui' : 'non',
           f.returnDate ?? '',
           f.notes ?? '',
@@ -154,8 +118,6 @@ export default function DashboardTab({
     try {
       const blob = await generateTcoWorkbook(lot, submission)
       downloadBlobFile(blob, tcoFilename(lot))
-      // From now on the estimated amounts are shown in the follow-up.
-      if (!lot.tcoGeneratedAt) updateLot(lot.id, { tcoGeneratedAt: new Date().toISOString() })
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Échec de la génération du TCO')
     } finally {
@@ -209,13 +171,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {consultedLots.length === 0 && (
-        <p className="text-sm text-slate-400">
-          Aucun lot consulté pour l'instant — le suivi se remplit dès l'envoi d'un lot aux fournisseurs (onglet Validation &amp; envoi).
-        </p>
-      )}
-
-      {consultedLots.map(({ lot, rows }) => {
+      {submission.lots.map((lot) => {
         const heterogeneity = heterogeneityByLot.get(lot.id)
         return (
         <div key={lot.id} className="card overflow-x-auto">
@@ -235,8 +191,8 @@ export default function DashboardTab({
               {lot.validated ? 'Validé' : 'Proposé'}
             </span>
             <span className="text-xs text-slate-500">
-              {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {rows.length} fournisseur(s) consulté(s) ·{' '}
-              {rows.filter(hasAnswered).length}/{rows.length} offre(s) reçue(s)
+              {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.suppliers.length} fournisseur(s) ·{' '}
+              {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
             <div className="flex gap-2 ml-auto">
@@ -279,19 +235,10 @@ export default function DashboardTab({
                   <th className="py-1.5 pr-2">Fournisseur</th>
                   <th className="py-1.5 pr-2">Statut</th>
                   <th className="py-1.5 pr-2">Date envoi</th>
-                  <th className="py-1.5 pr-2">
-                    Relance
-                    <button
-                      className="btn-secondary !py-0.5 !px-2 ml-2 text-xs"
-                      title="Relancer tous les fournisseurs consultés qui n'ont pas répondu"
-                      disabled={rows.every(hasAnswered)}
-                      onClick={() => relanceAll(lot)}
-                    >
-                      Relancer les sans-réponse ({rows.filter((f) => !hasAnswered(f)).length})
-                    </button>
-                  </th>
+                  <th className="py-1.5 pr-2">Relance</th>
                   <th className="py-1.5 pr-2">Offre reçue</th>
-                  {lot.tcoGeneratedAt && <th className="py-1.5 pr-2">Montant estimé (HT)</th>}
+                  <th className="py-1.5 pr-2">Montant estimé (HT)</th>
+                  <th className="py-1.5 pr-2">Montant offert (HT)</th>
                   <th className="py-1.5 pr-2">Délai</th>
                   <th className="py-1.5 pr-2">Validité offre</th>
                   <th className="py-1.5 pr-2">Conditions paiement</th>
@@ -302,7 +249,7 @@ export default function DashboardTab({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((f) => (
+                {lot.followUp.map((f) => (
                   <tr key={f.supplierId} className="border-b border-slate-100">
                     <td className="py-1.5 pr-2">
                       {f.name}
@@ -338,17 +285,24 @@ export default function DashboardTab({
                         }
                       />
                     </td>
-                    {lot.tcoGeneratedAt && (
-                      <td className="py-1.5 pr-2">
-                        <input
-                          className="input !py-1 w-24"
-                          placeholder="CHF HT"
-                          title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
-                          value={f.estimatedAmount ?? ''}
-                          onChange={(e) => updateFollowUp(lot.id, f.supplierId, { estimatedAmount: e.target.value })}
-                        />
-                      </td>
-                    )}
+                    <td className="py-1.5 pr-2">
+                      <input
+                        className="input !py-1 w-24"
+                        placeholder="CHF HT"
+                        title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
+                        value={f.estimatedAmount ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { estimatedAmount: e.target.value })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        className="input !py-1 w-24"
+                        placeholder="CHF HT"
+                        title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
+                        value={f.offeredAmount ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { offeredAmount: e.target.value })}
+                      />
+                    </td>
                     <td className="py-1.5 pr-2">
                       <input
                         className="input !py-1 w-24"

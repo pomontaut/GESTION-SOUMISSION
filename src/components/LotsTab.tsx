@@ -1,4 +1,3 @@
-import { localToday } from '../dates'
 import { useEffect, useMemo, useState } from 'react'
 import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
@@ -477,7 +476,7 @@ function LotDetail({
   }
 
   function markAllSent() {
-    const today = localToday()
+    const today = new Date().toISOString().slice(0, 10)
     onChange({
       followUp: lot.followUp.map((f) => ({ ...f, status: 'envoye' as const, sentDate: f.sentDate ?? today })),
     })

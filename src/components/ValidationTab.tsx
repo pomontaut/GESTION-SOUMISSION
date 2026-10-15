@@ -1,4 +1,3 @@
-import { localToday } from '../dates'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
@@ -212,7 +211,7 @@ export default function ValidationTab({
         body,
       })
       setSendResult((prev) => ({ ...prev, [lot.id]: { ok: true } }))
-      const today = localToday()
+      const today = new Date().toISOString().slice(0, 10)
       const includedIds = new Set(included.map((s) => s.supplierId))
       updateLot(lot.id, {
         followUp: lot.followUp.map((f) =>
@@ -395,7 +394,7 @@ export default function ValidationTab({
               bcc={[...new Set(included.map((s) => s.email))]}
               onClose={() => setPreviewEmailLot(null)}
               onSent={(subject, body) => {
-                const today = localToday()
+                const today = new Date().toISOString().slice(0, 10)
                 const includedIds = new Set(included.map((s) => s.supplierId))
                 updateLot(previewEmailLot.id, {
                   emailSubject: subject,

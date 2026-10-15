@@ -133,8 +133,6 @@ export interface Lot {
   emailSubject?: string
   emailBody?: string
   emailGeneratedAt?: string
-  /** Set once a TCO has been generated for this lot - the "Montant estimé" column of the follow-up only shows after. */
-  tcoGeneratedAt?: string
 }
 
 export interface Submission {
