@@ -20,6 +20,19 @@ export function allEmailsSent(submission: Submission): boolean {
   })
 }
 
+/** [53, 54, 60] -> "53-54, 60" */
+function fmtPages(pages: number[]): string {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b)
+  const out: string[] = []
+  for (let i = 0; i < sorted.length; ) {
+    let j = i
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++
+    out.push(j > i ? `${sorted[i]}-${sorted[j]}` : String(sorted[i]))
+    i = j + 1
+  }
+  return out.join(', ')
+}
+
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('fr-CH') : '')
 
 /** Génère la « Grille soumission » : fournisseurs en lignes, lots en colonnes, X = fournisseur consulté. */
@@ -71,6 +84,19 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
     c.alignment = { horizontal: 'left' }
     for (let col = 3; col <= lastCol; col++) ws.getCell(r, col).border = { top: thin, bottom: thin, right: col === lastCol ? medium : undefined }
   })
+
+  // Ligne 7 : numéros de page de la soumission, au-dessus des numéros de CAN
+  const pagesRow = 7
+  const pageTexts = lots.map((l) => fmtPages(l.pages))
+  ws.getRow(pagesRow).height = Math.max(19.95, ...pageTexts.map((t) => Math.ceil(t.length / 5) * 18))
+  for (let c = 2; c <= lastCol; c++) {
+    const cell = ws.getCell(pagesRow, c)
+    if (c === 2) cell.value = 'PAGES DE LA SOUMISSION'
+    else if (c < lastCol) cell.value = pageTexts[c - 3]
+    cell.font = { name: 'Calibri', size: c === 2 ? 14 : 12, bold: true }
+    cell.alignment = { horizontal: c === 2 ? 'right' : 'center', vertical: 'middle', wrapText: true }
+    cell.border = { top: thin, bottom: thin, left: thin, right: c === lastCol ? medium : thin }
+  }
 
   // Ligne 8 : numéros de lot + « Plans »
   const headRow = 8
