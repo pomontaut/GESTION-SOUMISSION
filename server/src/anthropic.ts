@@ -5,14 +5,21 @@ import path from 'node:path'
 // that the comparatif-tco agent keeps enriching it with new real examples over time. If this were
 // cached once, every future improvement to that memory would need a server restart to take
 // effect; reading it live means the generated analysis improves automatically as the memory does.
-function loadComparatifMemory(): string {
+function loadAgentFile(name: string): string {
   try {
-    const filePath = path.join(__dirname, '..', '.claude', 'agents', 'comparatif-tco.md')
+    const filePath = path.join(__dirname, '..', '.claude', 'agents', name)
     const raw = fs.readFileSync(filePath, 'utf-8')
     return raw.replace(/^---[\s\S]*?---\n/, '').trim()
   } catch {
     return ''
   }
+}
+
+// Agent « acheteur senior » (instructions + base de connaissances Induni : méthode, points de
+// contrôle par lot, historique de dossiers, repères de prix) puis, si présente, la mémoire du
+// sous-agent comparatif-tco.
+function loadComparatifMemory(): string {
+  return [loadAgentFile('acheteur-senior.md'), loadAgentFile('comparatif-tco.md')].filter(Boolean).join('\n\n---\n\n')
 }
 
 export interface TcoSupplierInput {
@@ -109,9 +116,10 @@ export async function generateTcoAnalysis(params: {
   const hasDocuments = (params.offerDocuments?.length ?? 0) > 0
   const memory = loadComparatifMemory()
   const system = [
-    "Tu es un acheteur professionnel dans la construction (Suisse romande). Tu produis l'analyse d'un comparatif d'offres (TCO) pour un lot, dans le même esprit que les meilleurs comparatifs réels étudiés sur ce projet, résumés ci-dessous.",
+    "Tu es l'agent « acheteur senior construction » d'Induni & Cie SA décrit ci-dessous. Tu produis l'analyse d'un comparatif d'offres (TCO) pour un lot en appliquant strictement sa méthode, ses règles de rigueur et sa base de connaissances.",
     memory || '(mémoire de comparatifs réels non disponible pour cet appel - base-toi sur les bonnes pratiques générales d\'achat construction)',
     [
+      "Adaptation au format de cet appel : le format de restitution en 9 sections et le livrable Excel décrits ci-dessus sont remplacés par le JSON demandé plus bas (le fichier Excel est généré par l'application à partir de ce JSON). Place dans \"note\" les points à clarifier bloquants/majeurs, la synthèse, les leviers de négociation et la recommandation provisoire ; dans \"assumptions\" chaque hypothèse [H] et chaque recalcul [C] ; marque [F]/[C]/[H] quand c'est utile. N'utilise jamais un prix historique de la base pour combler un prix manquant, et ne demande rien à l'utilisateur : travaille avec ce qui est fourni.",
       'Consignes strictes :',
       "- Base-toi UNIQUEMENT sur les données et documents fournis. N'invente jamais un montant, un fournisseur, un délai, une valeur technique ou une ligne de prix qui n'y figure pas.",
       '- Tous les montants HT (hors taxe) - compare-les systématiquement sur cette base, ne les qualifie jamais de TTC et ne les mélange jamais avec de la TVA. Dans "positions", "quantity"/"unit" sont communs à tous les fournisseurs (le métré de l\'acheteur) - le total d\'un article pour un fournisseur se calcule en multipliant sa valeur dans "unitPrices" par "quantity", même si ce fournisseur n\'a donné qu\'un prix unitaire sans total ni quantité propre.',
@@ -130,7 +138,7 @@ export async function generateTcoAnalysis(params: {
         : [
             '- Aucun document d\'offre n\'est joint pour cet appel : omets entièrement le champ "offersComparison" (ne le déduis jamais des seules données résumées, qui ont leur propre affichage séparé dans l\'app).',
           ]),
-      `- Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown, de la forme exacte : {"note": "...", "technical": [{"criterion": "...", "values": {"<nom exact du fournisseur>": "..."}, "analysis": "...", "category": "..."}]${hasDocuments ? ', "offersComparison": {"lines": [{"label": "...", "quantity": "...", "unit": "...", "values": {"<nom exact du fournisseur>": {"unitPrice": "...", "currency": "CHF", "amount": "...", "matchStatus": "exact", "note": "..."}}}], "exchangeRates": {"EUR": 0.945}, "assumptions": ["..."]}' : ''}}. "note" : 150 à 250 mots, en français, ton direct et professionnel, sans markdown ni puces - commente aussi brièvement les aspects techniques/qualitatifs séparément du prix, sans dupliquer le détail déjà dans "technical"${hasDocuments ? '/"offersComparison"' : ''}. "analysis" par critère technique (optionnel) : une phrase expliquant en quoi ce critère influence ou non la recommandation.`,
+      `- Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown, de la forme exacte : {"note": "...", "technical": [{"criterion": "...", "values": {"<nom exact du fournisseur>": "..."}, "analysis": "...", "category": "..."}]${hasDocuments ? ', "offersComparison": {"lines": [{"label": "...", "quantity": "...", "unit": "...", "values": {"<nom exact du fournisseur>": {"unitPrice": "...", "currency": "CHF", "amount": "...", "matchStatus": "exact", "note": "..."}}}], "exchangeRates": {"EUR": 0.945}, "assumptions": ["..."]}' : ''}}. "note" : 200 à 350 mots, en français, ton direct et professionnel, sans markdown ni puces - commente aussi brièvement les aspects techniques/qualitatifs séparément du prix, sans dupliquer le détail déjà dans "technical"${hasDocuments ? '/"offersComparison"' : ''}. "analysis" par critère technique (optionnel) : une phrase expliquant en quoi ce critère influence ou non la recommandation.`,
     ].join('\n'),
   ].join('\n\n')
 

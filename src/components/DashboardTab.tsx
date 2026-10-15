@@ -4,6 +4,7 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
+import { allEmailsSent, exportTrackingGrid } from '../export/trackingGrid'
 import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import PdfPreviewModal from './PdfPreviewModal'
 
@@ -162,6 +163,14 @@ export default function DashboardTab({
           </Field>
         </div>
         <div className="flex gap-2 mt-4">
+          <button
+            className="btn-primary"
+            disabled={!allEmailsSent(submission)}
+            title={allEmailsSent(submission) ? '' : 'Disponible quand tous les e-mails ont été envoyés'}
+            onClick={() => exportTrackingGrid(submission)}
+          >
+            ⭳ Générer le tableau de suivi (Excel)
+          </button>
           <button className="btn-secondary" onClick={exportCsv}>
             ⭳ Exporter en CSV
           </button>
