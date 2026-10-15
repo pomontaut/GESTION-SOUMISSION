@@ -77,6 +77,8 @@ export interface FollowUpEntry {
   returnDate?: string
   notes?: string
   offerFileName?: string
+  offerMime?: string
+  offerData?: ArrayBuffer // offre jointe (PDF/image), analysée par l'agent acheteur
   retained: boolean
 }
 

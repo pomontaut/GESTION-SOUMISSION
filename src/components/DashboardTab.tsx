@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import type { FollowUpEntry, Lot, Submission } from '../types'
+import { MODELS, generateTco, getApiKey, getModel, setApiKey, setModel } from '../agent/acheteurAgent'
+import { exportTcoExcel } from '../export/tcoExcel'
 
 export default function DashboardTab({
   submission,
@@ -7,6 +10,35 @@ export default function DashboardTab({
   submission: Submission
   onUpdate: (s: Submission) => void
 }) {
+  const [apiKey, setApiKeyState] = useState(getApiKey())
+  const [model, setModelState] = useState(getModel())
+  const [tcoBusy, setTcoBusy] = useState<Record<string, string>>({})
+  const [tcoError, setTcoError] = useState<Record<string, string>>({})
+
+  async function attachOffer(lotId: string, supplierId: string, file: File | undefined) {
+    if (!file) return
+    updateFollowUp(lotId, supplierId, {
+      offerFileName: file.name,
+      offerMime: file.type || 'application/pdf',
+      offerData: await file.arrayBuffer(),
+    })
+  }
+
+  async function runTco(lot: Lot) {
+    setTcoError((e) => ({ ...e, [lot.id]: '' }))
+    try {
+      const tco = await generateTco(submission, lot, (msg) => setTcoBusy((b) => ({ ...b, [lot.id]: msg })))
+      await exportTcoExcel(tco, `TCO ${submission.info.projectName || submission.name} - CFC ${lot.cfcCode}.xlsx`)
+    } catch (e) {
+      setTcoError((er) => ({ ...er, [lot.id]: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setTcoBusy((b) => {
+        const { [lot.id]: _done, ...rest } = b
+        return rest
+      })
+    }
+  }
+
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
   }
@@ -59,7 +91,14 @@ export default function DashboardTab({
   }
 
   function exportJson() {
-    const { pdfData: _pdfData, ...rest } = submission
+    const { pdfData: _pdfData, ...base } = submission
+    const rest = {
+      ...base,
+      lots: base.lots.map((l) => ({
+        ...l,
+        followUp: l.followUp.map(({ offerData: _offer, ...f }) => f),
+      })),
+    }
     downloadBlob(JSON.stringify(rest, null, 2), `${submission.info.projectName || 'soumission'}.json`, 'application/json')
   }
 
@@ -104,6 +143,46 @@ export default function DashboardTab({
         </div>
       </div>
 
+      <div className="card">
+        <h3 className="font-semibold text-slate-800 mb-1">Assistant acheteur (IA)</h3>
+        <p className="text-sm text-slate-500 mb-3">
+          Génère le TCO d'un lot à partir du besoin et des offres jointes. La clé API reste dans ce navigateur et les
+          documents sont envoyés à l'API Anthropic pour l'analyse.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Clé API Anthropic</label>
+            <input
+              type="password"
+              className="input"
+              placeholder="sk-ant-…"
+              value={apiKey}
+              onChange={(e) => {
+                setApiKeyState(e.target.value)
+                setApiKey(e.target.value)
+              }}
+            />
+          </div>
+          <div>
+            <label className="label">Modèle</label>
+            <select
+              className="input"
+              value={model}
+              onChange={(e) => {
+                setModelState(e.target.value)
+                setModel(e.target.value)
+              }}
+            >
+              {MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       {submission.lots.map((lot) => (
         <div key={lot.id} className="card overflow-x-auto">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -118,7 +197,16 @@ export default function DashboardTab({
               {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400 ml-auto">pages {lot.pages.join(', ')}</span>
+            <button
+              className="btn-primary"
+              disabled={Boolean(tcoBusy[lot.id]) || !lot.followUp.some((f) => f.offerData)}
+              title={lot.followUp.some((f) => f.offerData) ? '' : 'Joignez au moins une offre à ce lot'}
+              onClick={() => runTco(lot)}
+            >
+              {tcoBusy[lot.id] ? '⏳ ' + tcoBusy[lot.id] : '⭳ Générer un TCO'}
+            </button>
           </div>
+          {tcoError[lot.id] && <p className="text-sm text-red-600 mb-2">{tcoError[lot.id]}</p>}
 
           {lot.followUp.length === 0 ? (
             <p className="text-sm text-slate-400">
@@ -129,6 +217,7 @@ export default function DashboardTab({
               <thead>
                 <tr className="text-left text-slate-500 border-b border-slate-200">
                   <th className="py-1.5 pr-2">Fournisseur</th>
+                  <th className="py-1.5 pr-2">Offre jointe</th>
                   <th className="py-1.5 pr-2">Statut</th>
                   <th className="py-1.5 pr-2">Date envoi</th>
                   <th className="py-1.5 pr-2">Relance</th>
@@ -146,6 +235,34 @@ export default function DashboardTab({
                     <td className="py-1.5 pr-2">
                       {f.name}
                       <div className="text-xs text-slate-400">{f.email}</div>
+                    </td>
+                    <td className="py-1.5 pr-2 text-xs">
+                      {f.offerFileName ? (
+                        <div className="flex items-center gap-1">
+                          <span className="truncate max-w-[140px]" title={f.offerFileName}>
+                            📎 {f.offerFileName}
+                          </span>
+                          <button
+                            className="text-slate-400 hover:text-red-600"
+                            onClick={() =>
+                              updateFollowUp(lot.id, f.supplierId, {
+                                offerFileName: undefined,
+                                offerMime: undefined,
+                                offerData: undefined,
+                              })
+                            }
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <input
+                          type="file"
+                          accept="application/pdf,image/png,image/jpeg"
+                          className="w-40"
+                          onChange={(e) => attachOffer(lot.id, f.supplierId, e.target.files?.[0])}
+                        />
+                      )}
                     </td>
                     <td className="py-1.5 pr-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs ${f.status === 'envoye' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
