@@ -30,6 +30,41 @@ export default function ValidationTab({
     listSuppliers().then(setSuppliers)
   }, [])
 
+  // Lots detected before the supplier base was completed carry a stale, empty address copy -
+  // fill those blanks from the shared supplier record (never overwriting an address already set).
+  useEffect(() => {
+    if (suppliers.length === 0) return
+    const byId = new Map(suppliers.map((s) => [s.id, s]))
+    // Fallback for a record that was replaced/renamed: same company name with one single known address.
+    const emailsByName = new Map<string, Set<string>>()
+    for (const s of suppliers) {
+      const e = (s.email ?? '').trim()
+      if (!e) continue
+      const k = s.name.toLowerCase().replace(/\(.*?\)/g, ' ').split(/\s+/).filter(Boolean).join(' ')
+      emailsByName.set(k, (emailsByName.get(k) ?? new Set()).add(e))
+    }
+    const emailFor = (id: string, name: string): string => {
+      const direct = (byId.get(id)?.email ?? '').trim()
+      if (direct) return direct
+      const k = name.toLowerCase().replace(/\(.*?\)/g, ' ').split(/\s+/).filter(Boolean).join(' ')
+      const set = emailsByName.get(k)
+      return set && set.size === 1 ? [...set][0] : ''
+    }
+    let changed = false
+    const lots = submission.lots.map((lot) => {
+      const missing = (id: string, email: string, name: string) => !email.trim() && emailFor(id, name)
+      if (!lot.suppliers.some((s) => missing(s.supplierId, s.email, s.name)) && !lot.followUp.some((f) => missing(f.supplierId, f.email, f.name)))
+        return lot
+      changed = true
+      return {
+        ...lot,
+        suppliers: lot.suppliers.map((s) => (missing(s.supplierId, s.email, s.name) ? { ...s, email: emailFor(s.supplierId, s.name) } : s)),
+        followUp: lot.followUp.map((f) => (missing(f.supplierId, f.email, f.name) ? { ...f, email: emailFor(f.supplierId, f.name) } : f)),
+      }
+    })
+    if (changed) onUpdate({ ...submission, lots })
+  }, [suppliers, submission.lots])
+
   // Reordering lots is what makes "Grouper avec le lot précédent" actually usable: that checkbox
   // only ever merges with the lot directly above, but two lots worth grouping (e.g. detected from
   // non-adjacent pages) aren't always next to each other in the list - dragging one next to the

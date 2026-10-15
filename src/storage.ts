@@ -69,9 +69,18 @@ export async function deleteSubmission(id: string): Promise<void> {
   syncedPdf.delete(id)
 }
 
-export async function listSuppliers(): Promise<SupplierRecord[]> {
+async function fetchSuppliers(): Promise<SupplierRecord[]> {
   const res = await assertOk(await fetch('/api/suppliers'))
   return res.json()
+}
+
+// Resolves once the bundled supplier list has been synced into the shared database (see
+// initSuppliers) - listSuppliers waits on it so nothing reads a half-updated list at startup.
+let suppliersReady: Promise<void> = Promise.resolve()
+
+export async function listSuppliers(): Promise<SupplierRecord[]> {
+  await suppliersReady
+  return fetchSuppliers()
 }
 
 export async function saveSupplier(supplier: SupplierRecord): Promise<void> {
@@ -159,8 +168,69 @@ export async function sendLotEmail(params: {
  * still leaving things alone once the real catalog is in place.
  */
 export async function seedSuppliersIfEmpty(seed: SupplierRecord[]): Promise<void> {
-  const existing = await listSuppliers()
+  const existing = await fetchSuppliers()
   if (existing.length >= seed.length) return
   await Promise.all(existing.map((s) => deleteSupplier(s.id)))
   await Promise.all(seed.map((s) => saveSupplier(s)))
+}
+
+const normKey = (s: string) => s.toLowerCase().split(/\s+/).filter(Boolean).join(' ')
+const supplierKey = (s: SupplierRecord) => `${normKey(s.category)}|${normKey(s.name)}`
+const FILLABLE_FIELDS = ['email', 'nature', 'frequency', 'backupAchat', 'contactContrat', 'contactCommande', 'zone', 'comments'] as const
+
+/**
+ * The count-based top-up above only fires when the bundled list has MORE suppliers than the
+ * database - so a seed update that only fills in missing e-mails (same supplier count) never
+ * reached the shared database, and lots kept coming out with empty addresses. This fills in the
+ * blanks from the bundled list, matched on (catégorie, nom): existing records keep their id and
+ * anything already filled in (an address an acheteur corrected by hand is never overwritten).
+ * Suppliers missing from the database are added, but only once per SUPPLIER_SEED_VERSION so a
+ * supplier deleted on purpose doesn't come back on every page load.
+ */
+const baseName = (n: string) => normKey(n.replace(/\(.*?\)/g, ' '))
+function sameSupplierRenamed(a: SupplierRecord, b: SupplierRecord): boolean {
+  if (normKey(a.category) !== normKey(b.category)) return false
+  const x = baseName(a.name)
+  const y = baseName(b.name)
+  return x.length >= 4 && x === y
+}
+
+async function refreshSuppliersFromSeed(seed: SupplierRecord[], version: string): Promise<void> {
+  const versionKey = 'supplierSeedVersion'
+  let versionDone = false
+  try {
+    versionDone = localStorage.getItem(versionKey) === version
+  } catch {
+    // storage unavailable: fall through and only fill blanks
+  }
+  const existing = await fetchSuppliers()
+  const byKey = new Map(existing.map((s) => [supplierKey(s), s]))
+  const writes: SupplierRecord[] = []
+  for (const s of seed) {
+    // Same supplier under a slightly different label (e.g. "KUBRIX (FBB)" renamed "Kubrix") counts
+    // as a match too, so renames in the reference file fill the existing record instead of duplicating it.
+    const found = byKey.get(supplierKey(s)) ?? existing.find((e) => sameSupplierRenamed(e, s))
+    if (!found) {
+      if (!versionDone) writes.push(s)
+      continue
+    }
+    const patch: Partial<SupplierRecord> = {}
+    for (const f of FILLABLE_FIELDS) {
+      if (!(found[f] ?? '').trim() && (s[f] ?? '').trim()) patch[f] = s[f]
+    }
+    if (Object.keys(patch).length > 0) writes.push({ ...found, ...patch })
+  }
+  for (let i = 0; i < writes.length; i += 25) await Promise.all(writes.slice(i, i + 25).map((s) => saveSupplier(s)))
+  try {
+    localStorage.setItem(versionKey, version)
+  } catch {
+    // not critical
+  }
+}
+
+export function initSuppliers(seed: SupplierRecord[], version: string): Promise<void> {
+  suppliersReady = seedSuppliersIfEmpty(seed)
+    .then(() => refreshSuppliersFromSeed(seed, version))
+    .catch((err) => console.error('Mise à jour de la base fournisseurs impossible', err))
+  return suppliersReady
 }
