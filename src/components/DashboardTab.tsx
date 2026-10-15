@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FollowUpEntry, Lot, Submission } from '../types'
 import { MODELS, generateTco, getApiKey, getModel, setApiKey, setModel } from '../agent/acheteurAgent'
+import { allEmailsSent, exportTrackingGrid } from '../export/trackingGrid'
 import { exportTcoExcel } from '../export/tcoExcel'
 
 export default function DashboardTab({
@@ -134,6 +135,13 @@ export default function DashboardTab({
           </Field>
         </div>
         <div className="flex gap-2 mt-4">
+          <button
+            className="btn-primary"
+            disabled={!allEmailsSent(submission)}
+            onClick={() => exportTrackingGrid(submission)}
+          >
+            ⭳ Générer le tableau de suivi (Excel)
+          </button>
           <button className="btn-secondary" onClick={exportCsv}>
             ⭳ Exporter en CSV
           </button>
@@ -141,6 +149,11 @@ export default function DashboardTab({
             ⭳ Exporter tout (JSON, sans fichiers joints)
           </button>
         </div>
+        {!allEmailsSent(submission) && (
+          <p className="text-xs text-slate-500 mt-2">
+            Le tableau de suivi est disponible quand tous les e-mails sont marqués « envoyés » (onglet 2, bouton « Marquer tout Envoyé dans le suivi »).
+          </p>
+        )}
       </div>
 
       <div className="card">
