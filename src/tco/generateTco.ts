@@ -126,8 +126,7 @@ async function fetchTcoAnalysis(lot: Lot, submission: Submission): Promise<TcoAn
         suppliers: lot.followUp.map((f) => ({
           name: f.name,
           offerFileId: f.offerFileId,
-          estimatedAmount: f.estimatedAmount,
-          offeredAmount: f.offeredAmount,
+          estimatedAmount: f.estimatedAmount || f.offeredAmount,
           conforme: f.conforme,
           notes: f.notes,
           retained: f.retained,
@@ -194,7 +193,9 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   const suppliers = lot.followUp
   const colCount = suppliers.length + 1
 
-  const amounts = suppliers.map((f) => parseAmount(f.offeredAmount))
+  // "Montant offert" no longer exists in the follow-up: the estimated amount is the price basis
+  // (legacy offeredAmount kept as a fallback for submissions saved before that change).
+  const amounts = suppliers.map((f) => parseAmount(f.estimatedAmount || f.offeredAmount))
   const validAmounts = amounts.filter((a): a is number => a !== null)
   const minAmount = validAmounts.length ? Math.min(...validAmounts) : null
   const retainedIdx = suppliers.findIndex((f) => f.retained)
@@ -333,11 +334,10 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     r++
   }
 
-  addRow('Statut', (f) => (f.offeredAmount ? 'Offre reçue' : f.status === 'envoye' ? 'Envoyé, en attente' : 'À envoyer'))
-  addRow('Montant estimé (CHF HT)', (f) => f.estimatedAmount || '—')
+  addRow('Statut', (f) => (f.offerFileId || f.estimatedAmount || f.offeredAmount ? 'Offre reçue' : f.status === 'envoye' ? 'Envoyé, en attente' : 'À envoyer'))
   addRow(
-    'Montant offert (CHF HT)',
-    (f, i) => (amounts[i] !== null ? formatAmount(amounts[i]!) : f.offeredAmount || '—'),
+    'Montant (CHF HT)',
+    (f, i) => (amounts[i] !== null ? formatAmount(amounts[i]!) : f.estimatedAmount || f.offeredAmount || '—'),
     (_f, i) => (amounts[i] !== null && minAmount !== null && amounts[i] === minAmount ? 'lowest' : undefined),
   )
   addRow('Écart vs. moins-disant (%)', (_f, i) => {
