@@ -15,6 +15,16 @@ export function natureMatchesPrestation(nature: string | undefined, prestationTy
   return prestationType === 'fourniture' ? n === 'fourniture' : n === 'sous-traitance'
 }
 
+/**
+ * Categories that are services (lab testing), not goods: the supplier base labels their
+ * suppliers "Fourniture" (BTEST, LCBE, INFRALAB, ERTEC under ESSAIS BETON) only because nothing
+ * is "installed", yet the lot is usually highlighted as fourniture+pose (non-yellow). The nature
+ * rule would then exclude all of them. Real error, chantier "Halle industrielle" (16.10.2026):
+ * lot "simple essai de resistance a la compression" got no supplier, added by hand. For these
+ * categories nature is ignored (status filtering still applies).
+ */
+export const NATURE_AGNOSTIC_CATEGORIES = ['essais beton', 'test labo']
+
 export function isSupplierActive(s: SupplierRecord): boolean {
   return !INACTIVE_STATUSES.includes(s.status ?? '')
 }
@@ -28,5 +38,7 @@ export function matchSuppliersForCategories(
   if (!categories.length) return []
   const norm = (s: string) => s.trim().toLowerCase()
   const wanted = new Set(categories.map(norm))
-  return suppliers.filter((s) => wanted.has(norm(s.category)) && natureMatchesPrestation(s.nature, prestationType))
+  return suppliers.filter((s) => wanted.has(norm(s.category)) &&
+      (NATURE_AGNOSTIC_CATEGORIES.includes(norm(s.category)) || natureMatchesPrestation(s.nature, prestationType)),
+  )
 }
