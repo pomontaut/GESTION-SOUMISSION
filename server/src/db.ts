@@ -54,5 +54,16 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       UNIQUE (cfc_code, chapter_code, supplier_id)
     );
+
+    -- Same idea keyed on the lot's normalized wording (title without its code): a bureau may number
+    -- the same work differently (R898 vs 814...), but "essai de resistance a la compression" stays
+    -- the same text - so a manual pick also generalizes to other submissions via the title.
+    CREATE TABLE IF NOT EXISTS lot_supplier_title_learnings (
+      id TEXT PRIMARY KEY,
+      title_key TEXT NOT NULL,
+      supplier_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (title_key, supplier_id)
+    );
   `)
 }

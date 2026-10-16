@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
-import { listSuppliers, saveLotSupplierLearning, saveSupplier } from '../storage'
+import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
@@ -378,11 +378,7 @@ function LotDetail({
     if (lot.suppliers.some((x) => x.supplierId === s.id)) return
     onChange({ suppliers: [...lot.suppliers, { supplierId: s.id, name: s.name, email: s.email, status: 'valide' }] })
     if (learn) {
-      saveLotSupplierLearning({ cfcCode: lot.cfcCode, chapterCode: lot.chapterCode, supplierId: s.id }).catch(
-        () => {
-          // best-effort memory - the supplier is added to the lot regardless of whether this succeeds
-        },
-      )
+      learnManualSupplier(lot, s.id)
     }
   }
 

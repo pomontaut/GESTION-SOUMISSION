@@ -3,7 +3,7 @@ import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
-import { listSuppliers, saveLotSupplierLearning, saveSupplier } from '../storage'
+import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
 import EmailPreviewModal from './EmailPreviewModal'
 
@@ -147,11 +147,7 @@ export default function ValidationTab({
         },
       ],
     })
-    saveLotSupplierLearning({ cfcCode: lot.cfcCode, chapterCode: lot.chapterCode, supplierId: supplier.id }).catch(
-      () => {
-        // best-effort memory - the supplier is added to the lot regardless of whether this succeeds
-      },
-    )
+    learnManualSupplier(lot, supplier.id)
     setSearchByLot((prev) => ({ ...prev, [lot.id]: '' }))
   }
 
