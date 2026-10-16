@@ -4,7 +4,7 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
-import { exportTrackingGrid, hasSentEmails, pendingEmailsCount } from '../export/trackingGrid'
+import { exportTrackingGrid, hasGridData } from '../export/trackingGrid'
 import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import PdfPreviewModal from './PdfPreviewModal'
 
@@ -115,14 +115,6 @@ export default function DashboardTab({
   }
 
   async function handleTrackingGrid() {
-    const pending = pendingEmailsCount(submission)
-    if (
-      pending > 0 &&
-      !confirm(
-        `${pending} fournisseur(s) coché(s) n'ont pas encore reçu leur e-mail (non envoyé, ou sans adresse) et n'apparaîtront pas dans le tableau.\n\nGénérer quand même ?`,
-      )
-    )
-      return
     try {
       await exportTrackingGrid(submission)
     } catch (err) {
@@ -181,8 +173,8 @@ export default function DashboardTab({
         <div className="flex gap-2 mt-4">
           <button
             className="btn-primary"
-            disabled={!hasSentEmails(submission)}
-            title={hasSentEmails(submission) ? '' : "Aucun e-mail n'a encore été envoyé"}
+            disabled={!hasGridData(submission)}
+            title={hasGridData(submission) ? '' : "Aucun lot n'a de fournisseur"}
             onClick={handleTrackingGrid}
           >
             ⭳ Générer le tableau de suivi (Excel)

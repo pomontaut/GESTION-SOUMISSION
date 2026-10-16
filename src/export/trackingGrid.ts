@@ -5,27 +5,29 @@ const YELLOW = 'FFFFFF00'
 const thin = { style: 'thin' as const }
 const medium = { style: 'medium' as const }
 
-/** Fournisseurs réellement sollicités sur un lot (e-mail envoyé). */
-const sentSuppliers = (l: Submission['lots'][number]) => l.followUp.filter((f) => f.status === 'envoye')
+type LotT = Submission['lots'][number]
 
-/** Lots à afficher en colonnes : ceux pour lesquels au moins un e-mail a été envoyé. */
-function gridLots(submission: Submission) {
-  return submission.lots.filter((l) => sentSuppliers(l).length > 0)
-}
-
-export function hasSentEmails(submission: Submission): boolean {
-  return gridLots(submission).length > 0
-}
-
-/** Fournisseurs cochés « Envoi » (avec ou sans e-mail) dont l'e-mail n'est pas encore parti. */
-export function pendingEmailsCount(submission: Submission): number {
-  let n = 0
-  for (const l of submission.lots) {
-    for (const s of l.suppliers.filter((x) => x.status !== 'ignore')) {
-      if (l.followUp.find((f) => f.supplierId === s.supplierId)?.status !== 'envoye') n++
+/** Fournisseurs sollicités sur un lot : ceux dont l'e-mail est marqué envoyé, plus tous ceux
+ *  cochés « Envoi » (un envoi fait hors de l'outil n'est pas marqué « envoyé » mais compte). */
+function contacted(l: LotT): { name: string; sent: boolean }[] {
+  const out: { name: string; sent: boolean }[] = []
+  for (const f of l.followUp) if (f.status === 'envoye') out.push({ name: f.name, sent: true })
+  for (const s of l.suppliers) {
+    if (s.status === 'ignore') continue
+    if (!out.some((o) => o.name.trim().toLowerCase() === s.name.trim().toLowerCase())) {
+      out.push({ name: s.name, sent: false })
     }
   }
-  return n
+  return out
+}
+
+/** Lots à afficher en colonnes : ceux qui ont au moins un fournisseur sollicité. */
+function gridLots(submission: Submission) {
+  return submission.lots.filter((l) => contacted(l).length > 0)
+}
+
+export function hasGridData(submission: Submission): boolean {
+  return gridLots(submission).length > 0
 }
 
 /** [53, 54, 60] -> "53-54, 60" */
@@ -52,12 +54,13 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   // Fournisseurs sollicités, dans l'ordre de première apparition. Une même société rattachée à
   // plusieurs catégories (plusieurs supplierId) n'occupe qu'une ligne.
   const norm = (n: string) => n.trim().toLowerCase()
-  const suppliers: { name: string; lotIds: Set<string> }[] = []
+  const suppliers: { name: string; lotIds: Set<string>; sent: boolean }[] = []
   for (const lot of lots) {
-    for (const f of sentSuppliers(lot)) {
-      let row = suppliers.find((r) => norm(r.name) === norm(f.name))
-      if (!row) suppliers.push((row = { name: f.name, lotIds: new Set() }))
+    for (const c of contacted(lot)) {
+      let row = suppliers.find((r) => norm(r.name) === norm(c.name))
+      if (!row) suppliers.push((row = { name: c.name, lotIds: new Set(), sent: true }))
       row.lotIds.add(lot.id)
+      if (!c.sent) row.sent = false
     }
   }
 
@@ -128,7 +131,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   suppliers.forEach((sup, i) => {
     const r = headRow + 1 + i
     const grey = i % 2 === 1
-    const allSent = true // tous les fournisseurs listés ont reçu leur e-mail
+    const allSent = sup.sent
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c)
       if (c === 1) cell.value = i + 1
