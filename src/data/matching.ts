@@ -23,7 +23,7 @@ export function natureMatchesPrestation(nature: string | undefined, prestationTy
  * lot "simple essai de resistance a la compression" got no supplier, added by hand. For these
  * categories nature is ignored (status filtering still applies).
  */
-export const NATURE_AGNOSTIC_CATEGORIES = ['essais beton', 'test labo']
+export const NATURE_AGNOSTIC_CATEGORIES = ['essais beton', 'test labo', 'forages / sciages', 'carottage']
 
 export function isSupplierActive(s: SupplierRecord): boolean {
   return !INACTIVE_STATUSES.includes(s.status ?? '')

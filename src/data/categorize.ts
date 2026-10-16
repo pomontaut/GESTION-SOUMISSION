@@ -60,6 +60,12 @@ function haystackHasWord(haystack: string, word: string): boolean {
   return (WORD_ALIASES[word] ?? []).some((alias) => haystack.includes(alias))
 }
 
+// Categories where ANY single trigger word is enough (the category name lists alternatives -
+// "FORAGES / SCIAGES" is forage OR sciage - rather than words that must all appear together).
+const CATEGORY_TRIGGERS: Record<string, string[]> = {
+  'FORAGES SCIAGES': ['FORAGE', 'SCIAGE'],
+}
+
 /** Suggests likely supplier categories for a lot based on its title/content text. */
 export function suggestCategories(text: string, max = 3): string[] {
   const haystack = normalize(text)
@@ -69,6 +75,11 @@ export function suggestCategories(text: string, max = 3): string[] {
     const normCat = normalize(category)
     if (!normCat) continue
     if (haystack.includes(normCat)) {
+      scored.push({ category, score: 100 + normCat.length })
+      continue
+    }
+    const triggers = CATEGORY_TRIGGERS[normCat]
+    if (triggers?.some((t) => haystack.includes(t))) {
       scored.push({ category, score: 100 + normCat.length })
       continue
     }
