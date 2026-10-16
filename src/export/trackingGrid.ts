@@ -5,19 +5,27 @@ const YELLOW = 'FFFFFF00'
 const thin = { style: 'thin' as const }
 const medium = { style: 'medium' as const }
 
-/** Lots à afficher en colonnes : ceux qui ont au moins un fournisseur retenu pour l'envoi. */
+/** Fournisseurs réellement sollicités sur un lot (e-mail envoyé). */
+const sentSuppliers = (l: Submission['lots'][number]) => l.followUp.filter((f) => f.status === 'envoye')
+
+/** Lots à afficher en colonnes : ceux pour lesquels au moins un e-mail a été envoyé. */
 function gridLots(submission: Submission) {
-  return submission.lots.filter((l) => l.suppliers.some((s) => s.status !== 'ignore'))
+  return submission.lots.filter((l) => sentSuppliers(l).length > 0)
 }
 
-/** Vrai quand tous les e-mails (une ligne de suivi par fournisseur et par lot) sont marqués envoyés. */
-export function allEmailsSent(submission: Submission): boolean {
-  const lots = gridLots(submission)
-  if (!lots.length) return false
-  return lots.every((l) => {
-    const active = l.suppliers.filter((s) => s.status !== 'ignore')
-    return active.every((s) => l.followUp.find((f) => f.supplierId === s.supplierId)?.status === 'envoye')
-  })
+export function hasSentEmails(submission: Submission): boolean {
+  return gridLots(submission).length > 0
+}
+
+/** Fournisseurs cochés « Envoi » (avec ou sans e-mail) dont l'e-mail n'est pas encore parti. */
+export function pendingEmailsCount(submission: Submission): number {
+  let n = 0
+  for (const l of submission.lots) {
+    for (const s of l.suppliers.filter((x) => x.status !== 'ignore')) {
+      if (l.followUp.find((f) => f.supplierId === s.supplierId)?.status !== 'envoye') n++
+    }
+  }
+  return n
 }
 
 /** [53, 54, 60] -> "53-54, 60" */
@@ -41,12 +49,14 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   const lots = gridLots(submission)
   const info = submission.info
 
-  // Fournisseurs dans l'ordre de première apparition, avec leurs lots.
-  const suppliers: { id: string; name: string; lotIds: Set<string> }[] = []
+  // Fournisseurs sollicités, dans l'ordre de première apparition. Une même société rattachée à
+  // plusieurs catégories (plusieurs supplierId) n'occupe qu'une ligne.
+  const norm = (n: string) => n.trim().toLowerCase()
+  const suppliers: { name: string; lotIds: Set<string> }[] = []
   for (const lot of lots) {
-    for (const s of lot.suppliers.filter((x) => x.status !== 'ignore')) {
-      let row = suppliers.find((r) => r.id === s.supplierId)
-      if (!row) suppliers.push((row = { id: s.supplierId, name: s.name, lotIds: new Set() }))
+    for (const f of sentSuppliers(lot)) {
+      let row = suppliers.find((r) => norm(r.name) === norm(f.name))
+      if (!row) suppliers.push((row = { name: f.name, lotIds: new Set() }))
       row.lotIds.add(lot.id)
     }
   }
@@ -118,8 +128,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   suppliers.forEach((sup, i) => {
     const r = headRow + 1 + i
     const grey = i % 2 === 1
-    const allSent = lots.every((l) => !l.suppliers.some((s) => s.supplierId === sup.id) ||
-      l.followUp.find((f) => f.supplierId === sup.id)?.status === 'envoye')
+    const allSent = true // tous les fournisseurs listés ont reçu leur e-mail
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c)
       if (c === 1) cell.value = i + 1

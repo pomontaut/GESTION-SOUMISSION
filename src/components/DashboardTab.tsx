@@ -4,7 +4,7 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
-import { allEmailsSent, exportTrackingGrid } from '../export/trackingGrid'
+import { exportTrackingGrid, hasSentEmails, pendingEmailsCount } from '../export/trackingGrid'
 import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import PdfPreviewModal from './PdfPreviewModal'
 
@@ -114,6 +114,22 @@ export default function DashboardTab({
     downloadBlob(csv, `${submission.info.projectName || 'soumission'}-suivi.csv`, 'text/csv')
   }
 
+  async function handleTrackingGrid() {
+    const pending = pendingEmailsCount(submission)
+    if (
+      pending > 0 &&
+      !confirm(
+        `${pending} fournisseur(s) coché(s) n'ont pas encore reçu leur e-mail (non envoyé, ou sans adresse) et n'apparaîtront pas dans le tableau.\n\nGénérer quand même ?`,
+      )
+    )
+      return
+    try {
+      await exportTrackingGrid(submission)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Échec de la génération du tableau de suivi')
+    }
+  }
+
   async function handleGenerateTco(lot: Lot) {
     setGeneratingTcoId(lot.id)
     try {
@@ -165,9 +181,9 @@ export default function DashboardTab({
         <div className="flex gap-2 mt-4">
           <button
             className="btn-primary"
-            disabled={!allEmailsSent(submission)}
-            title={allEmailsSent(submission) ? '' : 'Disponible quand tous les e-mails ont été envoyés'}
-            onClick={() => exportTrackingGrid(submission)}
+            disabled={!hasSentEmails(submission)}
+            title={hasSentEmails(submission) ? '' : "Aucun e-mail n'a encore été envoyé"}
+            onClick={handleTrackingGrid}
           >
             ⭳ Générer le tableau de suivi (Excel)
           </button>
