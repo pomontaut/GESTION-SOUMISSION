@@ -93,6 +93,24 @@ export function suggestCategories(text: string, max = 3): string[] {
   return result
 }
 
+/**
+ * Categories for a whole lot: the chapter title is the authoritative signal, the zone text
+ * (textSample - up to ~800 chars of article descriptions) is only a fallback.
+ *
+ * Real errors on TPG Bachet de Pesay (16.10.2026): "130 Maconnerie en briques silico-calcaires"
+ * also proposed ACIER ARMATURE suppliers (the article text mentions "armatures de joints en
+ * acier"), and "814 chape ciment" also proposed Coupe-feu suppliers ("feuille de separation",
+ * "protection", "coupe" matched COUPE/FEU/PROTECTION by plain substring). Both titles alone
+ * categorize correctly; the body text added unrelated trades of the same weight. So when the
+ * title yields at least one category, body text is ignored; it only helps lots whose title says
+ * nothing usable (e.g. "R893 Toiture..." whose content is the real signal).
+ */
+export function suggestLotCategories(title: string, bodyText: string, max = 3): string[] {
+  const fromTitle = suggestCategories(title, max)
+  if (fromTitle.length > 0) return fromTitle
+  return suggestCategories(`${title} ${bodyText}`, max)
+}
+
 /** The single most likely category for one zone's text, or null if nothing matched. */
 export function topCategoryFor(text: string): string | null {
   return suggestCategories(text, 1)[0] ?? null
