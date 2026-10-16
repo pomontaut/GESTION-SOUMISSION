@@ -4,6 +4,7 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
+import { exportTrackingGrid, hasGridData } from '../export/trackingGrid'
 import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import PdfPreviewModal from './PdfPreviewModal'
 
@@ -113,6 +114,14 @@ export default function DashboardTab({
     downloadBlob(csv, `${submission.info.projectName || 'soumission'}-suivi.csv`, 'text/csv')
   }
 
+  async function handleTrackingGrid() {
+    try {
+      await exportTrackingGrid(submission)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Échec de la génération du tableau de suivi')
+    }
+  }
+
   async function handleGenerateTco(lot: Lot) {
     setGeneratingTcoId(lot.id)
     try {
@@ -162,6 +171,14 @@ export default function DashboardTab({
           </Field>
         </div>
         <div className="flex gap-2 mt-4">
+          <button
+            className="btn-primary"
+            disabled={!hasGridData(submission)}
+            title={hasGridData(submission) ? '' : "Aucun lot n'a de fournisseur"}
+            onClick={handleTrackingGrid}
+          >
+            ⭳ Générer le tableau de suivi (Excel)
+          </button>
           <button className="btn-secondary" onClick={exportCsv}>
             ⭳ Exporter en CSV
           </button>

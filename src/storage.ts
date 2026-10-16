@@ -121,7 +121,32 @@ export async function deleteOfferFile(submissionId: string, fileId: string): Pro
 export interface LotSupplierLearning {
   cfcCode: string
   chapterCode: string
+  titleKey?: string // libellé normalisé du lot, voir lotTitleKey()
   supplierId: string
+}
+
+/** Lot title without its leading code ("814 Chape ciment..." -> "chape ciment..."), lowercased,
+ *  accent/punctuation-free - the part of a lot's wording that stays the same across bureaus. */
+export function lotTitleKey(title: string): string {
+  const key = title
+    .replace(/^\s*[A-Za-z]?\s?\d[\d.\s]*/, '') // code token (814, R898, 211.6...)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+  return key.length >= 8 ? key : ''
+}
+
+/** Called whenever a supplier is added BY HAND to a lot: records the pairing both by CAN code and
+ *  by the lot's wording, so the next analysis proposes it automatically. Best-effort. */
+export function learnManualSupplier(lot: { cfcCode: string; chapterCode: string; title: string }, supplierId: string): void {
+  saveLotSupplierLearning({
+    cfcCode: lot.cfcCode,
+    chapterCode: lot.chapterCode,
+    titleKey: lotTitleKey(lot.title),
+    supplierId,
+  }).catch((err) => console.warn("Apprentissage fournisseur/lot non enregistré :", err))
 }
 
 export async function listLotSupplierLearnings(): Promise<LotSupplierLearning[]> {

@@ -1,5 +1,5 @@
 import type { Lot, SubmissionInfo, SupplierRecord } from '../types'
-import type { LotSupplierLearning } from '../storage'
+import { lotTitleKey, type LotSupplierLearning } from '../storage'
 import { isSupplierActive, matchSuppliersForCategories } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 
@@ -27,8 +27,13 @@ export function runLotAgent(
     const matches = matchSuppliersForCategories(suppliers, lot.categories, lot.prestationType).filter(
       isSupplierActive,
     )
+    const titleKey = lotTitleKey(lot.title)
     const learnedMatches = learnings
-      .filter((l) => l.cfcCode === lot.cfcCode && l.chapterCode === lot.chapterCode)
+      .filter((l) =>
+        l.titleKey
+          ? titleKey !== '' && l.titleKey === titleKey
+          : l.chapterCode !== '' && l.cfcCode === lot.cfcCode && l.chapterCode === lot.chapterCode,
+      )
       .map((l) => suppliersById.get(l.supplierId))
       .filter((s): s is SupplierRecord => s !== undefined)
       .filter(isSupplierActive)

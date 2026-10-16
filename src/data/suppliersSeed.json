@@ -1232,6 +1232,20 @@
   "comments": ""
  },
  {
+  "category": "CAROTTAGE",
+  "name": "Induni Forage/Sciage",
+  "nature": "Sous-traitance",
+  "frequency": "Récurrent",
+  "email": "cbret@induni.ch",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "Cyril Bret",
+  "zone": "",
+  "status": "",
+  "comments": "Entreprise Induni (contact : Cyril Bret) - pour tout ce qui est forage et sciage"
+ },
+ {
   "category": "CHAPES",
   "name": "BalzanImmer",
   "nature": "Sous-traitance",
@@ -2800,6 +2814,20 @@
   "comments": ""
  },
  {
+  "category": "FORAGES / SCIAGES",
+  "name": "Induni Forage/Sciage",
+  "nature": "Sous-traitance",
+  "frequency": "Récurrent",
+  "email": "cbret@induni.ch",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "Cyril Bret",
+  "zone": "",
+  "status": "",
+  "comments": "Entreprise Induni (contact : Cyril Bret) - pour tout ce qui est forage et sciage"
+ },
+ {
   "category": "GEOMETRES",
   "name": "Hkdgeomatique",
   "nature": "Sous-traitance",
@@ -3700,11 +3728,11 @@
   "name": "Induni forage & sciage",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "",
+  "email": "cbret@induni.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
-  "contactCommande": "",
+  "contactCommande": "Cyril Bret",
   "zone": "",
   "status": "Actif / à confirmer",
   "comments": ""

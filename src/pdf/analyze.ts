@@ -2,7 +2,7 @@ import { pdfjsLib } from './pdfjs'
 import { detectColorBands } from './highlightRegions'
 import type { DetectedZone, Lot, PrestationType } from '../types'
 import { uid } from '../types'
-import { suggestCategories } from '../data/categorize'
+import { suggestLotCategories } from '../data/categorize'
 
 /**
  * Detection method (see the "Annexe" tab in the app for the user-facing explanation):
@@ -842,7 +842,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
 
   const lots: Lot[] = Array.from(lotGroups.values()).map((g): Lot => {
     const title = `${g.code} ${g.title}`
-    const categories = suggestCategories(`${title} ${g.textSample}`)
+    const categories = suggestLotCategories(title, g.textSample)
     return {
       id: uid(),
       title,
@@ -878,7 +878,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       positionCount: 1,
       zoneIds: [zoneId],
       validated: false,
-      categories: suggestCategories(`${title} ${n.text}`),
+      categories: suggestLotCategories(title, n.text),
       suppliers: [],
       followUp: [],
     })

@@ -3,7 +3,7 @@ import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
-import { listSuppliers, saveLotSupplierLearning, saveSupplier } from '../storage'
+import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
 import EmailPreviewModal from './EmailPreviewModal'
 
@@ -21,6 +21,8 @@ export default function ValidationTab({
   const [sendingLotId, setSendingLotId] = useState<string | null>(null)
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; error?: string }>>({})
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
+  // Catégorie de rattachement dans la base fournisseurs, affichée à côté du nom
+  const categoryById = useMemo(() => new Map(suppliers.map((x) => [x.id, x.category])), [suppliers])
   const [searchByLot, setSearchByLot] = useState<Record<string, string>>({})
   const [draggingLotId, setDraggingLotId] = useState<string | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
@@ -145,11 +147,7 @@ export default function ValidationTab({
         },
       ],
     })
-    saveLotSupplierLearning({ cfcCode: lot.cfcCode, chapterCode: lot.chapterCode, supplierId: supplier.id }).catch(
-      () => {
-        // best-effort memory - the supplier is added to the lot regardless of whether this succeeds
-      },
-    )
+    learnManualSupplier(lot, supplier.id)
     setSearchByLot((prev) => ({ ...prev, [lot.id]: '' }))
   }
 
@@ -371,7 +369,14 @@ export default function ValidationTab({
                 <tbody>
                   {lot.suppliers.map((s) => (
                     <tr key={s.supplierId} className="border-b border-slate-100">
-                      <td className="py-1.5 pr-2">{s.name}</td>
+                      <td className="py-1.5 pr-2">
+                        {s.name}
+                        {categoryById.get(s.supplierId) && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs whitespace-nowrap">
+                            {categoryById.get(s.supplierId)}
+                          </span>
+                        )}
+                      </td>
                       <td className="py-1.5 pr-2">
                         <input
                           className={`input !py-1 ${s.email ? '' : 'border-amber-400'}`}

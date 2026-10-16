@@ -60,6 +60,12 @@ function haystackHasWord(haystack: string, word: string): boolean {
   return (WORD_ALIASES[word] ?? []).some((alias) => haystack.includes(alias))
 }
 
+// Categories where ANY single trigger word is enough (the category name lists alternatives -
+// "FORAGES / SCIAGES" is forage OR sciage - rather than words that must all appear together).
+const CATEGORY_TRIGGERS: Record<string, string[]> = {
+  'FORAGES SCIAGES': ['FORAGE', 'SCIAGE'],
+}
+
 /** Suggests likely supplier categories for a lot based on its title/content text. */
 export function suggestCategories(text: string, max = 3): string[] {
   const haystack = normalize(text)
@@ -69,6 +75,11 @@ export function suggestCategories(text: string, max = 3): string[] {
     const normCat = normalize(category)
     if (!normCat) continue
     if (haystack.includes(normCat)) {
+      scored.push({ category, score: 100 + normCat.length })
+      continue
+    }
+    const triggers = CATEGORY_TRIGGERS[normCat]
+    if (triggers?.some((t) => haystack.includes(t))) {
       scored.push({ category, score: 100 + normCat.length })
       continue
     }
@@ -91,6 +102,24 @@ export function suggestCategories(text: string, max = 3): string[] {
     if (result.length >= max) break
   }
   return result
+}
+
+/**
+ * Categories for a whole lot: the chapter title is the authoritative signal, the zone text
+ * (textSample - up to ~800 chars of article descriptions) is only a fallback.
+ *
+ * Real errors on TPG Bachet de Pesay (16.10.2026): "130 Maconnerie en briques silico-calcaires"
+ * also proposed ACIER ARMATURE suppliers (the article text mentions "armatures de joints en
+ * acier"), and "814 chape ciment" also proposed Coupe-feu suppliers ("feuille de separation",
+ * "protection", "coupe" matched COUPE/FEU/PROTECTION by plain substring). Both titles alone
+ * categorize correctly; the body text added unrelated trades of the same weight. So when the
+ * title yields at least one category, body text is ignored; it only helps lots whose title says
+ * nothing usable (e.g. "R893 Toiture..." whose content is the real signal).
+ */
+export function suggestLotCategories(title: string, bodyText: string, max = 3): string[] {
+  const fromTitle = suggestCategories(title, max)
+  if (fromTitle.length > 0) return fromTitle
+  return suggestCategories(`${title} ${bodyText}`, max)
 }
 
 /** The single most likely category for one zone's text, or null if nothing matched. */
