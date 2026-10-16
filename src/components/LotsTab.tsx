@@ -68,6 +68,7 @@ export default function LotsTab({
       categories: Array.from(new Set(toMerge.flatMap((l) => l.categories))),
       suppliers: toMerge.flatMap((l) => l.suppliers),
       followUp: toMerge.flatMap((l) => l.followUp),
+      redactions: toMerge.flatMap((l) => l.redactions ?? []),
     }
     onUpdate({
       ...submission,
@@ -403,7 +404,7 @@ function LotDetail({
     if (!submission.pdfData) return
     setPdfBusy(true)
     try {
-      const bytes = await extractLotPdf(submission.pdfData, lot.pages)
+      const bytes = await extractLotPdf(submission.pdfData, lot.pages, lot.redactions)
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

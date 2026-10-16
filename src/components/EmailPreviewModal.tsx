@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { Lot, Submission } from '../types'
+import type { Lot, PdfRedaction, Submission } from '../types'
 import { extractLotPdf } from '../pdf/extractPages'
 import { sendLotEmailNow } from '../email/sendLotNow'
+import PdfRedactionEditor from './PdfRedactionEditor'
 
 export default function EmailPreviewModal({
   lot,
@@ -11,6 +12,7 @@ export default function EmailPreviewModal({
   bcc,
   onClose,
   onSent,
+  onRedactionsChange,
 }: {
   lot: Lot
   submission: Submission
@@ -19,7 +21,9 @@ export default function EmailPreviewModal({
   bcc: string[]
   onClose: () => void
   onSent: (subject: string, body: string) => void
+  onRedactionsChange: (redactions: PdfRedaction[]) => void
 }) {
+  const [editingZones, setEditingZones] = useState(false)
   const [subject, setSubject] = useState(initialSubject)
   const [body, setBody] = useState(initialBody)
   // Editable as free text (not just the read-only bcc prop) - lets you add a second address for
@@ -38,7 +42,7 @@ export default function EmailPreviewModal({
   useEffect(() => {
     if (!submission.pdfData) return
     let objectUrl: string | null = null
-    extractLotPdf(submission.pdfData, lot.pages)
+    extractLotPdf(submission.pdfData, lot.pages, lot.redactions)
       .then((bytes) => {
         const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
         objectUrl = URL.createObjectURL(blob)
@@ -48,7 +52,7 @@ export default function EmailPreviewModal({
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [lot, submission.pdfData])
+  }, [lot.pages, lot.redactions, submission.pdfData])
 
   async function handleSend() {
     setSending(true)
@@ -104,13 +108,32 @@ export default function EmailPreviewModal({
               🚀 {sending ? 'Envoi...' : 'Envoyer'}
             </button>
           </div>
-          <div className="md:w-1/2 bg-slate-100 min-h-[300px]">
+          <div className="md:w-1/2 bg-slate-100 min-h-[300px] flex flex-col">
+            {submission.pdfData && (
+              <div className="px-3 py-2 bg-white border-b border-slate-200 flex items-center gap-2">
+                <button className="btn-secondary !py-1" onClick={() => setEditingZones(true)}>
+                  ✂ Supprimer une zone du PDF{lot.redactions?.length ? ` (${lot.redactions.length})` : ''}
+                </button>
+                <span className="text-xs text-slate-500">Efface un titre ou toute zone avant l'envoi.</span>
+              </div>
+            )}
             {pdfError && <p className="p-4 text-sm text-red-600">{pdfError}</p>}
-            {pdfUrl && <iframe title="Pièce jointe" src={pdfUrl} className="w-full h-full border-0" />}
+            {pdfUrl && <iframe title="Pièce jointe" src={pdfUrl} className="w-full flex-1 border-0" />}
             {!pdfUrl && !pdfError && <p className="p-4 text-sm text-slate-500">Génération de la pièce jointe…</p>}
           </div>
         </div>
       </div>
+      {editingZones && submission.pdfData && (
+        <PdfRedactionEditor
+          lot={lot}
+          pdfData={submission.pdfData}
+          onClose={() => setEditingZones(false)}
+          onSave={(reds) => {
+            onRedactionsChange(reds)
+            setEditingZones(false)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -193,6 +193,7 @@ export default function ValidationTab({
       categories: Array.from(new Set([...prev.categories, ...current.categories])),
       suppliers: mergedSuppliers,
       followUp: mergedFollowUp,
+      redactions: [...(prev.redactions ?? []), ...(current.redactions ?? [])],
     }
     const { subject, body } = buildLotEmail(merged, submission.info)
     merged.emailSubject = subject
@@ -413,7 +414,12 @@ export default function ValidationTab({
       )}
 
       {previewLot && submission.pdfData && (
-        <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
+        <PdfPreviewModal
+          lot={submission.lots.find((l) => l.id === previewLot.id) ?? previewLot}
+          pdfData={submission.pdfData}
+          onClose={() => setPreviewLot(null)}
+          onRedactionsChange={(redactions) => updateLot(previewLot.id, { redactions })}
+        />
       )}
 
       {previewEmailLot &&
@@ -422,7 +428,8 @@ export default function ValidationTab({
           const { subject, body } = freshEmail(previewEmailLot)
           return (
             <EmailPreviewModal
-              lot={previewEmailLot}
+              lot={submission.lots.find((l) => l.id === previewEmailLot.id) ?? previewEmailLot}
+              onRedactionsChange={(redactions) => updateLot(previewEmailLot.id, { redactions })}
               submission={submission}
               initialSubject={subject}
               initialBody={body}

@@ -113,6 +113,16 @@ export interface LotPosition {
   unitPrices: Record<string, string> // supplierId -> PU (HT, free text like the other CHF fields)
 }
 
+/** A rectangle drawn on a page of the source PDF to be erased from the PDF sent to suppliers
+ *  (e.g. a title). Coordinates are PDF points (origin bottom-left) of that original page. */
+export interface PdfRedaction {
+  page: number
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
 export interface Lot {
   id: string
   title: string
@@ -130,6 +140,7 @@ export interface Lot {
   suppliers: SupplierAssignment[]
   followUp: FollowUpEntry[]
   positions?: LotPosition[]
+  redactions?: PdfRedaction[]
   emailSubject?: string
   emailBody?: string
   emailGeneratedAt?: string

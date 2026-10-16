@@ -14,7 +14,7 @@ export async function sendLotEmailNow(params: {
   if (params.bcc.length === 0) throw new Error('Aucun destinataire pour ce lot')
   let attachment: { filename: string; content: string } | undefined
   if (params.submission.pdfData) {
-    const bytes = await extractLotPdf(params.submission.pdfData, params.lot.pages)
+    const bytes = await extractLotPdf(params.submission.pdfData, params.lot.pages, params.lot.redactions)
     const filenameBase = `${params.lot.cfcCode}-${params.lot.chapterCode}${params.lot.subChapterCode ? '-' + params.lot.subChapterCode : ''}-p${params.lot.pages[0]}`
     attachment = { filename: `${filenameBase}.pdf`, content: toBase64(bytes) }
   }
