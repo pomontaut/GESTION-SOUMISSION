@@ -57,7 +57,14 @@ export interface TcoResult {
   lignes_besoin: LigneBesoin[]
   variantes: { nom: string; offres: OffreTco[] }[]
   conditions: { critere: string; valeurs: { fournisseur: string; valeur: string }[] }[]
+  analyse_technique: {
+    critere: string
+    exigence: string
+    valeurs: { fournisseur: string; statut: 'Conforme' | 'Non conforme' | 'Non précisé' | 'Variante proposée'; commentaire: string }[]
+    impact: string
+  }[]
   points_a_clarifier: {
+    domaine: 'Technique' | 'Commercial'
     gravite: 'Bloquant' | 'Majeur' | 'Mineur'
     offre: string
     donnee: string
@@ -168,8 +175,26 @@ const TCO_TOOL = {
         valeurs: arr(obj({ fournisseur: str, valeur: { ...str, description: '« Non précisé » si absent' } })),
       }),
     ),
+    analyse_technique: {
+      ...arr(
+        obj({
+          critere: str,
+          exigence: { ...str, description: 'Exigence du besoin ou de la norme (« Non précisé » si absente)' },
+          valeurs: arr(
+            obj({
+              fournisseur: str,
+              statut: { type: 'string', enum: ['Conforme', 'Non conforme', 'Non précisé', 'Variante proposée'] },
+              commentaire: str,
+            }),
+          ),
+          impact: { ...str, description: 'Impact technique, coût, planning, risque' },
+        }),
+      ),
+      description: 'Onglet « Analyse technique » : conformité critère par critère (matériaux, normes, dimensions, feu, certifications, logistique chantier…).',
+    },
     points_a_clarifier: arr(
       obj({
+        domaine: { type: 'string', enum: ['Technique', 'Commercial'] },
         gravite: { type: 'string', enum: ['Bloquant', 'Majeur', 'Mineur'] },
         offre: str,
         donnee: str,

@@ -449,62 +449,109 @@ export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<
   wc.getColumn(1).width = 34
   for (let c = 2; c <= names.length + 1; c++) wc.getColumn(c).width = 38
 
-  // Feuille Analyse
-  const wa = wb.addWorksheet('Analyse')
-  let r = 1
-  const title = (t: string) => {
-    wa.getCell(r, 1).value = t
-    wa.getCell(r, 1).font = { bold: true, size: 13 }
-    r++
-  }
-  const line = (t: string) => {
-    wa.mergeCells(r, 1, r, 6)
-    wa.getCell(r, 1).value = t
-    wa.getCell(r, 1).alignment = { wrapText: true, vertical: 'top' }
-    wa.getRow(r).height = Math.max(18, Math.ceil(t.length / 130) * 16)
-    r++
-  }
-  title('Points à clarifier avant analyse')
-  ;['Gravité', 'Offre', 'Donnée', 'Nature du doute', 'Impact', 'Question au fournisseur'].forEach((h, i) => {
-    wa.getCell(r, i + 1).value = h
-    head(wa.getCell(r, i + 1))
-  })
-  r++
-  for (const p of tco.points_a_clarifier) {
-    ;[p.gravite, p.offre, p.donnee, p.nature_du_doute, p.impact, p.question].forEach((v, i) => {
-      wa.getCell(r, i + 1).value = v
-      wa.getCell(r, i + 1).border = box
-      wa.getCell(r, i + 1).alignment = { wrapText: true, vertical: 'top' }
+  // Feuilles Analyse technique / Analyse commerciale
+  const wrapTop = { wrapText: true, vertical: 'top' } as const
+  const clarifTable = (wa: import('exceljs').Worksheet, r: number, domaine: 'Technique' | 'Commercial') => {
+    ;['Gravité', 'Offre', 'Donnée', 'Nature du doute', 'Impact', 'Question au fournisseur'].forEach((h, i) => {
+      wa.getCell(r, i + 1).value = h
+      head(wa.getCell(r, i + 1))
     })
     r++
+    for (const p of tco.points_a_clarifier.filter((x) => (x.domaine ?? 'Commercial') === domaine)) {
+      ;[p.gravite, p.offre, p.donnee, p.nature_du_doute, p.impact, p.question].forEach((v, i) => {
+        wa.getCell(r, i + 1).value = v
+        wa.getCell(r, i + 1).border = box
+        wa.getCell(r, i + 1).alignment = wrapTop
+      })
+      r++
+    }
+    return r
   }
-  r++
-  title('Synthèse')
-  tco.synthese.forEach(line)
-  r++
-  title('Incohérences de chiffrage')
-  tco.incoherences.forEach(line)
-  r++
-  title('Leviers de négociation')
-  ;['Fournisseur', 'Levier', 'Gain estimé', 'Certitude'].forEach((h, i) => {
-    wa.getCell(r, i + 1).value = h
-    head(wa.getCell(r, i + 1))
+  const mkLines = (wa: import('exceljs').Worksheet) => {
+    let r = 1
+    return {
+      get r() { return r },
+      set r(v: number) { r = v },
+      title(t: string) {
+        wa.getCell(r, 1).value = t
+        wa.getCell(r, 1).font = { bold: true, size: 13 }
+        r++
+      },
+      line(t: string) {
+        wa.mergeCells(r, 1, r, 6)
+        wa.getCell(r, 1).value = t
+        wa.getCell(r, 1).alignment = wrapTop
+        // hauteur plafonnée : une ligne trop haute rend le défilement impossible
+        wa.getRow(r).height = Math.min(200, Math.max(18, Math.ceil(t.length / 130) * 16))
+        r++
+      },
+    }
+  }
+
+  // — Analyse technique
+  const wt = wb.addWorksheet('Analyse technique')
+  const T = mkLines(wt)
+  T.title('Analyse technique — conformité critère par critère')
+  const tNames = [...new Set((tco.analyse_technique ?? []).flatMap((a) => a.valeurs.map((v) => v.fournisseur)))]
+  ;['Critère', 'Exigence', ...tNames, 'Impact (technique, coût, planning, risque)'].forEach((h, i) => {
+    wt.getCell(T.r, i + 1).value = h
+    head(wt.getCell(T.r, i + 1))
   })
-  r++
+  T.r++
+  for (const a of tco.analyse_technique ?? []) {
+    const vals = tNames.map((n) => {
+      const v = a.valeurs.find((x) => x.fournisseur === n)
+      return v ? `${v.statut}${v.commentaire ? ' — ' + v.commentaire : ''}` : 'Non précisé'
+    })
+    ;[a.critere, a.exigence, ...vals, a.impact].forEach((v, i) => {
+      const cell = wt.getCell(T.r, i + 1)
+      cell.value = v
+      cell.border = box
+      cell.alignment = wrapTop
+    })
+    T.r++
+  }
+  T.r++
+  T.title('Points techniques à clarifier')
+  T.r = clarifTable(wt, T.r, 'Technique') + 1
+  T.title('Hypothèses')
+  tco.hypotheses.forEach((h) => T.line(`${h.id} [${h.nature}] ${h.texte}`))
+  wt.getColumn(1).width = 28
+  wt.getColumn(2).width = 30
+  tNames.forEach((_, i) => (wt.getColumn(i + 3).width = 36))
+  wt.getColumn(tNames.length + 3).width = 40
+
+  // — Analyse commerciale
+  const wa = wb.addWorksheet('Analyse commerciale')
+  const C = mkLines(wa)
+  C.title('Points commerciaux à clarifier avant analyse')
+  C.r = clarifTable(wa, C.r, 'Commercial') + 1
+  C.title('Synthèse')
+  tco.synthese.forEach(C.line)
+  C.r++
+  C.title('Incohérences de chiffrage')
+  tco.incoherences.forEach(C.line)
+  C.r++
+  C.title('Leviers de négociation')
+  ;['Fournisseur', 'Levier', 'Gain estimé', 'Certitude'].forEach((h, i) => {
+    wa.getCell(C.r, i + 1).value = h
+    head(wa.getCell(C.r, i + 1))
+  })
+  C.r++
   for (const l of tco.leviers) {
     ;[l.fournisseur, l.levier, l.gain_estime, l.certitude].forEach((v, i) => {
-      wa.getCell(r, i + 1).value = v
-      wa.getCell(r, i + 1).border = box
-      wa.getCell(r, i + 1).alignment = { wrapText: true, vertical: 'top' }
+      wa.getCell(C.r, i + 1).value = v
+      wa.getCell(C.r, i + 1).border = box
+      wa.getCell(C.r, i + 1).alignment = wrapTop
     })
-    r++
+    C.r++
   }
-  r++
-  title('Recommandation (aide à la décision — l\'attribution appartient à l\'acheteur)')
-  line(tco.recommandation)
-  r++
-  title('Sources')
-  tco.sources.forEach(line)
+  C.r++
+  C.title("Recommandation (aide à la décision — l'attribution appartient à l'acheteur)")
+  C.line(tco.recommandation)
+  C.r++
+  C.title('Sources')
+  tco.sources.forEach(C.line)
   ;[20, 26, 34, 34, 34, 40].forEach((w, i) => (wa.getColumn(i + 1).width = w))
 
   const buf = await wb.xlsx.writeBuffer()
