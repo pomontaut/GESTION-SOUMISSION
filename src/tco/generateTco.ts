@@ -190,7 +190,11 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   // section (fetched here, before any row is written) now renders first, matching the real
   // comparatifs studied for this feature: conformité/technique is checked before price is
   // compared, not after (see .claude/agents/comparatif-tco.md).
-  const sheet = wb.addWorksheet('TCO')
+  // Deux onglets distincts : technique (conformité critère par critère) puis commercial (prix,
+  // conditions, note acheteur). Un seul onglet géant avec volet figé sous la section technique
+  // rendait le défilement impossible.
+  const tsheet = wb.addWorksheet('Analyse technique')
+  const sheet = wb.addWorksheet('Analyse commerciale')
   const suppliers = lot.followUp
   const colCount = suppliers.length + 1
 
@@ -212,7 +216,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
 
   sheet.mergeCells(1, 1, 1, colCount)
   const titleCell = sheet.getCell(1, 1)
-  titleCell.value = `Comparatif d'offres — CFC ${lot.cfcCode} — ${lot.title}`
+  titleCell.value = `Analyse commerciale — CFC ${lot.cfcCode} — ${lot.title}`
   titleCell.font = { bold: true, size: 14 }
 
   sheet.mergeCells(2, 1, 2, colCount)
@@ -226,14 +230,27 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
   // section existed, straight into the price table's own header.
   let r = 4
 
+  // Onglet « Analyse technique » : titre + section technique, curseur de ligne propre.
+  tsheet.getColumn(1).width = 30
+  for (let i = 2; i <= colCount; i++) tsheet.getColumn(i).width = 34
+  tsheet.getColumn(colCount + 1).width = 60
+  tsheet.mergeCells(1, 1, 1, colCount + 1)
+  tsheet.getCell(1, 1).value = `Analyse technique — CFC ${lot.cfcCode} — ${lot.title}`
+  tsheet.getCell(1, 1).font = { bold: true, size: 14 }
+  tsheet.getRow(1).height = 22
+  let tr = 3
+  if (technical.length === 0) {
+    tsheet.getCell(tr, 1).value = "Aucune donnée technique n'a pu être extraite des offres de ce lot."
+    tsheet.getCell(tr, 1).font = { italic: true }
+  }
   if (technical.length > 0) {
-    sheet.mergeCells(r, 1, r, colCount + 1)
-    const techTitleCell = sheet.getCell(r, 1)
+    tsheet.mergeCells(tr, 1, tr, colCount + 1)
+    const techTitleCell = tsheet.getCell(tr, 1)
     techTitleCell.value = 'Comparatif technique'
     techTitleCell.font = { bold: true, size: 12 }
-    r++
+    tr++
 
-    const techHeaderRow = sheet.getRow(r)
+    const techHeaderRow = tsheet.getRow(tr)
     techHeaderRow.getCell(1).value = 'Critère'
     suppliers.forEach((f, i) => {
       techHeaderRow.getCell(i + 2).value = f.name
@@ -244,7 +261,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
     })
-    r++
+    tr++
 
     // Group by category only when the AI actually provided one for at least one criterion - a lot
     // whose criteria don't cluster naturally still renders as the flat list this section always
@@ -267,15 +284,15 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
 
     for (const group of groups) {
       if (group.category) {
-        sheet.mergeCells(r, 1, r, colCount + 1)
-        const catCell = sheet.getCell(r, 1)
+        tsheet.mergeCells(tr, 1, tr, colCount + 1)
+        const catCell = tsheet.getCell(tr, 1)
         catCell.value = group.category
         catCell.font = { bold: true, italic: true }
         catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CATEGORY_FILL } }
-        r++
+        tr++
       }
       for (const tech of group.items) {
-        const row = sheet.getRow(r)
+        const row = tsheet.getRow(tr)
         row.getCell(1).value = tech.criterion
         row.getCell(1).font = { bold: true }
         row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LABEL_FILL } }
@@ -287,11 +304,12 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
         const analysisCell = row.getCell(colCount + 1)
         analysisCell.value = tech.analysis || '—'
         analysisCell.alignment = { wrapText: true, vertical: 'top' }
-        r++
+        tr++
       }
     }
-    r++
+    tr++
   }
+
 
   const headerRowIdx = r
   const headerRow = sheet.getRow(headerRowIdx)
@@ -304,7 +322,7 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
   })
-  sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowIdx + 1 }]
+  sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowIdx }]
 
   r = headerRowIdx + 1
 
@@ -640,10 +658,12 @@ export async function generateTcoWorkbook(lot: Lot, submission: Submission): Pro
     // against the sheet's total width so the note doesn't get clipped.
     const charsPerLine = 14 * colCount
     const lines = Math.max(1, Math.ceil(note.length / charsPerLine))
-    sheet.getRow(noteRowStart).height = lines * 15 + 10
+    // plafonné : une ligne plus haute que l'écran empêche tout défilement
+    sheet.getRow(noteRowStart).height = Math.min(300, lines * 15 + 10)
   }
 
   sheet.getRow(1).height = 22
+  tsheet.views = [{ state: 'frozen', ySplit: 1 }]
   const buffer = await wb.xlsx.writeBuffer()
   return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }
