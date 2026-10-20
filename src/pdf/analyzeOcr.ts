@@ -1,7 +1,7 @@
 import { pdfjsLib } from './pdfjs'
 import type { DetectedZone, Lot, PrestationType } from '../types'
 import { uid } from '../types'
-import { suggestCategories } from '../data/categorize'
+import { suggestLotCategories } from '../data/categorize'
 import { classifyLineHighlight, type HighlightColor } from './highlightRegions'
 import { detectTextLineBands } from './textLineBands'
 import { recognizeBand } from './ocrWorker'
@@ -178,7 +178,7 @@ export async function analyzeSubmissionPdfOcr(
 
   const lots: Lot[] = Array.from(lotGroups.values()).map((g): Lot => {
     const title = `${g.chapterCode} ${g.chapterTitle}`.trim()
-    const categories = suggestCategories(`${title} ${g.textSample}`)
+    const categories = suggestLotCategories(title, g.textSample)
     return {
       id: uid(),
       title,

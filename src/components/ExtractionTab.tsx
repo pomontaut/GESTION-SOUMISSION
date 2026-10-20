@@ -3,15 +3,27 @@ import type { Submission, SubmissionInfo } from '../types'
 import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
+import { listLotSupplierLearnings, listSuppliers } from '../storage'
+import { runLotAgent } from '../agent/runLotAgent'
+import { buildLotEmail } from '../email/draftEmail'
 
 const CALCULATOR_CUSTOM = '__custom__'
+
+// Entities with no calculator explicitly assigned (e.g. TRANSFO GE/VD) fall back to the full list
+// rather than an empty dropdown - hiding every option would be worse than showing everyone.
+function calculatorsForEntity(entity: string) {
+  const matches = KNOWN_CALCULATORS.filter((c) => c.entities.includes(entity))
+  return matches.length > 0 ? matches : KNOWN_CALCULATORS
+}
 
 export default function ExtractionTab({
   submission,
   onUpdate,
+  onImported,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  onImported?: () => void
 }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [ocrProgress, setOcrProgress] = useState<{ page: number; total: number } | null>(null)
@@ -22,17 +34,37 @@ export default function ExtractionTab({
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Every lot's e-mail draft is generated once (at extraction, or on merge) from whatever
+  // "Informations du chantier" holds at that moment - so a field filled in afterwards (typically
+  // "Lien vers les documents", since the OneDrive folder is often created only once lots already
+  // exist) would otherwise stay silently missing from every already-drafted e-mail forever, with
+  // no visible sign anything is stale. Regenerating on every info change keeps drafts in sync;
+  // lots already sent are left untouched since their stored e-mail is now a historical record of
+  // what the fournisseur actually received, not a draft.
   function updateInfo(patch: Partial<SubmissionInfo>) {
-    onUpdate({ ...submission, info: { ...submission.info, ...patch } })
+    const info = { ...submission.info, ...patch }
+    const lots = submission.lots.map((lot) => {
+      if (lot.followUp.some((f) => f.status === 'envoye')) return lot
+      const { subject, body } = buildLotEmail(lot, info)
+      return { ...lot, emailSubject: subject, emailBody: body, emailGeneratedAt: new Date().toISOString() }
+    })
+    onUpdate({ ...submission, info, lots })
   }
 
   function handleEntitySelect(value: string) {
+    // The calculator dropdown is scoped to the entity - a calculator picked for the previous
+    // entity that doesn't handle the new one would otherwise stay selected but disappear from the
+    // visible options, an inconsistent state the acheteur can't fix from the dropdown itself. A
+    // free-text ("Autre") calculator isn't tied to any entity, so it's left untouched.
+    const stillValid = calculatorsForEntity(value).some((c) => c.name === submission.info.calculatorName)
+    const calculatorPatch =
+      calculatorCustom || stillValid ? {} : { calculatorName: '', calculatorEmail: '', calculatorPhone: '' }
     if (value === CALCULATOR_CUSTOM) {
       setEntityCustom(true)
-      updateInfo({ entity: '' })
+      updateInfo({ entity: '', ...calculatorPatch })
     } else {
       setEntityCustom(false)
-      updateInfo({ entity: value })
+      updateInfo({ entity: value, ...calculatorPatch })
     }
   }
 
@@ -59,14 +91,17 @@ export default function ExtractionTab({
       const result = hasText
         ? await analyzeSubmissionPdf(buffer)
         : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
+      const [suppliers, learnings] = await Promise.all([listSuppliers(), listLotSupplierLearnings()])
+      const lots = runLotAgent(result.lots, suppliers, submission.info, learnings)
       onUpdate({
         ...submission,
         name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),
         pdfFileName: file.name,
         pdfData: buffer,
         zones: result.zones,
-        lots: result.lots,
+        lots,
       })
+      onImported?.()
     } catch (err) {
       console.error(err)
       setError(
@@ -154,7 +189,7 @@ export default function ExtractionTab({
               onChange={(e) => handleCalculatorSelect(e.target.value)}
             >
               <option value="">— Choisir —</option>
-              {KNOWN_CALCULATORS.map((c) => (
+              {calculatorsForEntity(submission.info.entity).map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
                 </option>
@@ -250,8 +285,9 @@ export default function ExtractionTab({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Zones détectées</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Les lots sont créés automatiquement par sous-chapitre (onglet 2). Ajustez le titre, le type de prestation
-          ou fusionnez/scindez des lots directement dans l'onglet suivant.
+          Les lots sont créés automatiquement par sous-chapitre, avec leurs fournisseurs déjà proposés et l'e-mail
+          groupé déjà prérédigé pour chacun — retrouvez tout ça dans l'onglet Suivi. Un lot reste modifiable
+          (fournisseurs, e-mail, fusion/scission) depuis là si besoin.
         </p>
         {submission.zones.length === 0 ? (
           <p className="text-slate-500">Aucune zone détectée pour l'instant — importez un PDF ci-dessus.</p>

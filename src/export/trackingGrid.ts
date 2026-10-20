@@ -5,19 +5,42 @@ const YELLOW = 'FFFFFF00'
 const thin = { style: 'thin' as const }
 const medium = { style: 'medium' as const }
 
-/** Lots à afficher en colonnes : ceux qui ont au moins un fournisseur retenu pour l'envoi. */
-function gridLots(submission: Submission) {
-  return submission.lots.filter((l) => l.suppliers.some((s) => s.status !== 'ignore'))
+type LotT = Submission['lots'][number]
+
+/** Fournisseurs sollicités sur un lot : ceux dont l'e-mail est marqué envoyé, plus tous ceux
+ *  cochés « Envoi » (un envoi fait hors de l'outil n'est pas marqué « envoyé » mais compte). */
+function contacted(l: LotT): { name: string; sent: boolean }[] {
+  const out: { name: string; sent: boolean }[] = []
+  for (const f of l.followUp) if (f.status === 'envoye') out.push({ name: f.name, sent: true })
+  for (const s of l.suppliers) {
+    if (s.status === 'ignore') continue
+    if (!out.some((o) => o.name.trim().toLowerCase() === s.name.trim().toLowerCase())) {
+      out.push({ name: s.name, sent: false })
+    }
+  }
+  return out
 }
 
-/** Vrai quand tous les e-mails (une ligne de suivi par fournisseur et par lot) sont marqués envoyés. */
-export function allEmailsSent(submission: Submission): boolean {
-  const lots = gridLots(submission)
-  if (!lots.length) return false
-  return lots.every((l) => {
-    const active = l.suppliers.filter((s) => s.status !== 'ignore')
-    return active.every((s) => l.followUp.find((f) => f.supplierId === s.supplierId)?.status === 'envoye')
-  })
+/** Lots à afficher en colonnes : ceux qui ont au moins un fournisseur sollicité. */
+function gridLots(submission: Submission) {
+  return submission.lots.filter((l) => contacted(l).length > 0)
+}
+
+export function hasGridData(submission: Submission): boolean {
+  return gridLots(submission).length > 0
+}
+
+/** [53, 54, 60] -> "53-54, 60" */
+function fmtPages(pages: number[]): string {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b)
+  const out: string[] = []
+  for (let i = 0; i < sorted.length; ) {
+    let j = i
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++
+    out.push(j > i ? `${sorted[i]}-${sorted[j]}` : String(sorted[i]))
+    i = j + 1
+  }
+  return out.join(', ')
 }
 
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('fr-CH') : '')
@@ -28,13 +51,16 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   const lots = gridLots(submission)
   const info = submission.info
 
-  // Fournisseurs dans l'ordre de première apparition, avec leurs lots.
-  const suppliers: { id: string; name: string; lotIds: Set<string> }[] = []
+  // Fournisseurs sollicités, dans l'ordre de première apparition. Une même société rattachée à
+  // plusieurs catégories (plusieurs supplierId) n'occupe qu'une ligne.
+  const norm = (n: string) => n.trim().toLowerCase()
+  const suppliers: { name: string; lotIds: Set<string>; sent: boolean }[] = []
   for (const lot of lots) {
-    for (const s of lot.suppliers.filter((x) => x.status !== 'ignore')) {
-      let row = suppliers.find((r) => r.id === s.supplierId)
-      if (!row) suppliers.push((row = { id: s.supplierId, name: s.name, lotIds: new Set() }))
+    for (const c of contacted(lot)) {
+      let row = suppliers.find((r) => norm(r.name) === norm(c.name))
+      if (!row) suppliers.push((row = { name: c.name, lotIds: new Set(), sent: true }))
       row.lotIds.add(lot.id)
+      if (!c.sent) row.sent = false
     }
   }
 
@@ -72,6 +98,19 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
     for (let col = 3; col <= lastCol; col++) ws.getCell(r, col).border = { top: thin, bottom: thin, right: col === lastCol ? medium : undefined }
   })
 
+  // Ligne 7 : numéros de page de la soumission, au-dessus des numéros de CAN
+  const pagesRow = 7
+  const pageTexts = lots.map((l) => fmtPages(l.pages))
+  ws.getRow(pagesRow).height = Math.max(19.95, ...pageTexts.map((t) => Math.ceil(t.length / 5) * 18))
+  for (let c = 2; c <= lastCol; c++) {
+    const cell = ws.getCell(pagesRow, c)
+    if (c === 2) cell.value = 'PAGES DE LA SOUMISSION'
+    else if (c < lastCol) cell.value = pageTexts[c - 3]
+    cell.font = { name: 'Calibri', size: c === 2 ? 14 : 12, bold: true }
+    cell.alignment = { horizontal: c === 2 ? 'right' : 'center', vertical: 'middle', wrapText: true }
+    cell.border = { top: thin, bottom: thin, left: thin, right: c === lastCol ? medium : thin }
+  }
+
   // Ligne 8 : numéros de lot + « Plans »
   const headRow = 8
   ws.getRow(headRow).height = 19.95
@@ -92,8 +131,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   suppliers.forEach((sup, i) => {
     const r = headRow + 1 + i
     const grey = i % 2 === 1
-    const allSent = lots.every((l) => !l.suppliers.some((s) => s.supplierId === sup.id) ||
-      l.followUp.find((f) => f.supplierId === sup.id)?.status === 'envoye')
+    const allSent = sup.sent
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c)
       if (c === 1) cell.value = i + 1

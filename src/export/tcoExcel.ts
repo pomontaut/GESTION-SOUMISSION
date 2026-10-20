@@ -1,559 +1,436 @@
-import type { Cell } from 'exceljs'
-import type { Nature, OffreTco, TcoResult } from '../agent/acheteurAgent'
+import type { Cell, Workbook } from 'exceljs'
+import type { OffreTco, Parametre, ScenarioTco, TcoResult } from '../agent/acheteurTypes'
 
+// Format cible : « TCO synthétique » d'une seule feuille, 6 sections (paramètres, détail des
+// positions, synthèse financière, comparaison par lot, conditions commerciales, points à
+// clarifier), formules actives. Texte bleu = saisie [F] modifiable, noir = calcul, jaune = [H].
 const BLUE = 'FF0000FF'
-const YELLOW = 'FFFFFF00'
-const HEAD = 'FFD9D9D9'
-const thin = { style: 'thin' as const }
+const GREY = 'FF666666'
+const RED = 'FFC00000'
+const NAVY = 'FF1F3864'
+const SECTION = 'FFD9E1F2'
+const HYPOTHESIS = 'FFFFFF00'
+const BEST = 'FFE2EFDA'
+const TINTS = ['FFEAF3FB', 'FFFDF1E6', 'FFE8F4E6', 'FFF3E8F7', 'FFFFF8E1', 'FFEDEDED']
+const thin = { style: 'thin' as const, color: { argb: 'FFBFBFBF' } }
 const box = { top: thin, left: thin, bottom: thin, right: thin }
 const CHF = '#,##0.00'
-const NP = 'Non précisé'
+const PCT = '0.00%'
+const LAST_COL = 13 // M
 
 const colName = (n: number) => {
   let s = ''
   for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s
   return s
 }
-const key = (s: string) => s.trim().toLowerCase()
+const q = (s: string) => `"${s.replace(/"/g, '""')}"`
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+const lineHeight = (text: string, charsPerLine: number) => Math.max(1, Math.ceil(text.length / charsPerLine)) * 15
 
-/** Génère le classeur TCO (formules actives, HT) à partir du résultat de l'agent. */
-export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<void> {
-  const ExcelJS = (await import('exceljs')).default
+export function buildTcoWorkbook(tco: TcoResult, ExcelJS: typeof import('exceljs')): Workbook {
   const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('TCO', { views: [{ showGridLines: false }] })
+  const ws = wb.addWorksheet('TCO', { views: [{ showGridLines: false, state: 'frozen', ySplit: 4 }] })
+  ;[16, 20, 6, 26, 26, 26, 30, 11, 16, 11, 14, 11, 13].forEach((w, i) => (ws.getColumn(i + 1).width = w))
 
-  const head = (c: Cell) => {
-    c.font = { bold: true }
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD } }
-    c.border = box
-    c.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' }
+  const offres = tco.offres
+  const tint = (i: number) => TINTS[i % TINTS.length]
+  const fill = (c: Cell, argb: string) => (c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } })
+  const header = (r: number, labels: Record<number, string>) => {
+    for (let c = 1; c <= LAST_COL; c++) {
+      const cell = ws.getCell(r, c)
+      if (labels[c] === undefined && c > Math.max(...Object.keys(labels).map(Number))) continue
+      cell.value = labels[c] ?? null
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      fill(cell, NAVY)
+      cell.alignment = { wrapText: true, vertical: 'middle' }
+      cell.border = box
+    }
   }
-  const input = (c: Cell, nature?: Nature, note?: string) => {
-    c.font = { color: { argb: BLUE } }
-    c.border = box
-    c.numFmt = CHF
-    if (nature === 'H') c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YELLOW } }
-    if (note) c.note = note
+  const section = (r: number, title: string) => {
+    for (let c = 1; c <= LAST_COL; c++) fill(ws.getCell(r, c), SECTION)
+    ws.getCell(r, 1).value = title
+    ws.getCell(r, 1).font = { bold: true }
   }
-  const calc = (c: Cell, fmt = CHF) => {
-    c.border = box
-    c.numFmt = fmt
+  const note = (c: Cell, text: string) => {
+    c.value = text
+    c.font = { color: { argb: GREY } }
   }
 
   ws.getCell('A1').value = tco.titre
-  ws.getCell('A1').font = { bold: true, size: 16 }
-  ws.getCell('A2').value =
-    'Prix en CHF HT. Cellules en bleu = saisies modifiables ; fond jaune = hypothèse clé [H]. Montants HT, TVA exclue.'
-  ws.getCell('A2').font = { italic: true }
+  ws.getCell('A1').font = { bold: true, size: 14 }
+  ws.getCell('A2').value = `Chantier : ${tco.chantier}`
+  ws.getCell('A3').value = `Demandeur : ${tco.demandeur}   |   Montants en CHF hors TVA sauf mention`
+  note(ws.getCell('A4'), 'Légende : texte bleu = valeurs saisies depuis les offres (modifiables) · texte noir = formules · fond jaune = hypothèse [H] à confirmer')
 
-  ws.getCell('A4').value = `Quantité du besoin (${tco.unite})`
-  ws.getCell('B4').value = tco.quantite_besoin
-  ws.getCell('A5').value = 'Unité'
-  ws.getCell('B5').value = tco.unite
-  const hasBudget = tco.budget_unitaire != null
-  ws.getCell('A6').value = `Budget unitaire (CHF/${tco.unite})`
-  ws.getCell('A7').value = 'Budget total (CHF)'
-  if (hasBudget) {
-    ws.getCell('B6').value = tco.budget_unitaire
-    ws.getCell('B7').value = { formula: 'B4*B6' }
-  } else {
-    ws.getCell('B6').value = NP
-    ws.getCell('B7').value = NP
-  }
-  for (const r of [4, 5, 6, 7]) {
-    ws.getCell(`A${r}`).font = { bold: true }
-    ws.getCell(`B${r}`).border = box
-  }
-  input(ws.getCell('B4'))
-  ws.getCell('B4').numFmt = '#,##0.##'
-  if (hasBudget) {
-    input(ws.getCell('B6'))
-    calc(ws.getCell('B7'))
-  }
-
-  let row = 9
-  const totalCells: { fournisseur: string; variante: string; ref: string; offre: OffreTco; minRef: string }[] = []
-
-  for (const variante of tco.variantes) {
-    const offres = variante.offres
-    ws.getCell(row, 1).value = variante.nom
-    ws.getCell(row, 1).font = { bold: true, size: 13 }
-    row++
-
-    // Colonnes dynamiques : union des composantes et des forfaits, dans l'ordre d'apparition.
-    const comps: string[] = []
-    const forfs: string[] = []
-    for (const o of offres) {
-      for (const c of o.composantes) if (!comps.some((x) => key(x) === key(c.libelle))) comps.push(c.libelle)
-      for (const f of o.forfaits) if (!forfs.some((x) => key(x) === key(f.libelle))) forfs.push(f.libelle)
-    }
-    let col = 1
-    const cFour = col++
-    const cRef = col++
-    const cComp0 = col
-    col += comps.length
-    const cFranco = col++
-    const cForf0 = col
-    col += forfs.length
-    const cRabais = col++
-    const cEscompte = col++
-    const cTotal = col++
-    const cEcart = col++
-    const cEcartPct = col++
-    const cRang = col++
-    const cQte = col++
-    const cBud = hasBudget ? col : 0
-    if (hasBudget) col += 3
-    const cRem = col++
-
-    const headers: [number, string][] = [
-      [cFour, 'Fournisseur'],
-      [cRef, 'Offre n° (date)'],
-      ...comps.map((c, i): [number, string] => [cComp0 + i, `${c} /${tco.unite}`]),
-      [cFranco, `Franco /${tco.unite} (somme)`],
-      ...forfs.map((f, i): [number, string] => [cForf0 + i, `${f} (CHF)`]),
-      [cRabais, 'Rabais (%)'],
-      [cEscompte, 'Escompte (CHF)'],
-      [cTotal, 'Total HT (CHF)'],
-      [cEcart, 'Écart vs meilleur (CHF)'],
-      [cEcartPct, 'Écart (%)'],
-      [cRang, 'Rang'],
-      [cQte, 'Qté offerte'],
-      ...(hasBudget
-        ? ([
-            [cBud, `Écart budget /${tco.unite}`],
-            [cBud + 1, 'Écart budget (CHF)'],
-            [cBud + 2, 'Écart budget (%)'],
-          ] as [number, string][])
-        : []),
-      [cRem, 'Remarque'],
-    ]
-    for (const [c, label] of headers) {
-      ws.getCell(row, c).value = label
-      head(ws.getCell(row, c))
-    }
-    ws.getRow(row).height = 45
-    row++
-
-    const first = row
-    const last = row + offres.length - 1
-    const totalRange = `${colName(cTotal)}${first}:${colName(cTotal)}${last}`
-    for (const o of offres) {
-      ws.getCell(row, cFour).value = o.fournisseur
-      ws.getCell(row, cRef).value = `${o.offre_ref} (${o.date_offre})`
-      for (const c of [cFour, cRef, cRem]) ws.getCell(row, c).border = box
-
-      comps.forEach((label, i) => {
-        const cell = ws.getCell(row, cComp0 + i)
-        const found = o.composantes.find((x) => key(x.libelle) === key(label))
-        if (found) {
-          cell.value = found.montant_unitaire
-          input(cell, found.nature, `[${found.nature}] ${found.source}`)
-        } else {
-          cell.value = NP
-          cell.font = { italic: true, color: { argb: 'FF808080' } }
-          cell.border = box
-        }
-      })
-      const fr = ws.getCell(row, cFranco)
-      fr.value = comps.length
-        ? { formula: `SUM(${colName(cComp0)}${row}:${colName(cComp0 + comps.length - 1)}${row})` }
-        : 0
-      calc(fr)
-      fr.font = { bold: true }
-
-      forfs.forEach((label, i) => {
-        const cell = ws.getCell(row, cForf0 + i)
-        const found = o.forfaits.find((x) => key(x.libelle) === key(label))
-        if (found) {
-          cell.value = found.montant
-          input(cell, found.nature, `[${found.nature}] ${found.source}`)
-        } else {
-          cell.value = NP
-          cell.font = { italic: true, color: { argb: 'FF808080' } }
-          cell.border = box
-        }
-      })
-
-      const rab = ws.getCell(row, cRabais)
-      rab.value = o.rabais_pct
-      input(rab)
-      rab.numFmt = '0.0"%"'
-      const esc = ws.getCell(row, cEscompte)
-      esc.value = o.escompte
-      input(esc)
-
-      const forfSum = forfs.length
-        ? `+SUM(${colName(cForf0)}${row}:${colName(cForf0 + forfs.length - 1)}${row})`
-        : ''
-      const tot = ws.getCell(row, cTotal)
-      tot.value = {
-        formula: `(${colName(cFranco)}${row}*$B$4${forfSum})*(1-${colName(cRabais)}${row}/100)-${colName(cEscompte)}${row}`,
-      }
-      calc(tot)
-      tot.font = { bold: true }
-      const T = `${colName(cTotal)}${row}`
-      calc(ws.getCell(row, cEcart))
-      ws.getCell(row, cEcart).value = { formula: `${T}-MIN(${totalRange})` }
-      calc(ws.getCell(row, cEcartPct), '0.0%')
-      ws.getCell(row, cEcartPct).value = { formula: `IF(MIN(${totalRange})=0,"",${T}/MIN(${totalRange})-1)` }
-      calc(ws.getCell(row, cRang), '0')
-      ws.getCell(row, cRang).value = { formula: `RANK(${T},${totalRange},1)` }
-      const q = ws.getCell(row, cQte)
-      q.value = o.quantite_offerte ?? NP
-      q.border = box
-      q.numFmt = '#,##0.##'
-
-      if (hasBudget) {
-        calc(ws.getCell(row, cBud))
-        ws.getCell(row, cBud).value = { formula: `${colName(cFranco)}${row}-$B$6` }
-        calc(ws.getCell(row, cBud + 1))
-        ws.getCell(row, cBud + 1).value = { formula: `${T}-$B$7` }
-        calc(ws.getCell(row, cBud + 2), '0.0%')
-        ws.getCell(row, cBud + 2).value = { formula: `IF($B$7=0,"",${T}/$B$7-1)` }
-      }
-      const rem = ws.getCell(row, cRem)
-      rem.value = o.remarque
-      rem.alignment = { wrapText: true, vertical: 'top' }
-      totalCells.push({ fournisseur: o.fournisseur, variante: variante.nom, ref: T, offre: o, minRef: totalRange })
-      row++
-    }
-    if (hasBudget) {
-      for (const c of [cBud, cBud + 1, cBud + 2]) {
-        const rng = `${colName(c)}${first}:${colName(c)}${last}`
-        ws.addConditionalFormatting({
-          ref: rng,
-          rules: [
-            { type: 'cellIs', operator: 'greaterThan', formulae: [0], priority: 1, style: { font: { color: { argb: 'FFC00000' } } } },
-            { type: 'cellIs', operator: 'lessThan', formulae: [0], priority: 2, style: { font: { color: { argb: 'FF007A33' } } } },
-          ],
-        })
-      }
-    }
-    row += 2
-  }
-
-  // Contrôle de capacité (offres plafonnées).
-  const capped = totalCells.filter((t) => t.offre.plafond_mensuel != null || t.offre.quantite_offerte != null)
-  if (capped.some((t) => t.offre.plafond_mensuel != null)) {
-    ws.getCell(row, 1).value = 'Contrôle de capacité'
-    ws.getCell(row, 1).font = { bold: true, size: 13 }
-    row++
-    ;['Fournisseur', 'Qté offerte', 'Qté du besoin', 'Qté manquante', 'Plafond mensuel', 'Durée mini (mois)', 'Surcoût vs moins-disant (CHF)'].forEach(
-      (h, i) => {
-        ws.getCell(row, i + 1).value = h
-        head(ws.getCell(row, i + 1))
-      },
-    )
-    row++
-    for (const t of capped.filter((x) => x.offre.plafond_mensuel != null)) {
-      ws.getCell(row, 1).value = `${t.fournisseur} — ${t.variante}`
-      ws.getCell(row, 2).value = t.offre.quantite_offerte ?? NP
-      ws.getCell(row, 3).value = { formula: '$B$4' }
-      ws.getCell(row, 4).value = { formula: `IF(ISNUMBER(B${row}),MAX(0,C${row}-B${row}),"${NP}")` }
-      ws.getCell(row, 5).value = t.offre.plafond_mensuel
-      ws.getCell(row, 6).value = { formula: `IF(E${row}>0,C${row}/E${row},"")` }
-      ws.getCell(row, 7).value = { formula: `${t.ref}-MIN(${t.minRef})` }
-      for (let c = 1; c <= 7; c++) {
-        ws.getCell(row, c).border = box
-        if (c > 1) ws.getCell(row, c).numFmt = c === 6 ? '0.0' : CHF
-      }
-      row++
-    }
-    row += 2
-  }
-
-  ws.getCell(row, 1).value = 'Hypothèses & points à clarifier'
-  ws.getCell(row, 1).font = { bold: true, size: 13 }
-  row++
-  for (const h of tco.hypotheses) {
-    ws.getCell(row, 1).value = `${h.id} [${h.nature}]`
-    ws.getCell(row, 2).value = h.texte
-    ws.getCell(row, 2).alignment = { wrapText: true, vertical: 'top' }
-    if (h.nature === 'H') ws.getCell(row, 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YELLOW } }
-    row++
-  }
-  ws.getColumn(1).width = 38
-  ws.getColumn(2).width = 28
-  for (let c = 3; c <= 20; c++) ws.getColumn(c).width = 18
-  ws.getColumn(20).width = 60
-
-  // Feuille « Comparatif piliers » : format « tableau de rentrée d'offres » (préfabrication)
-  const pillarOffers = tco.variantes.flatMap((v) => v.offres).filter((o) => o.prix_lignes.length > 0)
-  if (tco.lignes_besoin.length && pillarOffers.length) {
-    const wp = wb.addWorksheet("Comparatif piliers")
-    wp.getCell('A1').value = "TABLEAU DE RENTRÉE D'OFFRES — " + tco.titre
-    wp.getCell('A1').font = { bold: true, size: 16 }
-    wp.getCell('A2').value = 'Montants HT. Cellules en bleu = saisies modifiables ; fond jaune = hypothèse [H].'
-    wp.getCell('A2').font = { italic: true }
-    const besoinHead = ['Article / pos.', 'Niveau', 'N° pilier', 'Forme', 'Section (mm)', 'Hauteur / vide', 'Charge Nd (kN)', 'Unité', 'Qté']
-    const H = 5 // ligne des en-têtes de colonnes
-    besoinHead.forEach((h, i) => {
-      wp.getCell(H, i + 1).value = h
-      head(wp.getCell(H, i + 1))
-    })
-    const nB = besoinHead.length
-    const first = H + 1
-    const last = H + tco.lignes_besoin.length
-    tco.lignes_besoin.forEach((l, i) => {
-      ;[l.article, l.niveau, l.pilier, l.forme, l.section, l.hauteur, l.charge_nd, l.unite, l.quantite].forEach((v, c) => {
-        wp.getCell(first + i, c + 1).value = v
-        wp.getCell(first + i, c + 1).border = box
-      })
-    })
-
-    // Lignes de pied : forfaits regroupés (câblettes, options, puis transports).
-    const labels: string[] = []
-    for (const o of pillarOffers)
-      for (const f of o.forfaits) if (!labels.some((x) => key(x) === key(f.libelle))) labels.push(f.libelle)
-    const isTransport = (l: string) => /transport|astag/i.test(l)
-    const isCable = (l: string) => /c[aâ]blett|c[aâ]ble/i.test(l)
-    const before = [...labels.filter(isCable), ...labels.filter((l) => !isCable(l) && !isTransport(l))]
-    const after = labels.filter((l) => isTransport(l) && !isCable(l))
-
-    let r = last + 1
-    const rCab = new Map<string, number>()
-    before.forEach((l) => rCab.set(l, r++))
-    const rBrut = r++
-    const rRab = r++
-    const rEsc = r++
-    const rNet = r++
-    const rAfter = new Map<string, number>()
-    after.forEach((l) => rAfter.set(l, r++))
-    const rTot = r++
-    const rEcart = r++
-    const rEcartPct = r++
-    const rRem = r++
-    const tag: [number, string][] = [
-      ...before.map((l): [number, string] => [rCab.get(l)!, l.toUpperCase()]),
-      [rBrut, 'TOTAL BRUT HT'],
-      [rRab, 'RABAIS (%)'],
-      [rEsc, 'ESCOMPTE (CHF)'],
-      [rNet, 'TOTAL NET HT'],
-      ...after.map((l): [number, string] => [rAfter.get(l)!, l.toUpperCase()]),
-      [rTot, 'TOTAL NET HT YC TRANSPORT'],
-      [rEcart, 'Écart vs moins-disant (CHF)'],
-      [rEcartPct, 'Écart vs moins-disant (%)'],
-      [rRem, 'DÉTAILS / REMARQUES'],
-    ]
-    for (const [rr, label] of tag) {
-      wp.mergeCells(rr, 1, rr, nB)
-      wp.getCell(rr, 1).value = label
-      wp.getCell(rr, 1).font = { bold: true }
-      wp.getCell(rr, 1).border = box
-    }
-    const totRefs: string[] = []
-    pillarOffers.forEach((o, k) => {
-      const c0 = nB + 1 + k * 6
-      const cPU = colName(c0)
-      const cRb = colName(c0 + 1)
-      const cTot = colName(c0 + 2)
-      wp.getCell(H - 2, c0).value = `Offre du ${o.date_offre}`
-      wp.getCell(H - 1, c0).value = o.fournisseur
-      wp.mergeCells(H - 2, c0, H - 2, c0 + 5)
-      wp.mergeCells(H - 1, c0, H - 1, c0 + 5)
-      for (const rr of [H - 2, H - 1]) {
-        head(wp.getCell(rr, c0))
-      }
-      ;['PU', 'Rabais (%)', 'Fr. total', 'Détail tête', 'Détail base', 'Remarques'].forEach((h, i) => {
-        wp.getCell(H, c0 + i).value = h
-        head(wp.getCell(H, c0 + i))
-      })
-      for (let i = 0; i < tco.lignes_besoin.length; i++) {
-        const rr = first + i
-        const pl = o.prix_lignes.find((x) => x.ligne === i)
-        const pu = wp.getCell(rr, c0)
-        if (pl && pl.pu != null) {
-          pu.value = pl.pu
-          input(pu)
-        } else {
-          pu.value = 'NON CHIFFRÉ'
-          pu.font = { italic: true, color: { argb: 'FF808080' } }
-          pu.border = box
-        }
-        const rb = wp.getCell(rr, c0 + 1)
-        rb.value = pl?.rabais_pct ?? 0
-        input(rb)
-        rb.numFmt = '0.0"%"'
-        const tt = wp.getCell(rr, c0 + 2)
-        tt.value = { formula: `IF(ISNUMBER(${cPU}${rr}),${cPU}${rr}*$I${rr}*(1-${cRb}${rr}/100),0)` }
-        calc(tt)
-        for (const [off, v] of [[3, pl?.detail_tete], [4, pl?.detail_base], [5, pl?.remarque]] as [number, string | undefined][]) {
-          const cell = wp.getCell(rr, c0 + off)
-          cell.value = v || ''
-          cell.border = box
-          cell.alignment = { wrapText: true, vertical: 'top' }
-        }
-      }
-      const put = (rr: number, v: number | string | { formula: string }, fmt = CHF, bold = false) => {
-        const cell = wp.getCell(rr, c0 + 2)
-        cell.value = v as never
-        cell.numFmt = fmt
-        cell.border = box
-        if (bold) cell.font = { bold: true }
-        return cell
-      }
-      for (const l of before) {
-        const f = o.forfaits.find((x) => key(x.libelle) === key(l))
-        const cell = put(rCab.get(l)!, f ? f.montant : 'NON CHIFFRÉ')
-        if (f) input(cell, f.nature, `[${f.nature}] ${f.source}`)
-        else cell.font = { italic: true, color: { argb: 'FF808080' } }
-      }
-      const T = (rr: number) => `${cTot}${rr}`
-      const lastBefore = before.length ? rCab.get(before[before.length - 1])! : last
-      put(rBrut, { formula: `SUM(${T(first)}:${T(lastBefore)})` }, CHF, true)
-      input(put(rRab, o.rabais_pct, '0.0"%"'))
-      input(put(rEsc, o.escompte))
-      put(rNet, { formula: `${T(rBrut)}*(1-${T(rRab)}/100)-${T(rEsc)}` }, CHF, true)
-      for (const l of after) {
-        const f = o.forfaits.find((x) => key(x.libelle) === key(l))
-        const cell = put(rAfter.get(l)!, f ? f.montant : 'NON CHIFFRÉ')
-        if (f) input(cell, f.nature, `[${f.nature}] ${f.source}`)
-        else cell.font = { italic: true, color: { argb: 'FF808080' } }
-      }
-      put(rTot, { formula: `${T(rNet)}${after.length ? `+SUM(${T(rAfter.get(after[0])!)}:${T(rAfter.get(after[after.length - 1])!)})` : ''}` }, CHF, true)
-      totRefs.push(T(rTot))
-    })
-    pillarOffers.forEach((o, k) => {
-      const c0 = nB + 1 + k * 6
-      const cTot = colName(c0 + 2)
-      const rng = totRefs.join(',')
-      put2(wp, rEcart, c0 + 2, { formula: `${cTot}${rTot}-MIN(${rng})` }, CHF)
-      put2(wp, rEcartPct, c0 + 2, { formula: `IF(MIN(${rng})=0,"",${cTot}${rTot}/MIN(${rng})-1)` }, '0.0%')
-      wp.mergeCells(rRem, c0, rRem, c0 + 5)
-      wp.getCell(rRem, c0).value = o.remarque
-      wp.getCell(rRem, c0).alignment = { wrapText: true, vertical: 'top' }
-      wp.getRow(rRem).height = 90
-    })
-    ;[14, 10, 10, 12, 12, 14, 14, 8, 8].forEach((w, i) => (wp.getColumn(i + 1).width = w))
-    for (let c = nB + 1; c <= nB + pillarOffers.length * 6; c++) wp.getColumn(c).width = 14
-    wp.views = [{ state: 'frozen', xSplit: nB, ySplit: H, showGridLines: false }]
-  }
-
-  // Feuille Conditions
-  const wc = wb.addWorksheet('Conditions')
-  const names = [...new Set(tco.conditions.flatMap((c) => c.valeurs.map((v) => v.fournisseur)))]
-  wc.getCell(1, 1).value = 'Critère'
-  names.forEach((n, i) => (wc.getCell(1, i + 2).value = n))
-  for (let c = 1; c <= names.length + 1; c++) head(wc.getCell(1, c))
-  tco.conditions.forEach((cond, r) => {
-    wc.getCell(r + 2, 1).value = cond.critere
-    wc.getCell(r + 2, 1).font = { bold: true }
-    names.forEach((n, i) => {
-      const cell = wc.getCell(r + 2, i + 2)
-      cell.value = cond.valeurs.find((v) => key(v.fournisseur) === key(n))?.valeur || NP
-      cell.alignment = { wrapText: true, vertical: 'top' }
-    })
-    for (let c = 1; c <= names.length + 1; c++) wc.getCell(r + 2, c).border = box
-  })
-  wc.getColumn(1).width = 34
-  for (let c = 2; c <= names.length + 1; c++) wc.getColumn(c).width = 38
-
-  // Feuilles Analyse technique / Analyse commerciale
-  const wrapTop = { wrapText: true, vertical: 'top' } as const
-  const clarifTable = (wa: import('exceljs').Worksheet, r: number, domaine: 'Technique' | 'Commercial') => {
-    ;['Gravité', 'Offre', 'Donnée', 'Nature du doute', 'Impact', 'Question au fournisseur'].forEach((h, i) => {
-      wa.getCell(r, i + 1).value = h
-      head(wa.getCell(r, i + 1))
-    })
+  // ---------- 1. Paramètres ----------
+  let r = 6
+  section(r, '1. Paramètres')
+  r++
+  const paramCell = new Map<string, string>()
+  const addParam = (key: string, p: Parametre) => {
+    ws.getCell(r, 1).value = p.libelle
+    const c = ws.getCell(r, 4)
+    c.value = p.valeur
+    c.font = { color: { argb: BLUE } }
+    c.numFmt = p.format === 'pct' ? PCT : p.format === 'chf' ? CHF : '#,##0.####'
+    if (p.nature === 'H') fill(c, HYPOTHESIS)
+    note(ws.getCell(r, 5), p.source ? `Source : ${p.source}` : '')
+    paramCell.set(key, `$D$${r}`)
     r++
-    for (const p of tco.points_a_clarifier.filter((x) => (x.domaine ?? 'Commercial') === domaine)) {
-      ;[p.gravite, p.offre, p.donnee, p.nature_du_doute, p.impact, p.question].forEach((v, i) => {
-        wa.getCell(r, i + 1).value = v
-        wa.getCell(r, i + 1).border = box
-        wa.getCell(r, i + 1).alignment = wrapTop
-      })
+  }
+  if (tco.taux_tva != null) {
+    addParam('tva', { libelle: 'Taux TVA', valeur: tco.taux_tva, format: 'pct', source: tco.tva_source, nature: 'F' })
+  }
+  if (tco.budget_total != null) {
+    addParam('budget', { libelle: 'Budget total (CHF HT)', valeur: tco.budget_total, format: 'chf', source: 'Budget communiqué', nature: 'F' })
+  }
+  for (const o of offres) {
+    const t = o.transport
+    const src = t.source || `Offre ${o.fournisseur}`
+    if (t.seuil_franco != null && t.surtaxe_sous_seuil > 0) {
+      addParam(`${o.fournisseur}|seuil`, { libelle: `${o.fournisseur} – seuil franco (valeur nette)`, valeur: t.seuil_franco, format: 'chf', source: src, nature: 'F' })
+      addParam(`${o.fournisseur}|surtaxe`, { libelle: `${o.fournisseur} – surtaxe transport sous seuil`, valeur: t.surtaxe_sous_seuil, format: 'chf', source: src, nature: 'F' })
+    }
+    if (t.pct_valeur > 0) {
+      addParam(`${o.fournisseur}|pct`, { libelle: `${o.fournisseur} – supplément transport (% valeur nette)`, valeur: t.pct_valeur, format: 'pct', source: src, nature: 'F' })
+    }
+    if (t.fixe > 0) {
+      addParam(`${o.fournisseur}|fixe`, { libelle: `${o.fournisseur} – frais fixes de livraison`, valeur: t.fixe, format: 'chf', source: src, nature: 'F' })
+    }
+    if (o.rabais_pct > 0) {
+      addParam(`${o.fournisseur}|rabais`, { libelle: `${o.fournisseur} – rabais`, valeur: o.rabais_pct, format: 'pct', source: `Offre ${o.fournisseur}`, nature: 'F' })
+    }
+  }
+  for (const p of tco.parametres) addParam(`p|${p.libelle}`, p)
+
+  // ---------- 2. Détail des positions ----------
+  r++
+  section(r, '2. Détail des positions')
+  r++
+  header(r, {
+    1: 'Fournisseur', 2: 'Offre / date', 3: 'Pos.', 4: 'Article', 5: 'Produit', 6: 'Matériau', 7: 'Caractéristiques',
+    8: 'Quantité', 9: 'Conditionnement', 10: 'Prix brut CHF/unité', 11: 'Supplément % (renchér. / énergie)',
+    12: 'Prix net CHF/unité', 13: 'Montant CHF',
+  })
+  ws.getRow(r).height = 45
+  const firstPos = r + 1
+  const lotUnit = new Map<string, string>()
+  offres.forEach((o, i) => {
+    for (const p of o.positions) {
       r++
+      const vals: Record<number, string | number> = {
+        1: o.fournisseur, 2: `${o.offre_ref} – ${o.date_offre}`, 3: p.pos, 4: p.article, 5: p.produit, 6: p.lot,
+        7: p.caracteristiques, 8: p.quantite, 9: p.conditionnement, 10: p.prix_brut, 11: p.supplement_pct,
+      }
+      for (let c = 1; c <= LAST_COL; c++) {
+        const cell = ws.getCell(r, c)
+        fill(cell, tint(i))
+        cell.border = box
+        cell.alignment = { wrapText: true, vertical: 'top' }
+        if (vals[c] !== undefined) cell.value = vals[c]
+      }
+      ws.getCell(r, 8).numFmt = `#,##0.00 "${p.unite}"`
+      ws.getCell(r, 10).numFmt = CHF
+      ws.getCell(r, 11).numFmt = PCT
+      ws.getCell(r, 12).value = { formula: `J${r}*(1+K${r})`, result: p.prix_brut * (1 + p.supplement_pct) }
+      ws.getCell(r, 12).numFmt = CHF
+      ws.getCell(r, 13).value = { formula: `H${r}*J${r}*(1+K${r})`, result: p.quantite * p.prix_brut * (1 + p.supplement_pct) }
+      ws.getCell(r, 13).numFmt = CHF
+      for (const c of [8, 10, 11]) ws.getCell(r, c).font = { color: { argb: BLUE } }
+      ws.getRow(r).height = lineHeight(`${p.caracteristiques}${p.produit}`, 40) > 30 ? 45 : 30
+      if (!lotUnit.has(p.lot)) lotUnit.set(p.lot, p.unite)
     }
-    return r
+  })
+  const lastPos = r
+  const rng = (col: string) => `$${col}$${firstPos}:$${col}$${Math.max(lastPos, firstPos)}`
+  const lots = [...lotUnit.keys()]
+
+  // Expressions de formules ------------------------------------------------------------------
+  const offre = (name: string) => offres.find((o) => same(o.fournisseur, name))
+  const netExpr = (name: string, lot: string | null) => {
+    const sum = lot === null
+      ? `SUMIFS(${rng('M')},${rng('A')},${q(name)})`
+      : `SUMIFS(${rng('M')},${rng('A')},${q(name)},${rng('F')},${q(lot)})`
+    const rabais = paramCell.get(`${offre(name)?.fournisseur ?? name}|rabais`)
+    return rabais ? `${sum}*(1-${rabais})` : sum
   }
-  const mkLines = (wa: import('exceljs').Worksheet) => {
-    let r = 1
-    return {
-      get r() { return r },
-      set r(v: number) { r = v },
-      title(t: string) {
-        wa.getCell(r, 1).value = t
-        wa.getCell(r, 1).font = { bold: true, size: 13 }
-        r++
-      },
-      line(t: string) {
-        wa.mergeCells(r, 1, r, 6)
-        wa.getCell(r, 1).value = t
-        wa.getCell(r, 1).alignment = wrapTop
-        // hauteur plafonnée : une ligne trop haute rend le défilement impossible
-        wa.getRow(r).height = Math.min(200, Math.max(18, Math.ceil(t.length / 130) * 16))
-        r++
-      },
+  const partNet = (name: string, partLots: string[]) =>
+    partLots.length === 0 ? netExpr(name, null) : partLots.map((l) => netExpr(name, l)).join('+')
+  const transportExpr = (name: string, net: string) => {
+    const key = offre(name)?.fournisseur ?? name
+    const parts: string[] = []
+    const seuil = paramCell.get(`${key}|seuil`)
+    const surtaxe = paramCell.get(`${key}|surtaxe`)
+    if (seuil && surtaxe) parts.push(`IF((${net})<${seuil},${surtaxe},0)`)
+    const pct = paramCell.get(`${key}|pct`)
+    if (pct) parts.push(`(${net})*${pct}`)
+    const fixe = paramCell.get(`${key}|fixe`)
+    if (fixe) parts.push(fixe)
+    return parts.length ? parts.join('+') : '0'
+  }
+
+  // ---------- 3. Synthèse financière ----------
+  r += 2
+  section(r, '3. Synthèse financière')
+  r++
+  type Col = { label: string; complet: boolean; remarque: string; parts: { fournisseur: string; lots: string[] }[] }
+  const cols: Col[] = [
+    ...offres.map((o: OffreTco) => ({
+      label: o.complet ? `${o.fournisseur} (offre complète)` : `${o.fournisseur} (offre partielle)`,
+      complet: o.complet,
+      remarque: '',
+      parts: [{ fournisseur: o.fournisseur, lots: [] as string[] }],
+    })),
+    ...tco.scenarios.map((s: ScenarioTco) => ({ label: s.nom, complet: s.complet, remarque: s.remarque, parts: s.parts })),
+  ]
+  const firstValCol = 4
+  const remarkCol = firstValCol + cols.length
+  const labels: Record<number, string> = { 1: 'Poste', [remarkCol]: 'Remarque' }
+  cols.forEach((c, i) => (labels[firstValCol + i] = c.label))
+  header(r, labels)
+  ws.getRow(r).height = 45
+  const bold = (rowNum: number) => (ws.getCell(rowNum, 1).font = { bold: true })
+  const money = (cell: Cell) => (cell.numFmt = CHF)
+  const rowOf: Record<string, number> = {}
+  const lotRows: number[] = []
+  for (const lot of lots) {
+    r++
+    lotRows.push(r)
+    ws.getCell(r, 1).value = `Marchandise nette – ${lot}`
+    cols.forEach((c, i) => {
+      const exprs = c.parts
+        .filter((p) => offre(p.fournisseur) && (p.lots.length === 0 || p.lots.some((l) => same(l, lot))))
+        .map((p) => netExpr(p.fournisseur, lot))
+      const cell = ws.getCell(r, firstValCol + i)
+      cell.value = exprs.length ? { formula: exprs.join('+') } : 0
+      if (!exprs.length) cell.font = { color: { argb: BLUE } }
+      money(cell)
+    })
+    if (cols.some((c) => !c.parts.some((p) => p.lots.length === 0 || p.lots.some((l) => same(l, lot))))) {
+      const missing = cols.filter((c) => !c.parts.some((p) => p.lots.length === 0 || p.lots.some((l) => same(l, lot))))
+      note(ws.getCell(r, remarkCol), `Non offert / hors périmètre : ${missing.map((m) => m.label).join(', ')}`)
     }
   }
-
-  // — Analyse technique
-  const wt = wb.addWorksheet('Analyse technique')
-  const T = mkLines(wt)
-  T.title('Analyse technique — conformité critère par critère')
-  const tNames = [...new Set((tco.analyse_technique ?? []).flatMap((a) => a.valeurs.map((v) => v.fournisseur)))]
-  ;['Critère', 'Exigence', ...tNames, 'Impact (technique, coût, planning, risque)'].forEach((h, i) => {
-    wt.getCell(T.r, i + 1).value = h
-    head(wt.getCell(T.r, i + 1))
-  })
-  T.r++
-  for (const a of tco.analyse_technique ?? []) {
-    const vals = tNames.map((n) => {
-      const v = a.valeurs.find((x) => x.fournisseur === n)
-      return v ? `${v.statut}${v.commentaire ? ' — ' + v.commentaire : ''}` : 'Non précisé'
-    })
-    ;[a.critere, a.exigence, ...vals, a.impact].forEach((v, i) => {
-      const cell = wt.getCell(T.r, i + 1)
-      cell.value = v
-      cell.border = box
-      cell.alignment = wrapTop
-    })
-    T.r++
+  r++
+  rowOf.net = r
+  ws.getCell(r, 1).value = 'Valeur nette marchandise'
+  bold(r)
+  r++
+  rowOf.transport = r
+  ws.getCell(r, 1).value = 'Frais de transport'
+  r++
+  rowOf.total = r
+  ws.getCell(r, 1).value = 'Total HT'
+  bold(r)
+  const hasTva = paramCell.has('tva')
+  if (hasTva) {
+    r++
+    rowOf.tva = r
+    ws.getCell(r, 1).value = 'TVA'
+    r++
+    rowOf.ttc = r
+    ws.getCell(r, 1).value = 'Total TTC'
+    bold(r)
   }
-  T.r++
-  T.title('Points techniques à clarifier')
-  T.r = clarifTable(wt, T.r, 'Technique') + 1
-  T.title('Hypothèses')
-  tco.hypotheses.forEach((h) => T.line(`${h.id} [${h.nature}] ${h.texte}`))
-  wt.getColumn(1).width = 28
-  wt.getColumn(2).width = 30
-  tNames.forEach((_, i) => (wt.getColumn(i + 3).width = 36))
-  wt.getColumn(tNames.length + 3).width = 40
-
-  // — Analyse commerciale
-  const wa = wb.addWorksheet('Analyse commerciale')
-  const C = mkLines(wa)
-  C.title('Points commerciaux à clarifier avant analyse')
-  C.r = clarifTable(wa, C.r, 'Commercial') + 1
-  C.title('Synthèse')
-  tco.synthese.forEach(C.line)
-  C.r++
-  C.title('Incohérences de chiffrage')
-  tco.incoherences.forEach(C.line)
-  C.r++
-  C.title('Leviers de négociation')
-  ;['Fournisseur', 'Levier', 'Gain estimé', 'Certitude'].forEach((h, i) => {
-    wa.getCell(C.r, i + 1).value = h
-    head(wa.getCell(C.r, i + 1))
+  cols.forEach((c, i) => {
+    const L = colName(firstValCol + i)
+    const netCell = ws.getCell(rowOf.net, firstValCol + i)
+    netCell.value = lotRows.length ? { formula: `SUM(${L}${lotRows[0]}:${L}${lotRows[lotRows.length - 1]})` } : 0
+    money(netCell)
+    const exprs = c.parts.filter((p) => offre(p.fournisseur)).map((p) => transportExpr(p.fournisseur, partNet(p.fournisseur, p.lots)))
+    const tr = c.parts.length === 1 && c.parts[0].lots.length === 0
+      ? transportExpr(c.parts[0].fournisseur, `${L}${rowOf.net}`)
+      : exprs.join('+') || '0'
+    ws.getCell(rowOf.transport, firstValCol + i).value = { formula: tr }
+    money(ws.getCell(rowOf.transport, firstValCol + i))
+    const tot = ws.getCell(rowOf.total, firstValCol + i)
+    tot.value = { formula: `${L}${rowOf.net}+${L}${rowOf.transport}` }
+    tot.font = { bold: true }
+    money(tot)
+    if (hasTva) {
+      ws.getCell(rowOf.tva, firstValCol + i).value = { formula: `${L}${rowOf.total}*${paramCell.get('tva')}` }
+      money(ws.getCell(rowOf.tva, firstValCol + i))
+      const ttc = ws.getCell(rowOf.ttc, firstValCol + i)
+      ttc.value = { formula: `${L}${rowOf.total}+${L}${rowOf.tva}` }
+      ttc.font = { bold: true }
+      money(ttc)
+    }
   })
-  C.r++
-  for (const l of tco.leviers) {
-    ;[l.fournisseur, l.levier, l.gain_estime, l.certitude].forEach((v, i) => {
-      wa.getCell(C.r, i + 1).value = v
-      wa.getCell(C.r, i + 1).border = box
-      wa.getCell(C.r, i + 1).alignment = wrapTop
-    })
-    C.r++
-  }
-  C.r++
-  C.title("Recommandation (aide à la décision — l'attribution appartient à l'acheteur)")
-  C.line(tco.recommandation)
-  C.r++
-  C.title('Sources')
-  tco.sources.forEach(C.line)
-  ;[20, 26, 34, 34, 34, 40].forEach((w, i) => (wa.getColumn(i + 1).width = w))
+  // Remarques de colonne (scénarios) et transport
+  const transportNotes = offres.map((o) => o.transport.source).filter(Boolean)
+  if (transportNotes.length) note(ws.getCell(rowOf.transport, remarkCol), transportNotes.join(' · '))
+  const scenarioNotes = cols.filter((c) => c.remarque).map((c) => `${c.label} : ${c.remarque}`)
+  if (scenarioNotes.length) note(ws.getCell(rowOf.net, remarkCol), scenarioNotes.join(' · '))
 
+  // Écart vs moins-disant (offres/scénarios de périmètre complet seulement)
+  const completeCols = cols.map((c, i) => (c.complet ? colName(firstValCol + i) : null)).filter(Boolean) as string[]
+  r++
+  ws.getCell(r, 1).value = 'Écart vs moins-disant (HT, périmètres complets)'
+  bold(r)
+  const ecartRow = r
+  r++
+  ws.getCell(r, 1).value = 'Écart en %'
+  bold(r)
+  const minExpr = completeCols.length ? `MIN(${completeCols.map((c) => `${c}${rowOf.total}`).join(',')})` : ''
+  cols.forEach((c, i) => {
+    const L = colName(firstValCol + i)
+    if (!c.complet || !minExpr) {
+      ws.getCell(ecartRow, firstValCol + i).value = 'Périmètre partiel'
+      ws.getCell(ecartRow, firstValCol + i).font = { color: { argb: GREY } }
+      return
+    }
+    ws.getCell(ecartRow, firstValCol + i).value = { formula: `${L}${rowOf.total}-${minExpr}` }
+    money(ws.getCell(ecartRow, firstValCol + i))
+    ws.getCell(r, firstValCol + i).value = { formula: `(${L}${rowOf.total}-${minExpr})/${minExpr}` }
+    ws.getCell(r, firstValCol + i).numFmt = PCT
+  })
+  if (paramCell.has('budget')) {
+    r++
+    ws.getCell(r, 1).value = 'Écart vs budget (HT)'
+    bold(r)
+    cols.forEach((c, i) => {
+      const cell = ws.getCell(r, firstValCol + i)
+      if (!c.complet) {
+        cell.value = 'Périmètre partiel'
+        cell.font = { color: { argb: GREY } }
+        return
+      }
+      cell.value = { formula: `${colName(firstValCol + i)}${rowOf.total}-${paramCell.get('budget')}` }
+      money(cell)
+    })
+  } else {
+    r++
+    ws.getCell(r, 1).value = 'Écart vs budget'
+    cols.forEach((_, i) => (ws.getCell(r, firstValCol + i).value = 'Budget non communiqué'))
+    for (let i = 0; i < cols.length; i++) ws.getCell(r, firstValCol + i).font = { color: { argb: GREY } }
+  }
+  // fond vert sur le total TTC/HT du moins-disant : conditionnel
+  if (completeCols.length > 1) {
+    ws.addConditionalFormatting({
+      ref: `${colName(firstValCol)}${rowOf.total}:${colName(firstValCol + cols.length - 1)}${rowOf.total}`,
+      rules: [
+        {
+          type: 'expression',
+          priority: 1,
+          formulae: [`AND(ISNUMBER(${colName(firstValCol)}${ecartRow}),${colName(firstValCol)}${ecartRow}=0)`],
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: BEST } } },
+        },
+      ],
+    })
+  }
+
+  // ---------- 4. Comparaison par lot ----------
+  r += 2
+  section(r, '4. Comparaison par lot (périmètres comparables)')
+  r++
+  const oCols = offres.length
+  const cmpLabels: Record<number, string> = { 1: 'Lot' }
+  offres.forEach((o, i) => (cmpLabels[firstValCol + i] = o.fournisseur))
+  cmpLabels[firstValCol + oCols] = 'Écart max – min'
+  cmpLabels[firstValCol + oCols + 1] = 'Écart % vs min'
+  header(r, cmpLabels)
+  for (const lot of lots) {
+    const unit = lotUnit.get(lot) ?? ''
+    const qtyRow = r + 1
+    const amtRow = r + 2
+    const avgRow = r + 3
+    ws.getCell(qtyRow, 1).value = `${lot} – quantité ${unit}`
+    ws.getCell(amtRow, 1).value = `${lot} – montant CHF HT`
+    ws.getCell(avgRow, 1).value = `${lot} – prix moyen CHF/${unit}`
+    offres.forEach((o, i) => {
+      const L = colName(firstValCol + i)
+      ws.getCell(qtyRow, firstValCol + i).value = {
+        formula: `IF(SUMIFS(${rng('H')},${rng('A')},${q(o.fournisseur)},${rng('F')},${q(lot)})=0,"Non offert",SUMIFS(${rng('H')},${rng('A')},${q(o.fournisseur)},${rng('F')},${q(lot)}))`,
+      }
+      ws.getCell(qtyRow, firstValCol + i).numFmt = '#,##0.00'
+      ws.getCell(amtRow, firstValCol + i).value = { formula: `IF(ISNUMBER(${L}${qtyRow}),${netExpr(o.fournisseur, lot)},"Non offert")` }
+      money(ws.getCell(amtRow, firstValCol + i))
+      ws.getCell(avgRow, firstValCol + i).value = { formula: `IF(ISNUMBER(${L}${qtyRow}),${L}${amtRow}/${L}${qtyRow},"Non offert")` }
+      money(ws.getCell(avgRow, firstValCol + i))
+    })
+    if (oCols > 1) {
+      const a = colName(firstValCol)
+      const b = colName(firstValCol + oCols - 1)
+      for (const rowN of [amtRow, avgRow]) {
+        ws.getCell(rowN, firstValCol + oCols).value = { formula: `IF(COUNT(${a}${rowN}:${b}${rowN})>1,MAX(${a}${rowN}:${b}${rowN})-MIN(${a}${rowN}:${b}${rowN}),"n/a")` }
+        money(ws.getCell(rowN, firstValCol + oCols))
+        ws.getCell(rowN, firstValCol + oCols + 1).value = { formula: `IF(COUNT(${a}${rowN}:${b}${rowN})>1,(MAX(${a}${rowN}:${b}${rowN})-MIN(${a}${rowN}:${b}${rowN}))/MIN(${a}${rowN}:${b}${rowN}),"n/a")` }
+        ws.getCell(rowN, firstValCol + oCols + 1).numFmt = PCT
+        ws.getCell(rowN, firstValCol + oCols).font = { bold: true }
+        ws.getCell(rowN, firstValCol + oCols + 1).font = { bold: true }
+      }
+    }
+    r += 3
+  }
+
+  // ---------- 5. Conditions commerciales ----------
+  r += 2
+  section(r, '5. Conditions commerciales')
+  r++
+  const condLabels: Record<number, string> = { 1: 'Critère' }
+  offres.forEach((o, i) => (condLabels[firstValCol + i] = o.fournisseur))
+  header(r, condLabels)
+  for (const cond of tco.conditions) {
+    r++
+    ws.getCell(r, 1).value = cond.critere
+    ws.getCell(r, 1).font = { bold: true }
+    ws.getCell(r, 1).alignment = { wrapText: true, vertical: 'top' }
+    let longest = 0
+    offres.forEach((o, i) => {
+      const v = cond.valeurs.find((x) => same(x.fournisseur, o.fournisseur))
+      const cell = ws.getCell(r, firstValCol + i)
+      cell.value = v?.valeur ?? 'Non précisé'
+      cell.alignment = { wrapText: true, vertical: 'top' }
+      if (v?.alerte) cell.font = { bold: true, color: { argb: RED } }
+      longest = Math.max(longest, lineHeight(String(cell.value), 28))
+    })
+    ws.getRow(r).height = longest
+  }
+
+  // ---------- 6. Points à clarifier ----------
+  r += 2
+  section(r, '6. Points à clarifier avant adjudication')
+  const order = { Bloquant: 0, Majeur: 1, Mineur: 2 }
+  const points = [...tco.points_a_clarifier].sort((a, b) => order[a.gravite] - order[b.gravite])
+  points.forEach((p, i) => {
+    r++
+    ws.getCell(r, 1).value = `${i + 1}.`
+    ws.getCell(r, 1).alignment = { vertical: 'top', horizontal: 'right' }
+    ws.mergeCells(r, 2, r, LAST_COL)
+    const text = `${p.gravite === 'Mineur' ? '' : `[${p.gravite}] `}${p.texte}`
+    ws.getCell(r, 2).value = text
+    ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' }
+    if (p.gravite === 'Bloquant') ws.getCell(r, 2).font = { bold: true, color: { argb: RED } }
+    ws.getRow(r).height = lineHeight(text, 170)
+  })
+  for (const h of tco.hypotheses) {
+    r++
+    ws.getCell(r, 1).value = '[H]'
+    ws.getCell(r, 1).alignment = { vertical: 'top', horizontal: 'right' }
+    ws.mergeCells(r, 2, r, LAST_COL)
+    ws.getCell(r, 2).value = h
+    ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' }
+    fill(ws.getCell(r, 2), HYPOTHESIS)
+    ws.getRow(r).height = lineHeight(h, 170)
+  }
+  if (tco.recommandation) {
+    r += 2
+    section(r, '7. Recommandation provisoire')
+    r++
+    ws.mergeCells(r, 1, r, LAST_COL)
+    ws.getCell(r, 1).value = tco.recommandation
+    ws.getCell(r, 1).alignment = { wrapText: true, vertical: 'top' }
+    ws.getRow(r).height = lineHeight(tco.recommandation, 190)
+  }
+
+  ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  return wb
+}
+
+/** Génère et télécharge le classeur TCO (formules actives, HT). */
+export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = buildTcoWorkbook(tco, ExcelJS as unknown as typeof import('exceljs'))
   const buf = await wb.xlsx.writeBuffer()
   const url = URL.createObjectURL(
     new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
@@ -563,12 +440,4 @@ export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<
   a.download = fileName
   a.click()
   URL.revokeObjectURL(url)
-}
-
-
-function put2(ws: import('exceljs').Worksheet, r: number, c: number, v: { formula: string }, fmt: string) {
-  const cell = ws.getCell(r, c)
-  cell.value = v
-  cell.numFmt = fmt
-  cell.border = box
 }

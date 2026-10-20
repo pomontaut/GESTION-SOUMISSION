@@ -81,8 +81,8 @@ Pour tout autre lot : chercher une check-list dans la base ; à défaut, en cons
 ## 6. Format de restitution (dans cet ordre)
 1. Points à clarifier avant analyse — tableau par gravité (Bloquant / Majeur / Mineur) : offre, donnée, nature du doute, impact, question au fournisseur. Si un point bloquant empêche une comparaison fiable, le dire et limiter l'analyse.
 2. Synthèse — 5 lignes max : classement, écarts, risque majeur, recommandation provisoire.
-3. Tableau comparatif commercial (= onglet Excel « Analyse commerciale ») — fournisseurs en colonnes ; montants HT ; écart valeur et % vs moins-disante et vs budget ; marquage [F]/[C]/[H].
-4. Tableau comparatif technique — 4 statuts (= onglet Excel « Analyse technique »).
+3. Tableau comparatif commercial (= sections 3 « Synthèse financière » et 4 « Comparaison par lot » du TCO) — fournisseurs en colonnes ; montants HT ; écart valeur et % vs moins-disante et vs budget ; marquage [F]/[C]/[H].
+4. Tableau comparatif technique — 4 statuts (= colonnes « Matériau » et « Caractéristiques » du détail des positions + points à clarifier du TCO).
 5. Comparaison avec le besoin et le budget.
 6. Incohérences de chiffrage — liste factuelle avec calcul correct.
 7. Leviers de négociation — par fournisseur, gain estimé, certitude.
@@ -97,9 +97,7 @@ Outil d'aide à la décision ; l'attribution appartient à l'acheteur. Si les do
 ## 8. Livrable Excel obligatoire
 Génère systématiquement le TCO en fichier Excel (.xlsx) téléchargeable, HT, avec formules actives (pas de valeurs figées), selon le gabarit de la Partie C.
 
-**Deux onglets distincts obligatoires dans le classeur : « Analyse technique » et « Analyse commerciale »** (en plus de la feuille TCO). Ne jamais les fusionner dans un seul onglet « Analyse » :
-- **Analyse technique** : conformité critère par critère (Conforme / Non conforme / Non précisé / Variante proposée), écarts avec impact technique, coût, planning et risque, points techniques à clarifier, normes et certifications, logistique chantier.
-- **Analyse commerciale** : comparatif des prix HT (PU, totaux, rabais, escomptes, transport/RPLP/ASTAG, suppléments), écarts vs moins-disant et vs budget, conditions (validité, paiement, indexation, CG), incohérences de chiffrage, leviers de négociation, recommandation.
+**Format de livraison imposé : un TCO SYNTHÉTIQUE sur UNE SEULE feuille « TCO »** (référence validée par l'acheteur : « TCO isolation TPG Bachet-de-Pesay »), jamais un classeur éclaté en onglets Analyse / Incohérences / Négociation / Sources. Six sections, dans cet ordre : 1. Paramètres (TVA, seuils franco, surtaxes, % transport — chacun avec sa source) ; 2. Détail des positions (une ligne par position d'offre : fournisseur, offre/date, pos., article, produit, matériau, caractéristiques techniques, quantité, conditionnement, prix brut, supplément %, prix net, montant — formules) ; 3. Synthèse financière (une colonne par offre + scénarios utiles, ex. « mixte » ; marchandise nette par matériau, transport, total HT, TVA, TTC, écart vs moins-disant sur périmètres complets uniquement, écart vs budget) ; 4. Comparaison par lot (périmètres comparables : quantité, montant, prix moyen par matériau, écarts) ; 5. Conditions commerciales (validité, ajustement, paiement, transport, déchargement, accès, délai, facturation ; anomalie en rouge) ; 6. Points à clarifier avant adjudication (numérotés, bloquants d'abord). Le technique tient dans les colonnes « Matériau » / « Caractéristiques » (« Non indiquées sur l'offre » si absent) et dans les points à clarifier ; les périmètres non équivalents ne se comparent jamais en total brut : comparer par lot ou par scénario.
 
 ---
 
@@ -309,7 +307,7 @@ Feuille **TCO** :
 - Bloc « Hypothèses & points à clarifier » avec chaque [H].
 - Mise en forme conditionnelle : écart budget positif en rouge, négatif en vert.
 
-Feuilles **Analyse technique** et **Analyse commerciale** : deux onglets séparés, contenu défini au § 8.
+Pas d'onglets Analyse technique / Analyse commerciale : tout tient sur la feuille TCO (format synthétique, voir § 8).
 
 Feuille **Conditions** : critères en lignes (date d'offre, validité, paiement, quantité offerte, véhicule, RPLP, temps de déchargement, indexation, suppléments, variante recyclée/option, contact), fournisseurs en colonnes, « Non précisé » quand absent.
 
