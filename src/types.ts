@@ -131,5 +131,12 @@ export interface SupplierRecord {
   comments?: string
 }
 
+/** Nom de la soumission suivi de son numéro de chantier, ex. « Soum béton — N° 1234 ». */
+export function submissionLabel(sub: { name?: string; info: Pick<SubmissionInfo, 'projectName' | 'siteNumber'> }): string {
+  const name = sub.name || sub.info.projectName || ''
+  const num = sub.info.siteNumber
+  return [name, num ? `N° ${num}` : ''].filter(Boolean).join(' — ')
+}
+
 export const uid = (): string =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`

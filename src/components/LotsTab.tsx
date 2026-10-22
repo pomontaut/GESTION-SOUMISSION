@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
-import { uid } from '../types'
+import { uid, submissionLabel } from '../types'
 import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
@@ -434,11 +434,13 @@ function LotDetail({
   }
 
   function generateEmail() {
-    const subject = `Demande de prix — ${lot.title}${submission.info.projectName ? ' — ' + submission.info.projectName : ''}`
+    const label = submissionLabel(submission)
+    const subject = `${label ? label + ' — ' : ''}Demande de prix — ${lot.title}`
     const deadlineTxt = submission.info.deadline
       ? new Date(submission.info.deadline).toLocaleDateString('fr-CH')
       : '[date limite]'
     const body = [
+      ...(label ? [`SOUMISSION : ${label}`, ''] : []),
       `DATE DE REPONSE SOUHAITEE : ${deadlineTxt}`,
       '',
       'Bonjour,',
@@ -491,6 +493,15 @@ function LotDetail({
 
   const bccList = lot.suppliers.map((s) => s.email).filter(Boolean)
   const missingEmail = lot.suppliers.filter((s) => !s.email)
+  // Fournisseurs déjà contactés pour un autre lot de cette soumission (évite l'envoi en double chapitre par chapitre).
+  const alreadyContacted = lot.suppliers
+    .map((s) => ({
+      name: s.name,
+      lots: submission.lots
+        .filter((o) => o.id !== lot.id && o.followUp.some((f) => f.supplierId === s.supplierId && f.status === 'envoye'))
+        .map((o) => o.cfcCode || o.subChapterCode || o.title),
+    }))
+    .filter((x) => x.lots.length > 0)
 
   return (
     <div className="space-y-6">
@@ -702,6 +713,14 @@ function LotDetail({
           Un seul e-mail est créé par lot, avec tous les fournisseurs retenus en copie cachée (Cci) afin qu'ils ne
           se voient pas entre eux.
         </p>
+
+        {alreadyContacted.length > 0 && (
+          <p className="text-sm text-red-600 mt-2">
+            ⚠ Déjà consultés sur d'autres lots de cette soumission (risque d'envoi en double) :{' '}
+            {alreadyContacted.map((x) => `${x.name} (lot ${x.lots.join(', ')})`).join(' ; ')}. Fusionnez les lots
+            concernés ou joignez ce lot au mail déjà envoyé.
+          </p>
+        )}
 
         {missingEmail.length > 0 && (
           <p className="text-sm text-amber-600 mt-2">

@@ -1,4 +1,5 @@
 import type { Submission } from '../types'
+import { submissionLabel } from '../types'
 
 const GREY = 'FFA6A6A6' // gris du modèle (blanc, assombri de 35 %)
 const YELLOW = 'FFFFFF00'
@@ -51,6 +52,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   const sentDates = lots.flatMap((l) => l.followUp.map((f) => f.sentDate).filter(Boolean) as string[]).sort()
   const header: [string, string][] = [
     ['ACHETEUR', ''],
+    ['NOM DE LA SOUMISSION', submissionLabel(submission)],
     ['NOM DU PROJET', [info.projectName, info.siteLocation, info.siteNumber].filter(Boolean).join(' - ')],
     ['DATE DE LA DEMANDE', fmtDate(sentDates[0])],
     ['DATE DE RETOUR', fmtDate(info.deadline)],
@@ -72,8 +74,8 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
     for (let col = 3; col <= lastCol; col++) ws.getCell(r, col).border = { top: thin, bottom: thin, right: col === lastCol ? medium : undefined }
   })
 
-  // Ligne 8 : numéros de lot + « Plans »
-  const headRow = 8
+  // Ligne 9 : numéros de lot + « Plans »
+  const headRow = 9
   ws.getRow(headRow).height = 19.95
   const style = (cell: import('exceljs').Cell, grey: boolean, align: 'left' | 'center' | undefined) => {
     cell.font = { name: 'Calibri', size: 14, bold: true }
@@ -111,7 +113,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   )
   const a = document.createElement('a')
   a.href = url
-  a.download = `Grille soumission ${info.projectName || submission.name || ''}.xlsx`.trim()
+  a.download = `Grille soumission ${submissionLabel(submission)}.xlsx`.trim()
   a.click()
   URL.revokeObjectURL(url)
 }

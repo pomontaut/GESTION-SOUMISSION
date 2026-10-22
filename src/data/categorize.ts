@@ -21,6 +21,18 @@ function normalize(s: string): string {
     .trim()
 }
 
+/** Singulier/pluriel : « GOUJON » doit retrouver la catégorie « GOUJONS » (et inversement). */
+function stem(w: string): string {
+  return w.length > 4 && w.endsWith('S') ? w.slice(0, -1) : w
+}
+
+/** Termes courants des soumissions qui désignent une catégorie sans reprendre son libellé. */
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  'BRIQUE SILICO CALCAIRE': ['SILICOCALCAIRE', 'SILICO CALCAIRE', 'SILICE CALCAIRE', 'BLOC SILICO'],
+  'BRIQUE TERRE CUITE': ['TERRE CUITE', 'TERRECUITE', 'BRIQUE ALVEOLAIRE', 'BRIQUE CREUSE'],
+  GOUJONS: ['GOUJON', 'COMAX'],
+}
+
 function significantWords(s: string): string[] {
   return normalize(s)
     .split(' ')
@@ -37,11 +49,12 @@ export function suggestCategories(text: string, max = 3): string[] {
     if (!normCat) continue
     const words = significantWords(category)
     if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
-    if (haystack.includes(normCat)) {
+    const aliases = (CATEGORY_ALIASES[category] ?? []).map(normalize)
+    if (haystack.includes(normCat) || haystack.includes(stem(normCat)) || aliases.some((a) => haystack.includes(a))) {
       scored.push({ category, score: 100 + normCat.length })
       continue
     }
-    const matched = words.filter((w) => haystack.includes(w)).length
+    const matched = words.filter((w) => haystack.includes(stem(w))).length
     const ratio = matched / words.length
     if (ratio >= 0.75) {
       scored.push({ category, score: ratio * 50 + words.length })
