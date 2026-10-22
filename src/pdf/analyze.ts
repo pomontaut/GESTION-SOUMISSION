@@ -349,7 +349,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     if (existing) {
       h.pages.forEach((pg) => existing.pages.add(pg))
       existing.zoneIds.push(zoneId)
-      if (existing.textSample.length < 800) existing.textSample += ' ' + h.text.slice(0, 200)
+      if (existing.textSample.length < 6000) existing.textSample += ' ' + h.text.slice(0, 1500)
     } else {
       lotGroups.set(key, {
         color: h.color,
@@ -360,14 +360,14 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         cfc: h.cfc,
         pages: new Set(h.pages),
         zoneIds: [zoneId],
-        textSample: h.text.slice(0, 200),
+        textSample: h.text.slice(0, 1500),
       })
     }
   })
 
   const lots: Lot[] = Array.from(lotGroups.values()).map((g): Lot => {
     const title = g.subCode ? `${g.code} ${g.title} — ${g.subCode} ${g.subTitle}` : `${g.code} ${g.title}`
-    const categories = suggestCategories(`${title} ${g.title} ${g.subTitle} ${g.textSample}`)
+    const categories = suggestCategories(`${title} ${g.title} ${g.subTitle} ${g.textSample}`, 3, `${g.title} ${g.subTitle}`)
     return {
       id: uid(),
       title,

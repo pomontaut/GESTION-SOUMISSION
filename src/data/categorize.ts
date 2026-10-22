@@ -30,7 +30,12 @@ function stem(w: string): string {
 const CATEGORY_ALIASES: Record<string, string[]> = {
   'BRIQUE SILICO CALCAIRE': ['SILICOCALCAIRE', 'SILICO CALCAIRE', 'SILICE CALCAIRE', 'BLOC SILICO'],
   'BRIQUE TERRE CUITE': ['TERRE CUITE', 'TERRECUITE', 'BRIQUE ALVEOLAIRE', 'BRIQUE CREUSE'],
-  GOUJONS: ['GOUJON', 'COMAX'],
+  GOUJONS: ['CISAILLEMENT', 'CRET'],
+  // COMAX (Ancotech) = armatures d'attentes / de reprise, pas des goujons.
+  'BOITES ATTENTES': ['COMAX', 'ARMATURES DE REPRISE', 'ARMATURES D ATTENTE'],
+  BARTEC: ['BARTEC', 'ANCOFIX', 'ASSEMBLAGES ULTERIEURS', 'LIAISONS D ARMATURES PAR FILETAGE'],
+  'CONSOLES ISOLANTES': ['ISOKORB', 'SCHOCK', 'DALLES EN PORTE A FAUX'],
+  'ARMATURES DE POINCONNEMENT (DURA)': ['POINCONNEMENT', 'ANCOPLUS'],
 }
 
 function significantWords(s: string): string[] {
@@ -40,9 +45,21 @@ function significantWords(s: string): string[] {
 }
 
 /** Suggests likely supplier categories for a lot based on its title/content text. */
-export function suggestCategories(text: string, max = 3): string[] {
+export function suggestCategories(text: string, max = 3, titleText = ''): string[] {
   const haystack = normalize(text)
+  const titleHay = ` ${normalize(titleText)} `
+  // Mots entiers uniquement (« ABRI » ne doit pas être trouvé dans « fabricant »), singulier ou pluriel.
+  const padded = ` ${haystack} `
+  const hasWord = (w: string) => padded.includes(` ${stem(w)} `) || padded.includes(` ${stem(w)}S `)
+  const hasPhrase = (phrase: string) => {
+    const parts = phrase.split(' ')
+    const last = parts.pop() as string
+    const head = parts.length ? parts.join(' ') + ' ' : ''
+    return padded.includes(` ${head}${stem(last)} `) || padded.includes(` ${head}${stem(last)}S `)
+  }
   const scored: { category: string; score: number }[] = []
+  // Une catégorie citée dans le titre du (sous-)chapitre passe avant celle trouvée seulement dans le texte.
+  const titleBonus = (words: string[]) => (words.some((w) => titleHay.includes(` ${stem(w)}`)) ? 60 : 0)
 
   for (const category of ALL_CATEGORIES) {
     const normCat = normalize(category)
@@ -50,11 +67,11 @@ export function suggestCategories(text: string, max = 3): string[] {
     const words = significantWords(category)
     if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
     const aliases = (CATEGORY_ALIASES[category] ?? []).map(normalize)
-    if (haystack.includes(normCat) || haystack.includes(stem(normCat)) || aliases.some((a) => haystack.includes(a))) {
-      scored.push({ category, score: 100 + normCat.length })
+    if (hasPhrase(normCat) || aliases.some(hasPhrase)) {
+      scored.push({ category, score: 100 + normCat.length + titleBonus([...words, ...aliases]) })
       continue
     }
-    const matched = words.filter((w) => haystack.includes(stem(w))).length
+    const matched = words.filter(hasWord).length
     const ratio = matched / words.length
     if (ratio >= 0.75) {
       scored.push({ category, score: ratio * 50 + words.length })
