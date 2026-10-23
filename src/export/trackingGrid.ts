@@ -1,13 +1,25 @@
-import type { Submission } from '../types'
+import type { Lot, Submission } from '../types'
 
 const GREY = 'FFA6A6A6' // gris du modèle (blanc, assombri de 35 %)
 const YELLOW = 'FFFFFF00'
 const thin = { style: 'thin' as const }
 const medium = { style: 'medium' as const }
 
-/** Lots à afficher en colonnes : ceux qui ont au moins un fournisseur retenu pour l'envoi. */
+/** Fournisseurs d'un lot à qui la consultation a réellement été envoyée (jamais les simples « à envoyer »). */
+function sentSuppliers(lot: Lot) {
+  return lot.suppliers.filter(
+    (s) => s.status !== 'ignore' && lot.followUp.find((f) => f.supplierId === s.supplierId)?.status === 'envoye',
+  )
+}
+
+/** Lots à afficher en colonnes : ceux dont au moins une consultation a été envoyée. */
 function gridLots(submission: Submission) {
-  return submission.lots.filter((l) => l.suppliers.some((s) => s.status !== 'ignore'))
+  return submission.lots.filter((l) => sentSuppliers(l).length > 0)
+}
+
+/** Vrai dès qu'au moins une consultation a été envoyée (la grille ne reprend que celles-là). */
+export function anyEmailSent(submission: Submission): boolean {
+  return gridLots(submission).length > 0
 }
 
 /** Vrai quand tous les e-mails (une ligne de suivi par fournisseur et par lot) sont marqués envoyés. */
@@ -31,7 +43,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   // Fournisseurs dans l'ordre de première apparition, avec leurs lots.
   const suppliers: { id: string; name: string; lotIds: Set<string> }[] = []
   for (const lot of lots) {
-    for (const s of lot.suppliers.filter((x) => x.status !== 'ignore')) {
+    for (const s of sentSuppliers(lot)) {
       let row = suppliers.find((r) => r.id === s.supplierId)
       if (!row) suppliers.push((row = { id: s.supplierId, name: s.name, lotIds: new Set() }))
       row.lotIds.add(lot.id)
@@ -92,7 +104,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   suppliers.forEach((sup, i) => {
     const r = headRow + 1 + i
     const grey = i % 2 === 1
-    const allSent = lots.every((l) => !l.suppliers.some((s) => s.supplierId === sup.id) ||
+    const allSent = submission.lots.every((l) => !l.suppliers.some((s) => s.supplierId === sup.id && s.status !== 'ignore') ||
       l.followUp.find((f) => f.supplierId === sup.id)?.status === 'envoye')
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c)

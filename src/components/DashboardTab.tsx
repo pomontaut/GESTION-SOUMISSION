@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import type { FollowUpEntry, Lot, Submission } from '../types'
 import { MODELS, generateTco, getApiKey, getModel, setApiKey, setModel } from '../agent/acheteurAgent'
-import { allEmailsSent, exportTrackingGrid } from '../export/trackingGrid'
+import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
 import { exportTcoExcel } from '../export/tcoExcel'
+
+/** Seules les consultations réellement envoyées apparaissent dans le suivi. */
+const sentFollowUp = (lot: Lot) => lot.followUp.filter((f) => f.status === 'envoye')
 
 export default function DashboardTab({
   submission,
@@ -69,7 +72,7 @@ export default function DashboardTab({
       ['Lot', 'CFC', 'Fournisseur', 'Email', 'Statut', 'Date envoi', 'Date relance', 'Montant estimé', 'Montant offert', 'Conforme', 'Date retour', 'Notes', 'Retenu'],
     ]
     for (const lot of submission.lots) {
-      for (const f of lot.followUp) {
+      for (const f of sentFollowUp(lot)) {
         rows.push([
           lot.title,
           lot.cfcCode,
@@ -137,7 +140,7 @@ export default function DashboardTab({
         <div className="flex gap-2 mt-4">
           <button
             className="btn-primary"
-            disabled={!allEmailsSent(submission)}
+            disabled={!anyEmailSent(submission)}
             onClick={() => exportTrackingGrid(submission)}
           >
             ⭳ Générer le tableau de suivi (Excel)
@@ -149,9 +152,9 @@ export default function DashboardTab({
             ⭳ Exporter tout (JSON, sans fichiers joints)
           </button>
         </div>
-        {!allEmailsSent(submission) && (
+        {!anyEmailSent(submission) && (
           <p className="text-xs text-slate-500 mt-2">
-            Le tableau de suivi est disponible quand tous les e-mails sont marqués « envoyés » (onglet 2, bouton « Marquer tout Envoyé dans le suivi »).
+            Le tableau de suivi est disponible quand au moins un e-mail est marqué « envoyé » (onglet 2) ; seules les consultations envoyées y figurent.
           </p>
         )}
       </div>
@@ -196,7 +199,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {submission.lots.map((lot) => (
+      {submission.lots.filter((l) => sentFollowUp(l).length > 0).map((lot) => (
         <div key={lot.id} className="card overflow-x-auto">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <h3 className="font-semibold text-slate-800">
@@ -207,7 +210,7 @@ export default function DashboardTab({
             </span>
             <span className="text-xs text-slate-500">
               {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.suppliers.length} fournisseur(s) ·{' '}
-              {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
+              {sentFollowUp(lot).filter((f) => f.offeredAmount).length}/{sentFollowUp(lot).length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400 ml-auto">pages {lot.pages.join(', ')}</span>
             <button
@@ -221,7 +224,7 @@ export default function DashboardTab({
           </div>
           {tcoError[lot.id] && <p className="text-sm text-red-600 mb-2">{tcoError[lot.id]}</p>}
 
-          {lot.followUp.length === 0 ? (
+          {sentFollowUp(lot).length === 0 ? (
             <p className="text-sm text-slate-400">
               Aucun suivi — générez l'e-mail groupé dans l'onglet 2 pour initialiser le suivi des fournisseurs.
             </p>
@@ -243,7 +246,7 @@ export default function DashboardTab({
                 </tr>
               </thead>
               <tbody>
-                {lot.followUp.map((f) => (
+                {sentFollowUp(lot).map((f) => (
                   <tr key={f.supplierId} className="border-b border-slate-100">
                     <td className="py-1.5 pr-2">
                       {f.name}

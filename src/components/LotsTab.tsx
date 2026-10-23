@@ -4,7 +4,7 @@ import { uid } from '../types'
 import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
-import { allEmailsSent, exportTrackingGrid } from '../export/trackingGrid'
+import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
 
 const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
@@ -96,8 +96,8 @@ export default function LotsTab({
         )}
         <button
           className="btn-primary w-full mb-3"
-          disabled={!allEmailsSent(submission)}
-          title={allEmailsSent(submission) ? '' : "Disponible quand tous les e-mails sont marqués « envoyés »"}
+          disabled={!anyEmailSent(submission)}
+          title={anyEmailSent(submission) ? '' : "Disponible dès qu'au moins un e-mail est marqué « envoyé » (seules les consultations envoyées figurent dans la grille)"}
           onClick={() => exportTrackingGrid(submission)}
         >
           ⭳ Générer le tableau de suivi (Excel)
