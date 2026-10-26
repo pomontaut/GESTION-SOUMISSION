@@ -104,7 +104,7 @@ export default function EmailPreviewModal({
               />
             </div>
             {sendError && <p className="text-sm text-red-600">⚠ {sendError}</p>}
-            <button className="btn-primary w-full" disabled={sending || bccList.length === 0} onClick={handleSend}>
+            <button className="btn-primary w-full" disabled={sending || bccList.length === 0 || !submission.pdfData} onClick={handleSend}>
               🚀 {sending ? 'Envoi...' : 'Envoyer'}
             </button>
           </div>
@@ -119,7 +119,12 @@ export default function EmailPreviewModal({
             )}
             {pdfError && <p className="p-4 text-sm text-red-600">{pdfError}</p>}
             {pdfUrl && <iframe title="Pièce jointe" src={pdfUrl} className="w-full flex-1 border-0" />}
-            {!pdfUrl && !pdfError && <p className="p-4 text-sm text-slate-500">Génération de la pièce jointe…</p>}
+            {!submission.pdfData && (
+              <p className="p-4 text-sm text-red-600">
+                ⚠ PDF d'origine introuvable sur le serveur : ré-importez-le dans l'onglet Extraction avant d'envoyer.
+              </p>
+            )}
+            {submission.pdfData && !pdfUrl && !pdfError && <p className="p-4 text-sm text-slate-500">Génération de la pièce jointe…</p>}
           </div>
         </div>
       </div>
