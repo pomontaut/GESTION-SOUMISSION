@@ -270,6 +270,12 @@ export default function ValidationTab({
         l'onglet Suivi.
       </p>
 
+      {!submission.pdfData && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          ⚠ PDF d'origine introuvable sur le serveur : ré-importez-le dans l'onglet Extraction. Les envois sont bloqués tant qu'il manque.
+        </p>
+      )}
+
       {submission.lots.map((lot, idx) => {
         const heterogeneity = heterogeneityByLot.get(lot.id)
         const included = lot.suppliers.filter((s) => s.status !== 'ignore')
@@ -323,8 +329,14 @@ export default function ValidationTab({
               <div className="flex gap-2 ml-auto">
                 <button
                   className="btn-primary !py-1"
-                  disabled={sendingLotId === lot.id || included.every((s) => !s.email) || !lot.emailSubject}
-                  title={!lot.emailSubject ? "Aucun e-mail préparé pour ce lot" : undefined}
+                  disabled={sendingLotId === lot.id || included.every((s) => !s.email) || !lot.emailSubject || !submission.pdfData}
+                  title={
+                    !submission.pdfData
+                      ? "PDF d'origine introuvable : ré-importez-le dans l'onglet Extraction"
+                      : !lot.emailSubject
+                        ? "Aucun e-mail préparé pour ce lot"
+                        : undefined
+                  }
                   onClick={() => sendLot(lot)}
                 >
                   🚀 {sendingLotId === lot.id ? 'Envoi...' : 'Envoyer ce lot'}
