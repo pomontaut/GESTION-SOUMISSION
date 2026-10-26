@@ -10,6 +10,12 @@ import { runTcoAgent } from '../tco/runTcoAgent'
 import { exportTcoExcel } from '../export/tcoExcel'
 import PdfPreviewModal from './PdfPreviewModal'
 
+// Fournisseur à qui la consultation a réellement été envoyée (statut Envoyé, ou date d'envoi saisie
+// pour un envoi fait hors de l'outil).
+function sentFollowUp(lot: Lot): FollowUpEntry[] {
+  return lot.followUp.filter((f) => f.status === 'envoye' || !!f.sentDate)
+}
+
 export default function DashboardTab({
   submission,
   onUpdate,
@@ -95,7 +101,7 @@ export default function DashboardTab({
       ['Lot', 'CFC', 'Fournisseur', 'Email', 'Statut', 'Date envoi', 'Date relance', 'Montant estimé', 'Montant offert', 'Conforme', 'Date retour', 'Notes', 'Retenu'],
     ]
     for (const lot of submission.lots) {
-      for (const f of lot.followUp) {
+      for (const f of sentFollowUp(lot)) {
         rows.push([
           lot.title,
           lot.cfcCode,
@@ -198,7 +204,9 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {submission.lots.map((lot) => {
+      {submission.lots.map((fullLot) => {
+        // Le suivi ne concerne que les fournisseurs à qui la consultation a été envoyée.
+        const lot = { ...fullLot, followUp: sentFollowUp(fullLot) }
         const heterogeneity = heterogeneityByLot.get(lot.id)
         return (
         <div key={lot.id} className="card overflow-x-auto">
@@ -206,7 +214,7 @@ export default function DashboardTab({
             <button
               title="Voir le PDF et la zone détectée pour ce lot"
               className="text-slate-400 hover:text-indigo-600 text-lg leading-none"
-              onClick={() => setPreviewLot(lot)}
+              onClick={() => setPreviewLot(fullLot)}
               disabled={!submission.pdfData}
             >
               🔍
@@ -218,7 +226,7 @@ export default function DashboardTab({
               {lot.validated ? 'Validé' : 'Proposé'}
             </span>
             <span className="text-xs text-slate-500">
-              {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.suppliers.length} fournisseur(s) ·{' '}
+              {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.followUp.length} fournisseur(s) sollicité(s) ·{' '}
               {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
@@ -226,7 +234,7 @@ export default function DashboardTab({
               <button
                 className="btn-secondary !py-1"
                 disabled={lot.followUp.length === 0 || generatingTcoId === lot.id}
-                title={lot.followUp.length === 0 ? 'Aucun fournisseur à comparer pour ce lot' : undefined}
+                title={lot.followUp.length === 0 ? 'Aucun fournisseur sollicité pour ce lot' : undefined}
                 onClick={() => handleGenerateTco(lot)}
               >
                 📊 {generatingTcoId === lot.id ? tcoStatus || 'Génération...' : 'Générer un TCO'}
@@ -249,9 +257,11 @@ export default function DashboardTab({
 
           {lot.followUp.length === 0 ? (
             <p className="text-sm text-slate-400">
-              Aucun fournisseur trouvé automatiquement pour ce lot —{' '}
+              {fullLot.followUp.length === 0
+                ? 'Aucun fournisseur trouvé automatiquement pour ce lot — '
+                : "Aucun fournisseur sollicité pour l'instant : ils apparaissent ici une fois la consultation envoyée — "}
               <button className="underline" onClick={() => onEditLot(lot.id)}>
-                ouvrez-le pour en ajouter manuellement
+                {fullLot.followUp.length === 0 ? 'ouvrez-le pour en ajouter manuellement' : 'ouvrir le lot'}
               </button>
               .
             </p>
