@@ -195,91 +195,48 @@ export async function sendLotEmail(params: {
   )
 }
 
-/**
- * Tops up the shared supplier list to at least the bundled seed's size. A plain "only if empty"
- * check would never pick up a bigger/updated seed once any suppliers already exist (e.g. the
- * previous, much smaller placeholder list) - comparing counts instead lets a genuine catalog
- * update (more suppliers bundled in the app than currently stored) replace the stale data, while
- * still leaving things alone once the real catalog is in place.
- */
-export async function seedSuppliersIfEmpty(seed: SupplierRecord[]): Promise<void> {
-  const existing = await fetchSuppliers()
-  if (existing.length >= seed.length) return
-  await Promise.all(existing.map((s) => deleteSupplier(s.id)))
-  await Promise.all(seed.map((s) => saveSupplier(s)))
-}
-
 const normKey = (s: string) => s.toLowerCase().split(/\s+/).filter(Boolean).join(' ')
-const supplierKey = (s: SupplierRecord) => `${normKey(s.category)}|${normKey(s.name)}`
-const FILLABLE_FIELDS = ['email', 'nature', 'frequency', 'backupAchat', 'contactContrat', 'contactCommande', 'zone', 'comments'] as const
-
-/**
- * The count-based top-up above only fires when the bundled list has MORE suppliers than the
- * database - so a seed update that only fills in missing e-mails (same supplier count) never
- * reached the shared database, and lots kept coming out with empty addresses. This fills in the
- * blanks from the bundled list, matched on (catégorie, nom): existing records keep their id and
- * anything already filled in (an address an acheteur corrected by hand is never overwritten).
- * Suppliers missing from the database are added, but only once per SUPPLIER_SEED_VERSION so a
- * supplier deleted on purpose doesn't come back on every page load.
- */
 const baseName = (n: string) => normKey(n.replace(/\(.*?\)/g, ' '))
-function sameSupplierRenamed(a: SupplierRecord, b: SupplierRecord): boolean {
-  if (normKey(a.category) !== normKey(b.category)) return false
-  const x = baseName(a.name)
-  const y = baseName(b.name)
-  return x.length >= 4 && x === y
-}
-
-async function refreshSuppliersFromSeed(seed: SupplierRecord[], version: string): Promise<void> {
-  const versionKey = 'supplierSeedVersion'
-  let versionDone = false
-  try {
-    versionDone = localStorage.getItem(versionKey) === version
-  } catch {
-    // storage unavailable: fall through and only fill blanks
-  }
-  const existing = await fetchSuppliers()
-  const byKey = new Map(existing.map((s) => [supplierKey(s), s]))
-  const writes: SupplierRecord[] = []
-  for (const s of seed) {
-    // Same supplier under a slightly different label (e.g. "KUBRIX (FBB)" renamed "Kubrix") counts
-    // as a match too, so renames in the reference file fill the existing record instead of duplicating it.
-    const found = byKey.get(supplierKey(s)) ?? existing.find((e) => sameSupplierRenamed(e, s))
-    if (!found) {
-      if (!versionDone) writes.push(s)
-      continue
-    }
-    const patch: Partial<SupplierRecord> = {}
-    for (const f of FILLABLE_FIELDS) {
-      if (!(found[f] ?? '').trim() && (s[f] ?? '').trim()) patch[f] = s[f]
-    }
-    if (Object.keys(patch).length > 0) writes.push({ ...found, ...patch })
-  }
-  for (let i = 0; i < writes.length; i += 25) await Promise.all(writes.slice(i, i + 25).map((s) => saveSupplier(s)))
-  try {
-    localStorage.setItem(versionKey, version)
-  } catch {
-    // not critical
-  }
-}
+const supplierKey = (s: SupplierRecord) => `${normKey(s.category)}|${baseName(s.name)}`
 
 /**
- * Les deux synchronisations ci-dessus n'ajoutent / complètent que : un fournisseur retiré du fichier
- * maître restait donc indéfiniment dans la base partagée (et revenait dans les propositions de
- * lots). Les fournisseurs listés dans suppliersRemoved.json (par nom, toutes catégories) y sont
- * supprimés, une fois par version du seed ; les lots déjà créés qui les citent ne changent pas.
+ * La base fournisseurs de référence est UNIQUE : le fichier maître (Base_fournisseurs_filtrable_INDUNI.xlsx,
+ * colonnes A à E : catégorie, fournisseur, nature, fréquence, contact soumission), embarqué dans
+ * l'application sous forme de suppliersSeed.json. La base partagée en devient le miroir exact :
+ * lignes du fichier ajoutées ou alignées (identifiant conservé), tout le reste supprimé
+ * (fournisseurs créés à la main, anciens imports, doublons). Exécuté une fois par version du seed
+ * et par navigateur ; seules les différences sont écrites.
  */
-async function removeRetiredSuppliers(retired: Array<{ name: string }>, version: string): Promise<void> {
-  const versionKey = 'supplierRemovedVersion'
+export async function syncSuppliersToReference(seed: SupplierRecord[], version: string): Promise<void> {
+  const versionKey = 'supplierSeedVersion'
   try {
     if (localStorage.getItem(versionKey) === version) return
   } catch {
-    // storage unavailable: run anyway (idempotent)
+    // storage unavailable: run anyway (only differences are written)
   }
-  const names = new Set(retired.map((r) => baseName(r.name)))
   const existing = await fetchSuppliers()
-  const toDelete = existing.filter((s) => names.has(baseName(s.name)))
-  await Promise.all(toDelete.map((s) => deleteSupplier(s.id)))
+  const byKey = new Map<string, SupplierRecord[]>()
+  for (const e of existing) byKey.set(supplierKey(e), [...(byKey.get(supplierKey(e)) ?? []), e])
+
+  const writes: SupplierRecord[] = []
+  const deletes: SupplierRecord[] = []
+  const wanted = new Set<string>()
+  for (const s of seed) {
+    const k = supplierKey(s)
+    wanted.add(k)
+    const found = byKey.get(k) ?? []
+    if (found.length === 0) {
+      writes.push(s)
+      continue
+    }
+    const target: SupplierRecord = { ...s, id: found[0].id }
+    if (JSON.stringify(target) !== JSON.stringify(found[0])) writes.push(target)
+    deletes.push(...found.slice(1))
+  }
+  for (const e of existing) if (!wanted.has(supplierKey(e))) deletes.push(e)
+
+  for (let i = 0; i < writes.length; i += 25) await Promise.all(writes.slice(i, i + 25).map((s) => saveSupplier(s)))
+  for (let i = 0; i < deletes.length; i += 25) await Promise.all(deletes.slice(i, i + 25).map((s) => deleteSupplier(s.id)))
   try {
     localStorage.setItem(versionKey, version)
   } catch {
@@ -287,10 +244,9 @@ async function removeRetiredSuppliers(retired: Array<{ name: string }>, version:
   }
 }
 
-export function initSuppliers(seed: SupplierRecord[], version: string, retired: Array<{ name: string }> = []): Promise<void> {
-  suppliersReady = seedSuppliersIfEmpty(seed)
-    .then(() => refreshSuppliersFromSeed(seed, version))
-    .then(() => removeRetiredSuppliers(retired, version))
-    .catch((err) => console.error('Mise à jour de la base fournisseurs impossible', err))
+export function initSuppliers(seed: SupplierRecord[], version: string): Promise<void> {
+  suppliersReady = syncSuppliersToReference(seed, version).catch((err) =>
+    console.error('Mise à jour de la base fournisseurs impossible', err),
+  )
   return suppliersReady
 }
