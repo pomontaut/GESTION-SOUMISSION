@@ -1,6 +1,6 @@
 import type { Lot, SubmissionInfo, SupplierRecord } from '../types'
 import { lotTitleKey, type LotSupplierLearning } from '../storage'
-import { isSupplierActive, matchSuppliersForCategories } from '../data/matching'
+import { dedupeLotSuppliers, isSupplierActive, matchSuppliersForCategories } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 import { applyRulesToLot, type AgentRule } from './rules'
 
@@ -57,7 +57,7 @@ export function runLotAgent(
       retained: false,
     }))
     const { subject, body } = buildLotEmail(lot, info)
-    return {
+    return dedupeLotSuppliers({
       ...lot,
       categories,
       suppliers: lotSuppliers,
@@ -65,6 +65,6 @@ export function runLotAgent(
       emailSubject: subject,
       emailBody: body,
       emailGeneratedAt: new Date().toISOString(),
-    }
+    })
   })
 }

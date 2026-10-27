@@ -1,4 +1,4 @@
-import type { PrestationType, SupplierRecord } from '../types'
+import type { Lot, PrestationType, SupplierRecord } from '../types'
 
 export const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
@@ -41,4 +41,44 @@ export function matchSuppliersForCategories(
   return suppliers.filter((s) => wanted.has(norm(s.category)) &&
       (NATURE_AGNOSTIC_CATEGORIES.includes(norm(s.category)) || natureMatchesPrestation(s.nature, prestationType)),
   )
+}
+
+const companyKey = (name: string, email: string) =>
+  `${name.toLowerCase().replace(/\(.*?\)/g, ' ').split(/\s+/).filter(Boolean).join(' ')}|${email
+    .toLowerCase()
+    .split(/[,;\s]+/)
+    .filter(Boolean)
+    .sort()
+    .join(',')}`
+
+/**
+ * Une même société ne doit figurer qu'une fois sur un lot : la base peut contenir plusieurs lignes
+ * pour elle (une par catégorie, ou des doublons d'anciens imports), d'où des fournisseurs affichés
+ * deux fois. Garde une ligne par (nom, adresse), de préférence celle dont la consultation a déjà
+ * été envoyée ; renvoie le même lot (même référence) s'il n'y a rien à retirer.
+ */
+export function dedupeLotSuppliers(lot: Lot): Lot {
+  const sentIds = new Set(lot.followUp.filter((f) => f.status === 'envoye').map((f) => f.supplierId))
+  const keeper = new Map<string, string>()
+  for (const s of lot.suppliers) {
+    const k = companyKey(s.name, s.email ?? '')
+    const current = keeper.get(k)
+    if (!current || (!sentIds.has(current) && sentIds.has(s.supplierId))) keeper.set(k, s.supplierId)
+  }
+  const keep = new Set(keeper.values())
+  if (keep.size === lot.suppliers.length && lot.followUp.every((f) => keep.has(f.supplierId) || !lot.suppliers.some((s) => s.supplierId === f.supplierId))) {
+    return lot
+  }
+  const seenFollow = new Set<string>()
+  return {
+    ...lot,
+    suppliers: lot.suppliers.filter((s) => keep.has(s.supplierId)),
+    followUp: lot.followUp.filter((f) => {
+      const sup = lot.suppliers.find((s) => s.supplierId === f.supplierId)
+      if (sup && !keep.has(f.supplierId)) return false
+      if (seenFollow.has(f.supplierId)) return false
+      seenFollow.add(f.supplierId)
+      return true
+    }),
+  }
 }
