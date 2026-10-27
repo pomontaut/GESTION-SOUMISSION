@@ -4621,20 +4621,6 @@
  },
  {
   "category": "PILIERS BETON (Orso B)",
-  "name": "Aschwanden",
-  "nature": "Fourniture",
-  "frequency": "Récurrent",
-  "email": "g.blaser@aschwanden.com",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "répond que si mentionné Orso B"
- },
- {
-  "category": "PILIERS BETON (Orso B)",
   "name": "Alphabeton",
   "nature": "Fourniture",
   "frequency": "Récurrent",
@@ -4676,17 +4662,17 @@
   "comments": ""
  },
  {
-  "category": "PILIERS Mixtes (Orso V)",
-  "name": "Aschwanden",
+  "category": "PILIERS BETON (Orso B)",
+  "name": "Leviat",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "g.blaser@aschwanden.com",
+  "email": "offre.ch@leviat.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4716,6 +4702,20 @@
   "zone": "",
   "status": "Actif / à confirmer",
   "comments": "Atlant"
+ },
+ {
+  "category": "PILIERS Mixtes (Orso V)",
+  "name": "Leviat",
+  "nature": "Fourniture",
+  "frequency": "Récurrent",
+  "email": "offre.ch@leviat.com",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PILIERS Metalliques",

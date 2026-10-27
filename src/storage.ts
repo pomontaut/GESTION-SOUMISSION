@@ -263,9 +263,34 @@ async function refreshSuppliersFromSeed(seed: SupplierRecord[], version: string)
   }
 }
 
-export function initSuppliers(seed: SupplierRecord[], version: string): Promise<void> {
+/**
+ * Les deux synchronisations ci-dessus n'ajoutent / complètent que : un fournisseur retiré du fichier
+ * maître restait donc indéfiniment dans la base partagée (et revenait dans les propositions de
+ * lots). Les fournisseurs listés dans suppliersRemoved.json (par nom, toutes catégories) y sont
+ * supprimés, une fois par version du seed ; les lots déjà créés qui les citent ne changent pas.
+ */
+async function removeRetiredSuppliers(retired: Array<{ name: string }>, version: string): Promise<void> {
+  const versionKey = 'supplierRemovedVersion'
+  try {
+    if (localStorage.getItem(versionKey) === version) return
+  } catch {
+    // storage unavailable: run anyway (idempotent)
+  }
+  const names = new Set(retired.map((r) => baseName(r.name)))
+  const existing = await fetchSuppliers()
+  const toDelete = existing.filter((s) => names.has(baseName(s.name)))
+  await Promise.all(toDelete.map((s) => deleteSupplier(s.id)))
+  try {
+    localStorage.setItem(versionKey, version)
+  } catch {
+    // not critical
+  }
+}
+
+export function initSuppliers(seed: SupplierRecord[], version: string, retired: Array<{ name: string }> = []): Promise<void> {
   suppliersReady = seedSuppliersIfEmpty(seed)
     .then(() => refreshSuppliersFromSeed(seed, version))
+    .then(() => removeRetiredSuppliers(retired, version))
     .catch((err) => console.error('Mise à jour de la base fournisseurs impossible', err))
   return suppliersReady
 }
