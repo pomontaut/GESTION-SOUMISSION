@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
+import { dedupeLotSuppliers } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
@@ -31,6 +32,19 @@ export default function ValidationTab({
   useEffect(() => {
     listSuppliers().then(setSuppliers)
   }, [])
+
+  // Lots créés avant ce correctif : une société qui y figure deux fois (plusieurs lignes en base)
+  // est ramenée à une seule ligne.
+  useEffect(() => {
+    let changed = false
+    const lots = submission.lots.map((l) => {
+      const d = dedupeLotSuppliers(l)
+      if (d !== l) changed = true
+      return d
+    })
+    if (changed) onUpdate({ ...submission, lots })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submission.lots])
 
   // Lots detected before the supplier base was completed carry a stale, empty address copy -
   // fill those blanks from the shared supplier record (never overwriting an address already set).
