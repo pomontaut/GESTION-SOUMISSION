@@ -1,4 +1,5 @@
 import type { Submission, SupplierRecord } from './types'
+import type { AgentRule } from './agent/rules'
 
 // Tracks, per submission id, the pdfData ArrayBuffer reference that is already
 // in sync with the server, so we only re-upload the (potentially large) PDF
@@ -167,6 +168,15 @@ export async function saveLotSupplierLearning(entry: LotSupplierLearning): Promi
       body: JSON.stringify(entry),
     }),
   )
+}
+
+export async function listAgentRules(): Promise<AgentRule[]> {
+  try {
+    return await assertOk(await fetch('/api/agent-chat/rules')).then((r) => r.json())
+  } catch (err) {
+    console.warn('Règles du chat indisponibles', err)
+    return []
+  }
 }
 
 export async function sendLotEmail(params: {

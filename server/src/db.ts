@@ -65,5 +65,25 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       UNIQUE (title_key, supplier_id)
     );
+
+    -- Chat avec l'agent : historique partagé, et consignes d'amélioration (règles formulées par
+    -- l'équipe) réinjectées dans le prompt de l'agent de chat et de l'agent TCO à chaque appel.
+    CREATE TABLE IF NOT EXISTS agent_chat_messages (
+      id TEXT PRIMARY KEY,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_consignes (
+      id TEXT PRIMARY KEY,
+      scope TEXT NOT NULL DEFAULT 'general',
+      text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    -- Règle exécutable (JSON) : appliquée automatiquement par runLotAgent / « Appliquer aux lots ».
+    -- NULL = consigne en texte libre (réinjectée seulement dans les prompts des agents).
+    ALTER TABLE agent_consignes ADD COLUMN IF NOT EXISTS rule JSONB;
   `)
 }
