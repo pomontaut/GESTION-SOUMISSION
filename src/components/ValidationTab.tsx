@@ -197,7 +197,7 @@ export default function ValidationTab({
       if (!mergedFollowUp.some((x) => x.supplierId === f.supplierId)) mergedFollowUp.push(f)
     }
 
-    const merged: Lot = {
+    const mergedRaw: Lot = {
       ...prev,
       pages: Array.from(new Set([...prev.pages, ...current.pages])).sort((a, b) => a - b),
       positionCount: prev.positionCount + current.positionCount,
@@ -207,6 +207,8 @@ export default function ValidationTab({
       followUp: mergedFollowUp,
       redactions: [...(prev.redactions ?? []), ...(current.redactions ?? [])],
     }
+    // un même fournisseur présent dans les deux lots (même sous des catégories différentes) n'est gardé qu'une fois
+    const merged = dedupeLotSuppliers(mergedRaw)
     const { subject, body } = buildLotEmail(merged, submission.info)
     merged.emailSubject = subject
     merged.emailBody = body
