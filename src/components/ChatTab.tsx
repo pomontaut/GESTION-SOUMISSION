@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Submission } from '../types'
+import { ALL_CATEGORIES } from '../data/suppliers'
+import { applyRulesToExistingLots } from '../agent/rules'
+import { listAgentRules, listSuppliers } from '../storage'
 
 interface ChatMessage {
   id: string
@@ -10,6 +13,7 @@ interface Consigne {
   id: string
   scope: string
   text: string
+  rule?: unknown
 }
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -42,12 +46,13 @@ function submissionContext(s: Submission): string {
   return `Soumission « ${s.info.projectName || s.name} »\n${lines.join('\n')}`
 }
 
-export default function ChatTab({ submission }: { submission: Submission }) {
+export default function ChatTab({ submission, onUpdate }: { submission: Submission; onUpdate: (s: Submission) => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [consignes, setConsignes] = useState<Consigne[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [applyInfo, setApplyInfo] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   async function load() {
@@ -64,6 +69,18 @@ export default function ChatTab({ submission }: { submission: Submission }) {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, sending])
 
+  /** Applique toutes les règles exécutables aux lots déjà extraits de la soumission ouverte. */
+  async function applyRules(): Promise<void> {
+    const [suppliers, rules] = await Promise.all([listSuppliers(), listAgentRules()])
+    const { lots, changed } = applyRulesToExistingLots(submission.lots, suppliers, rules)
+    if (changed > 0) onUpdate({ ...submission, lots })
+    setApplyInfo(
+      changed > 0
+        ? `${changed} lot(s) mis à jour par les règles (fournisseurs ajoutés/retirés). Vérifiez-les dans « 2. Validation & envoi ».`
+        : 'Les règles sont déjà reflétées dans tous les lots : rien à modifier.',
+    )
+  }
+
   async function send() {
     const text = input.trim()
     if (!text || sending) return
@@ -72,14 +89,16 @@ export default function ChatTab({ submission }: { submission: Submission }) {
     setInput('')
     setMessages((m) => [...m, { id: `tmp-${Date.now()}`, role: 'user', content: text }])
     try {
-      await check(
+      const reply = await check(
         await fetch('/api/agent-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, context: submissionContext(submission) }),
+          body: JSON.stringify({ message: text, context: submissionContext(submission), categories: ALL_CATEGORIES }),
         }),
       )
+      const data = await reply.json()
       await load()
+      if (data.rulesChanged) await applyRules()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
@@ -145,12 +164,18 @@ export default function ChatTab({ submission }: { submission: Submission }) {
 
       <div className="card">
         <h3 className="font-semibold mb-1">Consignes mémorisées ({consignes.length})</h3>
-        <p className="text-xs text-slate-500 mb-3">Règles que l'agent applique. Supprimez celles qui ne sont plus bonnes.</p>
+        <p className="text-xs text-slate-500 mb-3">
+          ⚙ = règle appliquée automatiquement (nouvelles soumissions + lots ouverts). Sans ⚙ = consigne texte relue par les agents. Supprimez celles qui ne sont plus bonnes.
+        </p>
+        <button className="btn-secondary mb-3" onClick={() => applyRules().catch((e) => setError(e.message))}>
+          Appliquer aux lots de cette soumission
+        </button>
+        {applyInfo && <p className="text-xs text-emerald-700 mb-3">{applyInfo}</p>}
         {consignes.length === 0 && <p className="text-sm text-slate-400">Aucune consigne.</p>}
         <ul className="space-y-2">
           {consignes.map((c) => (
             <li key={c.id} className="text-sm border border-slate-200 rounded-lg p-2">
-              <span className="text-xs text-slate-500">{SCOPE_LABELS[c.scope] ?? c.scope}</span>
+              <span className="text-xs text-slate-500">{c.rule ? '⚙ ' : ''}{SCOPE_LABELS[c.scope] ?? c.scope}</span>
               <div>{c.text}</div>
               <button className="text-xs text-red-600 mt-1" onClick={() => removeConsigne(c.id)}>
                 Supprimer

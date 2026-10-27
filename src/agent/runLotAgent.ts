@@ -2,6 +2,7 @@ import type { Lot, SubmissionInfo, SupplierRecord } from '../types'
 import { lotTitleKey, type LotSupplierLearning } from '../storage'
 import { isSupplierActive, matchSuppliersForCategories } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
+import { applyRulesToLot, type AgentRule } from './rules'
 
 /**
  * Runs, for every lot at once, the same detection→matching→drafting pipeline that used to be a
@@ -21,6 +22,7 @@ export function runLotAgent(
   suppliers: SupplierRecord[],
   info: SubmissionInfo,
   learnings: LotSupplierLearning[] = [],
+  rules: AgentRule[] = [],
 ): Lot[] {
   const suppliersById = new Map(suppliers.map((s) => [s.id, s]))
   return lots.map((lot) => {
@@ -37,7 +39,9 @@ export function runLotAgent(
       .map((l) => suppliersById.get(l.supplierId))
       .filter((s): s is SupplierRecord => s !== undefined)
       .filter(isSupplierActive)
-    const allMatches = [...matches, ...learnedMatches.filter((s) => !matches.some((m) => m.id === s.id))]
+    const learned = [...matches, ...learnedMatches.filter((s) => !matches.some((m) => m.id === s.id))]
+    // Règles créées via le chat : ajouts/exclusions de fournisseurs et de catégories.
+    const { suppliers: allMatches, categories } = applyRulesToLot(lot, learned, suppliers, rules)
     const lotSuppliers = allMatches.map((s) => ({
       supplierId: s.id,
       name: s.name,
@@ -55,6 +59,7 @@ export function runLotAgent(
     const { subject, body } = buildLotEmail(lot, info)
     return {
       ...lot,
+      categories,
       suppliers: lotSuppliers,
       followUp,
       emailSubject: subject,

@@ -106,7 +106,7 @@ export default function Workspace({
           <ValidationTab submission={submission} onUpdate={update} onEditLot={openLotEditor} />
         )}
         {tab === 'dashboard' && <DashboardTab submission={submission} onUpdate={update} onEditLot={openLotEditor} />}
-        {tab === 'chat' && <ChatTab submission={submission} />}
+        {tab === 'chat' && <ChatTab submission={submission} onUpdate={update} />}
         {tab === 'annexe' && <AnnexeTab />}
       </div>
     </div>
