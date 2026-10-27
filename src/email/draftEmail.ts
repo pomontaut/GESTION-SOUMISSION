@@ -2,13 +2,39 @@ import type { Lot, SubmissionInfo } from '../types'
 
 export function buildLotEmail(lot: Lot, info: SubmissionInfo): { subject: string; body: string } {
   const subject = `Demande de prix — ${lot.title}${info.projectName ? ' — ' + info.projectName : ''}`
+  return {
+    subject,
+    body: composeBody(
+      info,
+      `Merci de bien vouloir nous transmettre votre offre pour les prestations décrites selon soumission ci-annexée (${lot.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'}).`,
+    ),
+  }
+}
+
+/** Un seul e-mail pour plusieurs lots d'un même fournisseur (onglet « Envoi par fournisseur »). */
+export function buildSupplierEmail(lots: Lot[], info: SubmissionInfo): { subject: string; body: string } {
+  if (lots.length === 1) return buildLotEmail(lots[0], info)
+  const subject = `Demande de prix — ${lots.length} lots${info.projectName ? ' — ' + info.projectName : ''}`
+  const list = lots.map(
+    (l) => `- ${l.cfcCode ? 'CFC ' + l.cfcCode + ' — ' : ''}${l.title} (${l.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'})`,
+  )
+  return {
+    subject,
+    body: composeBody(
+      info,
+      ['Merci de bien vouloir nous transmettre votre offre pour les lots suivants, décrits selon soumission ci-annexée (un seul PDF regroupant tous les lots) :', '', ...list].join('\n'),
+    ),
+  }
+}
+
+function composeBody(info: SubmissionInfo, requestText: string): string {
   const deadlineTxt = info.deadline ? new Date(info.deadline).toLocaleDateString('fr-CH') : '[date limite]'
-  const body = [
+  return [
     `DATE DE REPONSE SOUHAITEE : ${deadlineTxt}`,
     '',
     'Bonjour,',
     '',
-    `Merci de bien vouloir nous transmettre votre offre pour les prestations décrites selon soumission ci-annexée (${lot.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'}).`,
+    requestText,
     '',
     "N'hésitez pas à chiffrer l'ensemble des positions qui vous intéressent et à proposer des variantes qui vous semblent pertinentes.",
     '',
@@ -29,6 +55,4 @@ export function buildLotEmail(lot: Lot, info: SubmissionInfo): { subject: string
     'Avenue des Grandes-Communes 6 | 1213 Petit-Lancy',
     'www.induni.ch',
   ].join('\n')
-
-  return { subject, body }
 }

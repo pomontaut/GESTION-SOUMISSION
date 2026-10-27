@@ -7,8 +7,9 @@ import ValidationTab from './ValidationTab'
 import DashboardTab from './DashboardTab'
 import AnnexeTab from './AnnexeTab'
 import ChatTab from './ChatTab'
+import SupplierSendTab from './SupplierSendTab'
 
-type TabKey = 'extraction' | 'lots' | 'validation' | 'dashboard' | 'chat' | 'annexe'
+type TabKey = 'extraction' | 'lots' | 'validation' | 'suppliers' | 'dashboard' | 'chat' | 'annexe'
 
 // "lots" has no nav button - the agent (runLotAgent) now does that work automatically right
 // after the PDF is imported. The tab itself stays reachable as a per-lot correction screen,
@@ -17,9 +18,10 @@ type TabKey = 'extraction' | 'lots' | 'validation' | 'dashboard' | 'chat' | 'ann
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'extraction', label: '1. Soumission' },
   { key: 'validation', label: '2. Validation & envoi' },
-  { key: 'dashboard', label: '3. Suivi' },
-  { key: 'chat', label: '4. Chat agent' },
-  { key: 'annexe', label: '5. Annexe — Méthode de détection' },
+  { key: 'suppliers', label: '3. Envoi par fournisseur' },
+  { key: 'dashboard', label: '4. Suivi' },
+  { key: 'chat', label: '5. Chat agent' },
+  { key: 'annexe', label: '6. Annexe — Méthode de détection' },
 ]
 
 export default function Workspace({
@@ -105,6 +107,7 @@ export default function Workspace({
         {tab === 'validation' && (
           <ValidationTab submission={submission} onUpdate={update} onEditLot={openLotEditor} />
         )}
+        {tab === 'suppliers' && <SupplierSendTab submission={submission} onUpdate={update} />}
         {tab === 'dashboard' && <DashboardTab submission={submission} onUpdate={update} onEditLot={openLotEditor} />}
         {tab === 'chat' && <ChatTab submission={submission} onUpdate={update} />}
         {tab === 'annexe' && <AnnexeTab />}
