@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Submission } from './types'
 import { initSuppliers } from './storage'
-import retiredSuppliers from './data/suppliersRemoved.json'
 import { buildSupplierSeed, SUPPLIER_SEED_VERSION } from './data/suppliers'
 import SubmissionsList from './components/SubmissionsList'
 import Workspace from './components/Workspace'
@@ -10,7 +9,7 @@ export default function App() {
   const [openSubmission, setOpenSubmission] = useState<Submission | null>(null)
 
   useEffect(() => {
-    initSuppliers(buildSupplierSeed(), SUPPLIER_SEED_VERSION, retiredSuppliers)
+    initSuppliers(buildSupplierSeed(), SUPPLIER_SEED_VERSION)
   }, [])
 
   return (

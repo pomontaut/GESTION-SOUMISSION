@@ -10,7 +10,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -24,7 +24,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -38,7 +38,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -52,7 +52,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -66,8 +66,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Tous accessoires d'armatures"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ACIER ARMATURE",
@@ -80,7 +80,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -94,7 +94,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -108,8 +108,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Ne pas consulter",
-  "comments": "Ne plus consulter pour le moment de AD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ACIER ARMATURE",
@@ -136,7 +136,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -150,7 +150,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -164,7 +164,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -178,7 +178,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -192,7 +192,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -206,7 +206,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -220,7 +220,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -234,7 +234,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -262,7 +262,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -290,7 +290,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -318,7 +318,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -332,7 +332,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -346,7 +346,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -360,7 +360,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -374,7 +374,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -388,7 +388,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -402,7 +402,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -416,7 +416,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -430,8 +430,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "M.FAVRE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ASPIRATION BETON",
@@ -444,7 +444,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -458,7 +458,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -472,7 +472,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -486,7 +486,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -500,7 +500,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -514,7 +514,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -528,7 +528,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -542,7 +542,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -556,7 +556,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -570,7 +570,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -584,7 +584,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -598,7 +598,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -612,7 +612,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -626,7 +626,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -668,7 +668,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -696,7 +696,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -710,7 +710,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -724,7 +724,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -738,7 +738,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -752,7 +752,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -766,7 +766,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -780,7 +780,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -794,7 +794,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -808,7 +808,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -822,8 +822,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "BPE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "BETON LAUSANNE",
@@ -836,7 +836,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -850,7 +850,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -864,7 +864,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -878,7 +878,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -892,7 +892,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -906,7 +906,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -920,7 +920,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -934,7 +934,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -948,7 +948,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -962,7 +962,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -976,7 +976,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -990,7 +990,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1004,7 +1004,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1018,7 +1018,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1032,7 +1032,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1046,7 +1046,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1060,7 +1060,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1074,7 +1074,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1088,7 +1088,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1102,7 +1102,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1144,8 +1144,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Que si spécial (non multiline) ou gros linéaire"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "CANIVEAUX",
@@ -1158,7 +1158,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1172,7 +1172,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1200,7 +1200,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1232,20 +1232,6 @@
   "comments": ""
  },
  {
-  "category": "CAROTTAGE",
-  "name": "Induni Forage/Sciage",
-  "nature": "Sous-traitance",
-  "frequency": "Récurrent",
-  "email": "cbret@induni.ch",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "Cyril Bret",
-  "zone": "",
-  "status": "",
-  "comments": "Entreprise Induni (contact : Cyril Bret) - pour tout ce qui est forage et sciage"
- },
- {
   "category": "CHAPES",
   "name": "BalzanImmer",
   "nature": "Sous-traitance",
@@ -1256,7 +1242,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1270,7 +1256,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1298,7 +1284,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1312,7 +1298,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1326,7 +1312,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1340,7 +1326,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1354,7 +1340,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1368,7 +1354,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1382,7 +1368,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1396,7 +1382,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1410,7 +1396,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1424,7 +1410,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1438,7 +1424,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1452,7 +1438,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1466,7 +1452,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1480,7 +1466,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1494,7 +1480,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1508,7 +1494,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1536,7 +1522,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1550,7 +1536,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1564,7 +1550,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1578,7 +1564,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1592,7 +1578,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1606,7 +1592,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1620,7 +1606,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1634,7 +1620,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1648,7 +1634,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1662,7 +1648,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1676,7 +1662,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1690,7 +1676,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1704,7 +1690,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1718,7 +1704,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1732,7 +1718,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1746,7 +1732,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1760,7 +1746,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1774,7 +1760,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1788,8 +1774,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Ge jusqu'à Lausanne"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "CREPIS",
@@ -1802,7 +1788,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1816,7 +1802,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1830,7 +1816,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1844,8 +1830,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "CURAGE",
@@ -1858,8 +1844,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "CURAGE",
@@ -1872,8 +1858,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "ne pas envoyer sans plan"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "CURAGE",
@@ -1886,8 +1872,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "CURAGE",
@@ -1900,7 +1886,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1914,7 +1900,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1928,7 +1914,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -1942,8 +1928,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Litiges PP6"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DECHARGE - TAXES - BENNE",
@@ -1956,8 +1942,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DECHARGE - TAXES - BENNE",
@@ -1970,8 +1956,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DECHARGE - TAXES - BENNE",
@@ -1998,8 +1984,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "GE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DECHARGE - TAXES - BENNE",
@@ -2012,7 +1998,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2026,7 +2012,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2040,7 +2026,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2054,7 +2040,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2068,7 +2054,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2082,8 +2068,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "démolition téchnique, démontage"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DEMONTAGES / EVACUATIONS SPEC.",
@@ -2096,7 +2082,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2110,8 +2096,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "pas sur GE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DESAMIANTAGE",
@@ -2124,8 +2110,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "pas sur GE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DESAMIANTAGE",
@@ -2138,8 +2124,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Vaud et Fribourg mais pas Genève"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "DESAMIANTAGE",
@@ -2152,7 +2138,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2166,7 +2152,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2180,7 +2166,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2208,7 +2194,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2222,7 +2208,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2236,8 +2222,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Pour Vaud précisé Roth echafaudages Lausanne"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ECHAFAUDAGES",
@@ -2250,7 +2236,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2264,7 +2250,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2278,7 +2264,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2292,8 +2278,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Ne fait que la fourniture, ni transport ni mise en œuvre"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ENROBES BITUME",
@@ -2306,7 +2292,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2320,7 +2306,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2334,7 +2320,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2348,7 +2334,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2362,8 +2348,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "uniquement fraisage, grenaillage, ponçage"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ESCALIERS - PALIERS BETON",
@@ -2376,7 +2362,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2390,7 +2376,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2404,7 +2390,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2432,7 +2418,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2446,7 +2432,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2460,7 +2446,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2474,7 +2460,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2488,7 +2474,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2502,7 +2488,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2516,7 +2502,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2530,7 +2516,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2544,7 +2530,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2558,7 +2544,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2572,7 +2558,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2586,7 +2572,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2600,7 +2586,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2614,7 +2600,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2628,7 +2614,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2642,7 +2628,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2656,7 +2642,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2684,21 +2670,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "ETANCHEITE CUVE JAUNE CUVE BLANCHE",
-  "name": "ZEMENTOL",
-  "nature": "Sous-traitance",
-  "frequency": "Récurrent",
-  "email": "t.quendt@zementol.com",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2712,7 +2684,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2768,7 +2740,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2782,7 +2754,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2796,8 +2768,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Ne pas consulter",
-  "comments": "Ne plus le consulter pour Genève"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "FORAGES / SCIAGES",
@@ -2810,22 +2782,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "FORAGES / SCIAGES",
-  "name": "Induni Forage/Sciage",
-  "nature": "Sous-traitance",
-  "frequency": "Récurrent",
-  "email": "cbret@induni.ch",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "Cyril Bret",
-  "zone": "",
   "status": "",
-  "comments": "Entreprise Induni (contact : Cyril Bret) - pour tout ce qui est forage et sciage"
+  "comments": ""
  },
  {
   "category": "GEOMETRES",
@@ -2838,7 +2796,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2852,12 +2810,12 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
   "category": "GOUJONS",
-  "name": "LEVIAT",
+  "name": "Leviat",
   "nature": "Fourniture",
   "frequency": "Récurrent",
   "email": "offre.ch@leviat.com",
@@ -2866,8 +2824,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "(goujons phoniques)"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "GOUJONS",
@@ -2880,7 +2838,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2922,7 +2880,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2936,7 +2894,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2950,7 +2908,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2964,7 +2922,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2978,7 +2936,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -2992,8 +2950,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "ne va pas jusq'à Payerne"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "GRAVIERS NYON",
@@ -3006,7 +2964,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3020,7 +2978,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3034,7 +2992,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3048,7 +3006,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3062,7 +3020,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3076,7 +3034,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3090,7 +3048,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3104,7 +3062,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3118,8 +3076,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Remblais, graves, matériaux de sous couches"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "GRILLE SAUT DE LOUP",
@@ -3132,7 +3090,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3146,7 +3104,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3160,7 +3118,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3174,7 +3132,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3188,7 +3146,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3202,7 +3160,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3216,7 +3174,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3230,7 +3188,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3244,7 +3202,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3258,7 +3216,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3272,7 +3230,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3286,7 +3244,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3300,7 +3258,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3314,7 +3272,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3328,7 +3286,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3342,8 +3300,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Nouvelle entreprise - à consulter (aussi hydrodécapage - hydrolavage)"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ISOLANTS EXTRUDES",
@@ -3356,7 +3314,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3370,8 +3328,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "doudin@gonon.ch"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ISOLANTS EXTRUDES",
@@ -3384,7 +3342,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3398,8 +3356,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Pas laine de roche"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ISOLANTS FIBRE",
@@ -3412,7 +3370,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3426,8 +3384,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Pas laine de roche"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ISOLATION PERIPHERIQUE FOURNITURE ET POSE",
@@ -3440,7 +3398,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3454,7 +3412,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3468,7 +3426,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3482,7 +3440,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3496,7 +3454,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3510,7 +3468,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3524,7 +3482,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3538,8 +3496,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Joints spéciaux type waterstop"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "JOINT DILATATION FOURNITURE ET POSE",
@@ -3552,7 +3510,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3566,7 +3524,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3580,7 +3538,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3594,7 +3552,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3608,7 +3566,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3622,7 +3580,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3636,7 +3594,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3650,7 +3608,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3664,7 +3622,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3678,7 +3636,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3692,7 +3650,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3706,7 +3664,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3720,7 +3678,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3728,13 +3686,13 @@
   "name": "Induni forage & sciage",
   "nature": "Fourniture",
   "frequency": "Récurrent",
-  "email": "cbret@induni.ch",
+  "email": "",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
-  "contactCommande": "Cyril Bret",
+  "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3748,8 +3706,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "phida"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "LAVAGE HAUTE PRESSION",
@@ -3762,7 +3720,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3776,7 +3734,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3790,8 +3748,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Hydrodécapage façades"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "MANNEQUINS BOIS",
@@ -3804,7 +3762,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3818,7 +3776,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3832,7 +3790,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3846,7 +3804,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3860,7 +3818,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3874,7 +3832,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3888,7 +3846,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3902,7 +3860,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3916,7 +3874,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3930,8 +3888,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Pose TERRABLOC: TS CONSTRUCTION. BATIBRIQUES, UP & DOWN"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PAROIS ANTI BRUIT",
@@ -3944,7 +3902,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3958,7 +3916,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3972,7 +3930,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -3986,7 +3944,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4000,7 +3958,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4014,7 +3972,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4028,7 +3986,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4042,7 +4000,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4056,7 +4014,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4070,7 +4028,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4084,7 +4042,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4098,7 +4056,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4112,7 +4070,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4126,7 +4084,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4140,7 +4098,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4154,7 +4112,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4168,7 +4126,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4182,7 +4140,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4196,7 +4154,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4210,7 +4168,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4224,7 +4182,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4238,7 +4196,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4252,7 +4210,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4266,7 +4224,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4280,8 +4238,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Ne pas consulter",
-  "comments": "ne plus le consulter il ne veut pas nous répondre"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PEINTURE",
@@ -4294,8 +4252,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "FAILLITE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PEINTURE",
@@ -4308,7 +4266,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4322,8 +4280,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "FAILLITE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PEINTURE",
@@ -4336,7 +4294,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4350,7 +4308,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4364,7 +4322,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4378,7 +4336,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4392,7 +4350,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4406,7 +4364,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4420,7 +4378,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4434,8 +4392,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "De Genève jusqu'à Aubonne"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pierre naturelle",
@@ -4448,7 +4406,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4462,8 +4420,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Tailleur pierre"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pierre naturelle",
@@ -4476,8 +4434,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Tailleur pierre"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pierre naturelle",
@@ -4490,8 +4448,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Tailleur pierre"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pierre naturelle",
@@ -4504,8 +4462,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Tailleur pierre"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pierre naturelle",
@@ -4518,8 +4476,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Crissier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PLATRERIE",
@@ -4532,7 +4490,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4546,7 +4504,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4560,7 +4518,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4574,7 +4532,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4588,7 +4546,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4602,7 +4560,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4616,7 +4574,21 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
+  "comments": ""
+ },
+ {
+  "category": "PILIERS BETON (Orso B)",
+  "name": "Leviat",
+  "nature": "Fourniture",
+  "frequency": "Récurrent",
+  "email": "offre.ch@leviat.com",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
   "comments": ""
  },
  {
@@ -4630,7 +4602,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4644,7 +4616,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4658,11 +4630,11 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
-  "category": "PILIERS BETON (Orso B)",
+  "category": "PILIERS Mixtes (Orso V)",
   "name": "Leviat",
   "nature": "Fourniture",
   "frequency": "Récurrent",
@@ -4686,7 +4658,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4695,20 +4667,6 @@
   "nature": "Fourniture",
   "frequency": "Récurrent",
   "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Atlant"
- },
- {
-  "category": "PILIERS Mixtes (Orso V)",
-  "name": "Leviat",
-  "nature": "Fourniture",
-  "frequency": "Récurrent",
-  "email": "offre.ch@leviat.com",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -4728,7 +4686,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4742,7 +4700,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4756,7 +4714,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4770,7 +4728,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4784,7 +4742,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4798,7 +4756,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4812,7 +4770,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4826,7 +4784,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4840,7 +4798,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4854,7 +4812,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4868,7 +4826,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4882,7 +4840,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4896,7 +4854,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4910,7 +4868,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4924,7 +4882,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4938,7 +4896,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -4952,8 +4910,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Contact de Sylvain Roche du 28.03.25"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pose isolation",
@@ -4966,8 +4924,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Contact de Sylvain Roche du 28.03.25"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pose isolation",
@@ -4980,8 +4938,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Contact de Sylvain Roche du 28.03.25"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pose isolation",
@@ -4994,8 +4952,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Contact de Sylvain Roche du 28.03.25"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pose isolation",
@@ -5008,8 +4966,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Contact de Sylvain Roche du 28.03.25"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Pose isolation",
@@ -5022,8 +4980,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Pose FOAMGLAS"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "POSE MACONNERIE",
@@ -5036,7 +4994,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5050,7 +5008,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5064,7 +5022,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5078,7 +5036,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5092,7 +5050,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5106,7 +5064,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5120,7 +5078,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5134,8 +5092,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VAUD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "POSE MACONNERIE",
@@ -5148,8 +5106,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "liquidation"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "POSE MACONNERIE",
@@ -5162,7 +5120,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5176,8 +5134,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Canton Vaud"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "POSE MACONNERIE",
@@ -5190,7 +5148,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5204,8 +5162,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VAUD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "POSE MACONNERIE",
@@ -5218,8 +5176,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "ALOUCHE - VAUD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "POSE MACONNERIE",
@@ -5232,8 +5190,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "ancien de chez DS CONSTRUCTION qui monte sa boite de pose de briques"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Poutrelle hourdis",
@@ -5246,7 +5204,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5260,7 +5218,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5274,7 +5232,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5288,7 +5246,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5302,8 +5260,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "ne fait pas les dalles précontraintes"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PREDALLES",
@@ -5316,7 +5274,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5330,8 +5288,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "(dalles alvéolaires seulement)"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PREDALLES",
@@ -5344,7 +5302,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5358,7 +5316,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5372,7 +5330,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5386,7 +5344,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5400,7 +5358,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5414,7 +5372,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5507,20 +5465,6 @@
   "nature": "Fourniture",
   "frequency": "Récurrent",
   "email": "info@silidur.ch",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "",
-  "comments": ""
- },
- {
-  "category": "DEPOTOIRS DE ROUTE BETON",
-  "name": "CREABETON",
-  "nature": "Fourniture",
-  "frequency": "Récurrent",
-  "email": "offres@creabeton.ch",
   "referentAchat": "",
   "backupAchat": "",
   "contactContrat": "",
@@ -5764,7 +5708,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5778,7 +5722,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5792,7 +5736,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5806,8 +5750,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "(entreprise française - ne consulter que sur gros dossiers ciblés)"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX) beton",
@@ -5820,7 +5764,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5834,7 +5778,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5848,7 +5792,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5862,7 +5806,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5876,7 +5820,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5890,7 +5834,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5904,7 +5848,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5918,7 +5862,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5932,7 +5876,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5946,7 +5890,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5960,8 +5904,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "escaliers( pas de poli), balcons, parapets, revêtement façade (bien placé)"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PREMURS beton",
@@ -5974,7 +5918,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -5988,7 +5932,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6002,7 +5946,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6016,7 +5960,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6030,7 +5974,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6044,7 +5988,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6058,7 +6002,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6072,7 +6016,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6086,7 +6030,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6100,7 +6044,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6114,7 +6058,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6128,7 +6072,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6142,7 +6086,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6156,7 +6100,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6170,7 +6114,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6184,7 +6128,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6198,7 +6142,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6212,7 +6156,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6226,7 +6170,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6240,7 +6184,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6254,7 +6198,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6268,7 +6212,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6282,7 +6226,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6296,7 +6240,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6310,7 +6254,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6324,7 +6268,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6338,7 +6282,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6352,7 +6296,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6366,7 +6310,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6380,7 +6324,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6394,8 +6338,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "est devenu PHIDA"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SABLAGE/GRENAILLAGE",
@@ -6408,7 +6352,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6422,8 +6366,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Grenaillage, fraisage, ponçage"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SABLAGE/GRENAILLAGE",
@@ -6436,8 +6380,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Grenaillage"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SABLAGE/GRENAILLAGE",
@@ -6450,7 +6394,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6464,8 +6408,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "GE uniquement"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SABLAGE/GRENAILLAGE",
@@ -6478,7 +6422,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6492,7 +6436,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6506,8 +6450,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "FAILLITE!"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SABLAGE/GRENAILLAGE",
@@ -6520,7 +6464,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6534,7 +6478,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6548,8 +6492,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "(bonne exp. Fremis Delta)"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SABLAGE/GRENAILLAGE",
@@ -6562,7 +6506,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6576,7 +6520,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6590,7 +6534,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6604,7 +6548,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6618,7 +6562,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6632,7 +6576,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6646,8 +6590,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Travaille avec le GC"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SEPARATEURS HYDROCARBURES",
@@ -6660,7 +6604,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6674,7 +6618,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6688,7 +6632,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6702,7 +6646,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6716,7 +6660,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6730,8 +6674,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Ne pas consulter",
-  "comments": "ne plus consulter avant fin 2024"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SERRURIER",
@@ -6744,7 +6688,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6758,7 +6702,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6772,7 +6716,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6786,7 +6730,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6800,8 +6744,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Ne pas consulter",
-  "comments": "ne plus le consulter"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SERRURIER",
@@ -6814,7 +6758,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6828,7 +6772,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6842,7 +6786,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6856,8 +6800,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "réalisation soudures sur chantier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SOUDURE",
@@ -6870,8 +6814,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "réalisation soudures sur chantier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SOUDURE",
@@ -6884,8 +6828,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "réalisation soudures sur chantier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SOUDURE",
@@ -6898,8 +6842,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "contrôle soudure sur chantier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SOUDURE",
@@ -6912,8 +6856,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "contrôle soudure sur chantier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "SOUDURE",
@@ -6926,8 +6870,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "contrôle soudure sur chantier"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TALOCHAGE",
@@ -6940,7 +6884,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6954,7 +6898,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6968,7 +6912,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6982,7 +6926,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -6996,8 +6940,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Vaud"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "QUILCAILLERIE",
@@ -7010,7 +6954,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7024,7 +6968,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7038,7 +6982,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7052,7 +6996,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7066,7 +7010,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7080,7 +7024,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7094,7 +7038,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7108,7 +7052,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7122,7 +7066,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7136,7 +7080,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7150,8 +7094,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "DEFINITIVEMENT FERMé"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TEST LABO",
@@ -7164,8 +7108,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VAUD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TEST LABO",
@@ -7178,8 +7122,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "GENEVE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TEST LABO",
@@ -7192,7 +7136,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7206,7 +7150,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7220,7 +7164,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7234,7 +7178,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7248,8 +7192,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "ne font plus que de l'expertise"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TOLE HOLORIB",
@@ -7262,7 +7206,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7276,7 +7220,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7290,7 +7234,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7304,7 +7248,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7318,7 +7262,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7332,7 +7276,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7346,7 +7290,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7360,8 +7304,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "Liquidation"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TRACAGE ROUTIER",
@@ -7374,7 +7318,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7388,7 +7332,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7402,7 +7346,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7416,7 +7360,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7430,7 +7374,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7444,7 +7388,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7458,7 +7402,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7472,7 +7416,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7486,7 +7430,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7500,7 +7444,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7514,7 +7458,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7528,7 +7472,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7542,8 +7486,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Inactif / à exclure",
-  "comments": "Fermeture définitive 31.12.2019"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TRAVAUX SPECIAUX",
@@ -7556,8 +7500,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TRAVAUX SPECIAUX",
@@ -7570,8 +7514,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TRAVAUX SPECIAUX",
@@ -7584,8 +7528,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "VD"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "TRAVAUX SPECIAUX",
@@ -7598,8 +7542,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Ne pas consulter",
-  "comments": "VD, NE PLUS LE CONSULTER, NE VEUT PLUS REPONDRE"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "VERRE CELULAIRE",
@@ -7612,7 +7556,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7626,7 +7570,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7640,7 +7584,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7654,7 +7598,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7668,7 +7612,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7682,7 +7626,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7696,7 +7640,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7710,7 +7654,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7724,7 +7668,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7738,7 +7682,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7752,7 +7696,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7766,7 +7710,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7780,7 +7724,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7794,7 +7738,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7808,7 +7752,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7822,7 +7766,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7836,7 +7780,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7850,7 +7794,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7864,7 +7808,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7878,7 +7822,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7892,7 +7836,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7906,7 +7850,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7920,7 +7864,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7934,7 +7878,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7948,7 +7892,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7962,7 +7906,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7976,7 +7920,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -7990,7 +7934,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8004,7 +7948,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8018,7 +7962,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8032,7 +7976,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8046,7 +7990,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8060,7 +8004,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8074,7 +8018,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8088,7 +8032,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8102,7 +8046,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8116,7 +8060,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8130,7 +8074,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8144,7 +8088,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8158,7 +8102,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8172,7 +8116,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8186,7 +8130,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8200,7 +8144,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8214,7 +8158,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8228,7 +8172,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8242,7 +8186,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8256,7 +8200,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8270,7 +8214,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8284,7 +8228,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8298,7 +8242,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8312,7 +8256,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8326,7 +8270,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8340,7 +8284,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8354,7 +8298,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8368,8 +8312,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Rittener & fils SA | EPAR & BOIS SA"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ABATTAGE ARBRES",
@@ -8382,7 +8326,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8396,7 +8340,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8410,7 +8354,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8424,8 +8368,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Emery arbres SA | Environnement 2000 SA"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "ABATTAGE ARBRES",
@@ -8438,7 +8382,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8452,7 +8396,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8466,7 +8410,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8480,7 +8424,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8494,7 +8438,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8508,7 +8452,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8522,7 +8466,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8536,7 +8480,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8550,7 +8494,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8564,7 +8508,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8578,7 +8522,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8592,7 +8536,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8606,7 +8550,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8620,7 +8564,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8634,7 +8578,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8648,7 +8592,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8662,7 +8606,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8676,7 +8620,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8690,7 +8634,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8704,7 +8648,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8718,7 +8662,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8732,7 +8676,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8746,7 +8690,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8760,7 +8704,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8774,7 +8718,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8788,7 +8732,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8802,7 +8746,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8816,7 +8760,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8830,7 +8774,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8844,7 +8788,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8858,7 +8802,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8872,7 +8816,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8886,7 +8830,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8900,7 +8844,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8914,7 +8858,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8928,7 +8872,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8942,8 +8886,8 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": "Racheté par Ernst Schweizer"
+  "status": "",
+  "comments": ""
  },
  {
   "category": "Grille entourage arbre",
@@ -8956,7 +8900,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8970,7 +8914,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8984,7 +8928,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -8998,7 +8942,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9012,7 +8956,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9026,7 +8970,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9040,7 +8984,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9054,7 +8998,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9068,7 +9012,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9082,7 +9026,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9096,7 +9040,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9110,7 +9054,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9124,7 +9068,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9138,7 +9082,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9152,7 +9096,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9166,7 +9110,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9180,7 +9124,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9194,7 +9138,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9208,7 +9152,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9222,7 +9166,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9236,7 +9180,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9250,7 +9194,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9264,7 +9208,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9278,7 +9222,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9292,7 +9236,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9306,7 +9250,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9320,7 +9264,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9334,7 +9278,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9348,7 +9292,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9362,7 +9306,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9376,7 +9320,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9390,7 +9334,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9404,7 +9348,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9418,7 +9362,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9432,7 +9376,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9446,7 +9390,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9460,7 +9404,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9474,7 +9418,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9488,7 +9432,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9502,7 +9446,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  },
  {
@@ -9516,175 +9460,7 @@
   "contactContrat": "",
   "contactCommande": "",
   "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "ETANCHEITE A FROID",
-  "name": "Cap Etanchéité",
-  "nature": "Sous-traitance",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "BRIQUE TERRE CUITE",
-  "name": "Cubrix",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "NATTE DRAINANTE DRAINAGE",
-  "name": "Sytec",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "NATTE DRAINANTE DRAINAGE",
-  "name": "Tegum",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "CANIVEAUX",
-  "name": "BG Graspointner",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "office.ch@bg-graspointner.com",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "CHARPENTE METALLIQUE",
-  "name": "Ramelet & Fils",
-  "nature": "Sous-traitance",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "PRECONTRAINTE",
-  "name": "Tensaccai",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "BETON GENEVE",
-  "name": "Pointge",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "SABLAGE/GRENAILLAGE",
-  "name": "Ranb",
-  "nature": "Sous-traitance",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "COFFRAGES BOIS",
-  "name": "Dani Coffrage Sarl",
-  "nature": "Sous-traitance",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "ETANCHEITE A FROID",
-  "name": "YMO Travaux Spéciaux",
-  "nature": "Sous-traitance",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
-  "comments": ""
- },
- {
-  "category": "ARMATURES DE POINCONNEMENT (DURA)",
-  "name": "Schöck",
-  "nature": "Fourniture",
-  "frequency": "",
-  "email": "",
-  "referentAchat": "",
-  "backupAchat": "",
-  "contactContrat": "",
-  "contactCommande": "",
-  "zone": "",
-  "status": "Actif / à confirmer",
+  "status": "",
   "comments": ""
  }
 ]
