@@ -54,3 +54,19 @@ export async function extractLotPdf(
   }
   return outDoc.save()
 }
+
+/** Un seul PDF regroupant plusieurs lots (dans l'ordre donné), chacun avec ses propres zones
+ *  masquées - pièce jointe de l'envoi groupé par fournisseur. */
+export async function extractLotsPdf(
+  sourceData: ArrayBuffer,
+  lots: Array<{ pages: number[]; redactions?: PdfRedaction[] }>,
+): Promise<Uint8Array> {
+  const outDoc = await PDFDocument.create()
+  for (const lot of lots) {
+    const bytes = await extractLotPdf(sourceData, lot.pages, lot.redactions)
+    const part = await PDFDocument.load(bytes)
+    const copied = await outDoc.copyPages(part, part.getPageIndices())
+    copied.forEach((p) => outDoc.addPage(p))
+  }
+  return outDoc.save()
+}

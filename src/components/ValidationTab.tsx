@@ -270,6 +270,19 @@ export default function ValidationTab({
         l'onglet Suivi.
       </p>
 
+      <div className="flex items-center gap-3 flex-wrap text-sm text-slate-600">
+        <span>
+          {submission.lots.filter((l) => l.validated).length}/{submission.lots.length} liste(s) de fournisseurs validée(s) — l'onglet « 3. Envoi par fournisseur » regroupe ensuite les envois (par lot ou par fournisseur).
+        </span>
+        <button
+          className="btn-secondary !py-1"
+          disabled={submission.lots.every((l) => l.validated)}
+          onClick={() => onUpdate({ ...submission, lots: submission.lots.map((l) => ({ ...l, validated: true })) })}
+        >
+          ✓ Tout valider
+        </button>
+      </div>
+
       {!submission.pdfData && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           ⚠ PDF d'origine introuvable sur le serveur : ré-importez-le dans l'onglet Extraction. Les envois sont bloqués tant qu'il manque.
@@ -327,6 +340,13 @@ export default function ValidationTab({
                 </label>
               )}
               <div className="flex gap-2 ml-auto">
+                <button
+                  className={`!py-1 ${lot.validated ? 'btn-secondary' : 'btn-primary'}`}
+                  title="Valider la liste de fournisseurs de ce lot : le lot devient disponible pour l'onglet « Envoi par fournisseur »"
+                  onClick={() => updateLot(lot.id, { validated: !lot.validated })}
+                >
+                  {lot.validated ? '↩ Dévalider' : '✓ Valider la liste'}
+                </button>
                 <button
                   className="btn-primary !py-1"
                   disabled={sendingLotId === lot.id || included.every((s) => !s.email) || !lot.emailSubject || !submission.pdfData}

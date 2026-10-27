@@ -134,7 +134,7 @@ export default function ExtractionTab({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Informations du chantier</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Ces informations apparaissent sur le dashboard de suivi (onglet 3) et dans les e-mails.
+          Ces informations apparaissent sur le dashboard de suivi (onglet 4) et dans les e-mails.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Field label="N° de chantier">
