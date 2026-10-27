@@ -10,20 +10,22 @@ function rowToSubmission(row: any) {
     id: row.id,
     name: row.name,
     updatedAt: row.updated_at.toISOString(),
-    pdfFileName: row.pdf_file_name ?? undefined,
+    // Le nom n'est annoncé que si le binaire est réellement en base (sinon l'interface
+    // affichait « Fichier: … » pour un PDF absent du serveur).
+    pdfFileName: row.has_pdf ? (row.pdf_file_name ?? undefined) : undefined,
   }
 }
 
 router.get('/', async (_req, res) => {
   const result = await pool.query(
-    'SELECT id, name, updated_at, pdf_file_name, data FROM submissions ORDER BY updated_at DESC',
+    'SELECT id, name, updated_at, pdf_file_name, pdf_data IS NOT NULL AS has_pdf, data FROM submissions ORDER BY updated_at DESC',
   )
   res.json(result.rows.map(rowToSubmission))
 })
 
 router.get('/:id', async (req, res) => {
   const result = await pool.query(
-    'SELECT id, name, updated_at, pdf_file_name, data FROM submissions WHERE id = $1',
+    'SELECT id, name, updated_at, pdf_file_name, pdf_data IS NOT NULL AS has_pdf, data FROM submissions WHERE id = $1',
     [req.params.id],
   )
   if (result.rows.length === 0) {

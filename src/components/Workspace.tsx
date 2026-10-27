@@ -33,6 +33,7 @@ export default function Workspace({
   const [editLotId, setEditLotId] = useState<string | null>(null)
   const [editReturnTab, setEditReturnTab] = useState<TabKey>('validation')
   const saveTimeout = useRef<number | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   function openLotEditor(lotId: string) {
     setEditLotId(lotId)
@@ -46,6 +47,11 @@ export default function Workspace({
     if (saveTimeout.current) window.clearTimeout(saveTimeout.current)
     saveTimeout.current = window.setTimeout(() => {
       saveSubmission(withTimestamp)
+        .then(() => setSaveError(null))
+        .catch((err) => {
+          console.error('Enregistrement impossible', err)
+          setSaveError(err instanceof Error ? err.message : 'Erreur inconnue')
+        })
     }, 300)
   }
 
@@ -77,6 +83,11 @@ export default function Workspace({
         </button>
       </div>
 
+      {saveError && (
+        <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-6 py-2">
+          ⚠ Enregistrement sur le serveur impossible ({saveError}). Le PDF et vos modifications ne sont pas sauvegardés : ne fermez pas la page et réessayez (une nouvelle modification relance l'enregistrement).
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-6 py-8">
         {tab === 'extraction' && (
           <ExtractionTab submission={submission} onUpdate={update} onImported={() => setTab('validation')} />
