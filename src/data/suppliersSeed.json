@@ -4662,6 +4662,20 @@
   "comments": ""
  },
  {
+  "category": "PILIERS BETON (Orso B)",
+  "name": "Leviat",
+  "nature": "Fourniture",
+  "frequency": "Récurrent",
+  "email": "offre.ch@leviat.com",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
+ },
+ {
   "category": "PILIERS Mixtes (Orso V)",
   "name": "Spannverbund",
   "nature": "Fourniture",
@@ -4688,6 +4702,20 @@
   "zone": "",
   "status": "Actif / à confirmer",
   "comments": "Atlant"
+ },
+ {
+  "category": "PILIERS Mixtes (Orso V)",
+  "name": "Leviat",
+  "nature": "Fourniture",
+  "frequency": "Récurrent",
+  "email": "offre.ch@leviat.com",
+  "referentAchat": "",
+  "backupAchat": "",
+  "contactContrat": "",
+  "contactCommande": "",
+  "zone": "",
+  "status": "",
+  "comments": ""
  },
  {
   "category": "PILIERS Metalliques",
