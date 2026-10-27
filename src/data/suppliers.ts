@@ -39,4 +39,4 @@ export function buildSupplierSeed(): SupplierRecord[] {
 }
 
 /** Bump whenever suppliersSeed.json / categories.json are regenerated from the reference Excel. */
-export const SUPPLIER_SEED_VERSION = '2026-10-16'
+export const SUPPLIER_SEED_VERSION = '2026-10-27'
