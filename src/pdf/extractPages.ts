@@ -10,15 +10,20 @@ const REDACT_JPEG_QUALITY = 0.9
  * redacted, not just covered: the page is rendered to an image with the zone painted out and
  * that image replaces the page, so the erased text can't be copied out from under a white box.
  * (Only those pages lose their selectable text; untouched pages are copied as-is.)
+ *
+ * La première page de la soumission (page de garde) est toujours placée en tête, en plus des
+ * pages du lot, sauf `withCover: false` (envoi groupé : ajoutée une seule fois en tête du PDF).
  */
 export async function extractLotPdf(
   sourceData: ArrayBuffer,
   pages: number[],
   redactions: PdfRedaction[] = [],
+  withCover = true,
 ): Promise<Uint8Array> {
   const srcDoc = await PDFDocument.load(sourceData.slice(0))
   const outDoc = await PDFDocument.create()
-  const indices = pages.map((p) => p - 1).filter((i) => i >= 0 && i < srcDoc.getPageCount())
+  const withFirst = withCover && !pages.includes(1) ? [1, ...pages] : pages
+  const indices = withFirst.map((p) => p - 1).filter((i) => i >= 0 && i < srcDoc.getPageCount())
   const redactedPages = new Set(redactions.map((r) => r.page))
   const needsRender = indices.some((i) => redactedPages.has(i + 1))
   const pdfjsDoc = needsRender ? await pdfjsLib.getDocument({ data: sourceData.slice(0) }).promise : null
@@ -62,8 +67,19 @@ export async function extractLotsPdf(
   lots: Array<{ pages: number[]; redactions?: PdfRedaction[] }>,
 ): Promise<Uint8Array> {
   const outDoc = await PDFDocument.create()
+  // page de garde une seule fois, puis les pages de chaque lot (sans la répéter)
+  const cover = await extractLotPdf(
+    sourceData,
+    [1],
+    lots.flatMap((l) => (l.redactions ?? []).filter((r) => r.page === 1)),
+    false,
+  )
+  const coverPart = await PDFDocument.load(cover)
+  ;(await outDoc.copyPages(coverPart, coverPart.getPageIndices())).forEach((p) => outDoc.addPage(p))
   for (const lot of lots) {
-    const bytes = await extractLotPdf(sourceData, lot.pages, lot.redactions)
+    const pages = lot.pages.filter((p) => p !== 1)
+    if (pages.length === 0) continue
+    const bytes = await extractLotPdf(sourceData, pages, lot.redactions, false)
     const part = await PDFDocument.load(bytes)
     const copied = await outDoc.copyPages(part, part.getPageIndices())
     copied.forEach((p) => outDoc.addPage(p))
