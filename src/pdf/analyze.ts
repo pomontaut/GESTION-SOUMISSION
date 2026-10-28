@@ -200,6 +200,19 @@ const DECIMAL_ARTICLE_RE = /^(?:[ERe]\s?)?\d{1,4}\.(?!00\b)\d+\b/
 // (the margin-vote exclusion, the round-key modulo-100 check, the alternate-margin alignment
 // check) agrees on the exact same letter set.
 const CUSTOM_PREFIX_LETTER_RE = /^[ERe]/
+// "Letter-chapter" bureaux (seen on "26-20 Surville 3 - BA", SBING SA, produced from Excel, not CAN
+// software): chapters are single capital letters ("A RADIER SS1 - Phase 1", "B MURS AU SOUS-SOL 1")
+// and priced articles "A.1", "A.2"... "A.20", with no numeric code anywhere, so none of the
+// digit-based header/article shapes above ever match and every highlight run is dropped for lack of
+// a chapter context (0 lots on a document with 76 real highlights). Only enabled document-wide when
+// enough "<letter>.<n>" articles exist (see letterMode below), never on a digit-coded document.
+const LETTER_ARTICLE_RE = /^[A-Z]\.\d{1,3}\s+\S/
+const LETTER_HEADER_RE = /^([A-Z])\s+([A-ZÀ-Þ].*)$/
+const LETTER_TOTAL_RE = /^TOTAL\s+([A-Z])\.\s/
+// Roman-numeral part banner of the same documents ("II CFC 211.5 BÉTON ET BÉTON ARMÉ"): the letter
+// chapters restart in every part (A GÉNÉRALITÉS in CFC 211.0, A RADIER SS1 in CFC 211.5), so the
+// CFC of the part scopes the lot key and fills Lot.cfcCode.
+const LETTER_PART_RE = /^[IVX]+\s+CFC\s+(\d{3}(?:\.\d+)?)\b/
 // A priced row's Prix/Montant columns are printed blank (to be filled in by hand) as a long run
 // of dots - "................. ................." or "up = kg ... .......... .........." - the
 // one signal that survives even when the code itself is an orphan ".NNN" with no chapter prefix
@@ -363,6 +376,10 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   const pageRoundKeyAtEnd = new Map<number, ChapterKey | null>()
 
   const pageAnnots = new Map<number, unknown[]>()
+  // Top-of-page banner cutoff: 775 on A4 (842pt) - taller pages (26-20 Surville 3 is 924pt, header
+  // banner at y~870, first chapter header at y~826) shift it up, otherwise a chapter header printed
+  // right under the banner is discarded as banner text. Never lower than 775 (no change <= A4).
+  const pageTopCut = new Map<number, number>()
 
   // First pass: read every page once (text + annotations) - needed up front because the
   // repeated-boilerplate detection below has to see the whole document before any page's body
@@ -371,6 +388,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const page = await doc.getPage(p)
     const [annots, textContent] = await Promise.all([page.getAnnotations(), page.getTextContent()])
     pageAnnots.set(p, annots)
+    pageTopCut.set(p, Math.max(775, (page.view?.[3] ?? 842) - 67))
     pageAllLines.set(p, groupLines(textContent.items as Array<{ str: string; transform: number[] }>))
   }
 
@@ -459,9 +477,9 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   let rHeaderCount = 0
   let bareHeaderCount = 0
   let rHeaderMarginX: number | null = null
-  for (const lines of pageAllLines.values()) {
+  for (const [pageNo, lines] of pageAllLines) {
     for (const l of lines) {
-      if (l.y >= 775) continue
+      if (l.y >= (pageTopCut.get(pageNo) ?? 775)) continue
       const m = l.text.match(NONDECIMAL_HEADER_RE) ?? l.text.match(HEADER_DOT_ZERO_RE)
       if (!m) continue
       if (CUSTOM_PREFIX_LETTER_RE.test(m[1])) {
@@ -471,6 +489,23 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     }
   }
   const rHeadersAreTheNorm = rHeaderCount > 0 && rHeaderCount > bareHeaderCount
+
+  // Letter-chapter mode (see LETTER_ARTICLE_RE): requires many "A.12"-shaped articles and clearly
+  // more of them than digit-coded headers, so a digit-coded document is never switched into it.
+  // A letter counts as a real chapter header only if the document also prints "TOTAL <letter>. ..."
+  // for it - this rejects recap rows (dot-fill / CHF), roman part banners and stray capitals.
+  let letterArticleCount = 0
+  const letterTotals = new Set<string>()
+  for (const lines of pageAllLines.values()) {
+    for (const l of lines) {
+      if (LETTER_ARTICLE_RE.test(l.text)) letterArticleCount++
+      const tm = l.text.match(LETTER_TOTAL_RE)
+      if (tm) letterTotals.add(tm[1])
+    }
+  }
+  const letterMode = letterArticleCount >= 10 && letterArticleCount > 3 * (rHeaderCount + bareHeaderCount)
+  const pageLetterPart = new Map<number, string>()
+  let currentLetterPart = ''
 
   let prevPageLastLine: string | null = null
   let currentKey: ChapterKey | null = null
@@ -483,6 +518,15 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const bannerText = lines.slice(0, 6).map((l) => l.text).join(' ')
     const cfcMatch = bannerText.match(CFC_RE)
     if (cfcMatch) pageCfc.set(p, cfcMatch[1])
+    if (letterMode) {
+      const partMatch = lines.slice(0, 6).map((l) => l.text.match(LETTER_PART_RE)).find((x) => x)
+      if (partMatch) {
+        if (partMatch[1] !== currentLetterPart) currentKey = null
+        currentLetterPart = partMatch[1]
+      }
+      pageLetterPart.set(p, currentLetterPart)
+      if (currentLetterPart && !cfcMatch) pageCfc.set(p, currentLetterPart)
+    }
     const canMatch = bannerText.match(CAN_CHAPTER_RE)
     if (canMatch) pageCanChapter.set(p, canMatch[1])
     else {
@@ -503,7 +547,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         !COLUMN_HEADER_RE.test(l.text) &&
         !TOTAL_ROW_RE.test(l.text) &&
         !repeatedTexts.has(l.text) &&
-        l.y < 775,
+        l.y < (pageTopCut.get(p) ?? 775),
     )
     pageBodyLines.set(p, bodyLines)
 
@@ -531,7 +575,12 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const endedWithAReporter = prevPageLastLine !== null && /^A reporter\s*:/.test(prevPageLastLine)
     const lineChapters: Array<{ line: TextLine; key: ChapterKey | null; roundKey: ChapterKey | null }> = []
     bodyLines.forEach((line, idx) => {
-      if (!(idx === 0 && endedWithAReporter)) {
+      if (letterMode) {
+        const lm = line.text.match(LETTER_HEADER_RE)
+        if (lm && letterTotals.has(lm[1]) && !PRICE_ROW_RE.test(line.text) && !/[…]{2}|\bCHF\b/.test(line.text) && !/^CFC\b/.test(lm[2])) {
+          currentKey = { code: lm[1], title: lm[2].trim() }
+        }
+      } else if (!(idx === 0 && endedWithAReporter)) {
         const m = line.text.match(NONDECIMAL_HEADER_RE) ?? line.text.match(HEADER_DOT_ZERO_RE)
         // A custom-prefixed ("R"/"E"/"e") header candidate may legitimately sit at the document's
         // separate rHeaderMarginX column instead of the native marginX (see rHeaderMarginX comment
@@ -638,7 +687,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     const isChapterStartPage = pageCanChapter.get(p) !== undefined && pageCanChapter.get(p) !== pageCanChapter.get(p - 1)
     const firstBodyLine = bodyLines[0]
     const cfc = pageCfc.get(p) ?? ''
-    const topChapter = pageCanChapter.get(p) ?? ''
+    const topChapter = pageCanChapter.get(p) ?? pageLetterPart.get(p) ?? ''
 
     for (const h of pageHighlightAnnots.get(p) ?? []) {
       const [rx0, ry0, rx1, ry1] = h.rect
@@ -699,9 +748,13 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           dotIndex > 0 && runText.slice(0, dotIndex).replace(/\s+/g, '').length >= MIN_PRICE_ROW_CONTENT
         const hasPricedLine =
           run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim())) ||
+          (letterMode && run.some((r) => LETTER_ARTICLE_RE.test(r.line.text.trim()))) ||
           hasPriceRowWithContent ||
           run.some((r) => QUANTITY_UNIT_RE.test(r.line.text))
-        if (key && hasPricedLine) {
+        // Letter-chapter documents: the preparer may highlight only a sub-heading line (e.g.
+        // "Piliers préfabriqués au sous-sol -2" on 26-20 Surville 3, pages 67-71) while the priced
+        // positions below stay white - a highlight under a known chapter is the intent to source it.
+        if (key && (hasPricedLine || letterMode)) {
           const pendingKey = scopedKey(topChapter, key.code)
           const pending = pendingHeaderText.get(pendingKey)
           highlights.push({
