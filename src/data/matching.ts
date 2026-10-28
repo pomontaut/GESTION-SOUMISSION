@@ -4,7 +4,7 @@ export const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
 /**
  * "Nature" in the supplier base tells apart pure material suppliers from subcontractors:
- * "Fourniture" only supplies goods, "Sous-traitance" both supplies and installs, and "Mixte" does
+ * "Fourniture" only supplies goods, "Sous-traitance (fourniture et pose)" (ou "Sous-traitance") both supplies and installs, and "Mixte" does
  * either depending on the job. A fourniture-only lot has no business going to a pure
  * sous-traitant (they don't just deliver), and a fourniture+pose lot needs someone who installs.
  * Suppliers with no nature on file are never excluded - missing data shouldn't hide a match.
@@ -12,7 +12,9 @@ export const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 export function natureMatchesPrestation(nature: string | undefined, prestationType: PrestationType): boolean {
   const n = (nature ?? '').trim().toLowerCase()
   if (!n || n === 'mixte') return true
-  return prestationType === 'fourniture' ? n === 'fourniture' : n === 'sous-traitance'
+  // Le fichier maître écrit « Sous-traitance (fourniture et pose) » (depuis le 28.10.2026) : toute
+  // valeur commençant par « sous-traitance » est un poseur, quel que soit le complément entre parenthèses.
+  return prestationType === 'fourniture' ? n === 'fourniture' : n.startsWith('sous-traitance')
 }
 
 /**
