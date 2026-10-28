@@ -67,13 +67,21 @@ export function dedupeLotSuppliers(lot: Lot): Lot {
     if (!current || rank(s.supplierId) > rank(current)) keeper.set(k, s.supplierId)
   }
   const keep = new Set(keeper.values())
-  if (keep.size === lot.suppliers.length && lot.followUp.every((f) => keep.has(f.supplierId) || !lot.suppliers.some((s) => s.supplierId === f.supplierId))) {
+  const hasRepeatedId = new Set(lot.suppliers.map((s) => s.supplierId)).size !== lot.suppliers.length
+  const followRepeated = new Set(lot.followUp.map((f) => f.supplierId)).size !== lot.followUp.length
+  if (!hasRepeatedId && !followRepeated && keep.size === lot.suppliers.length && lot.followUp.every((f) => keep.has(f.supplierId) || !lot.suppliers.some((s) => s.supplierId === f.supplierId))) {
     return lot
   }
   const seenFollow = new Set<string>()
+  const seenSupplier = new Set<string>()
   return {
     ...lot,
-    suppliers: lot.suppliers.filter((s) => keep.has(s.supplierId)),
+    // une seule ligne par fournisseur retenu (le même identifiant peut figurer plusieurs fois)
+    suppliers: lot.suppliers.filter((s) => {
+      if (!keep.has(s.supplierId) || seenSupplier.has(s.supplierId)) return false
+      seenSupplier.add(s.supplierId)
+      return true
+    }),
     followUp: lot.followUp.filter((f) => {
       const sup = lot.suppliers.find((s) => s.supplierId === f.supplierId)
       if (sup && !keep.has(f.supplierId)) return false
