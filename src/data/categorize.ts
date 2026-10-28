@@ -55,9 +55,17 @@ const WORD_ALIASES: Record<string, string[]> = {
 // use the same number as the category list, and the plain substring check below would
 // otherwise miss both directions.
 function haystackHasWord(haystack: string, word: string): boolean {
-  if (haystack.includes(word)) return true
-  if (word.endsWith('S') ? haystack.includes(word.slice(0, -1)) : haystack.includes(`${word}S`)) return true
-  return (WORD_ALIASES[word] ?? []).some((alias) => haystack.includes(alias))
+  // Whole-token matching (singular/plural tolerated), never a raw substring: "ESSAIS" used to be
+  // found inside "NECESSAIRES" ("y compris rhabillage si nécessaire" is in almost every CAN article),
+  // which proposed ESSAIS BETON suppliers (agnostic of nature) on any lot, e.g. a joint-injection
+  // lot on "26-20 Surville 3". A long category word (>= 6 letters) may still match as the START of a
+  // longer token (derived forms: ETANCHEITE/ETANCHEITES, ARMATURE/ARMATURES), never mid-word.
+  const tokens = haystack.split(' ')
+  const singular = word.endsWith('S') ? word.slice(0, -1) : word
+  const hit = (w: string) =>
+    tokens.some((t) => t === w || t === `${w}S` || (w.length >= 6 && t.startsWith(w)))
+  if (hit(word) || hit(singular)) return true
+  return (WORD_ALIASES[word] ?? []).some((alias) => hit(alias))
 }
 
 // Categories where ANY single trigger word is enough (the category name lists alternatives -
