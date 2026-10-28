@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Lot, Submission, SupplierRecord } from '../types'
 import { detectLotHeterogeneity } from '../data/categorize'
-import { dedupeLotSuppliers } from '../data/matching'
+import { companyKey, dedupeLotSuppliers } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
@@ -143,7 +143,7 @@ export default function ValidationTab({
   // row is seeded immediately too, so the new supplier shows up in the Suivi tab right away
   // instead of only after the lot's e-mail gets (re)generated.
   function addSupplierToLot(lot: Lot, supplier: SupplierRecord) {
-    if (lot.suppliers.some((x) => x.supplierId === supplier.id)) return
+    if (lot.suppliers.some((x) => x.supplierId === supplier.id || companyKey(x.name) === companyKey(supplier.name))) return
     updateLot(lot.id, {
       suppliers: [
         ...lot.suppliers,
@@ -600,7 +600,7 @@ function SupplierSearchAdd({
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
     return suppliers
-      .filter((s) => s.name.toLowerCase().includes(q) && !lot.suppliers.some((x) => x.supplierId === s.id))
+      .filter((s) => s.name.toLowerCase().includes(q) && !lot.suppliers.some((x) => x.supplierId === s.id || companyKey(x.name) === companyKey(s.name)))
       .slice(0, 8)
   }, [query, suppliers, lot.suppliers])
 

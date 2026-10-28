@@ -45,7 +45,7 @@ export function matchSuppliersForCategories(
 
 // Une société = son nom (sans parenthèses ni casse), quelle que soit la catégorie ou l'adresse
 // renseignée sur chaque ligne de la base (Bewetec sous GOUJONS et sous ARMATURES = un seul Bewetec).
-const companyKey = (name: string) => name.toLowerCase().replace(/\(.*?\)/g, ' ').split(/\s+/).filter(Boolean).join(' ')
+export const companyKey = (name: string) => name.toLowerCase().replace(/\(.*?\)/g, ' ').split(/\s+/).filter(Boolean).join(' ')
 
 /**
  * Une même société ne doit figurer qu'une fois sur un lot : la base peut contenir plusieurs lignes

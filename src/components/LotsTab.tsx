@@ -5,7 +5,7 @@ import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
-import { INACTIVE_STATUSES, matchSuppliersForCategories } from '../data/matching'
+import { INACTIVE_STATUSES, companyKey, dedupeLotSuppliers, matchSuppliersForCategories } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import PdfPreviewModal from './PdfPreviewModal'
@@ -60,7 +60,7 @@ export default function LotsTab({
     const toMerge = submission.lots.filter((l) => checked.has(l.id))
     if (toMerge.length < 2) return
     const base = toMerge[0]
-    const merged: Lot = {
+    const mergedRaw: Lot = {
       ...base,
       pages: Array.from(new Set(toMerge.flatMap((l) => l.pages))).sort((a, b) => a - b),
       zoneIds: toMerge.flatMap((l) => l.zoneIds),
@@ -70,6 +70,8 @@ export default function LotsTab({
       followUp: toMerge.flatMap((l) => l.followUp),
       redactions: toMerge.flatMap((l) => l.redactions ?? []),
     }
+    // une même société présente dans plusieurs lots fusionnés n'est gardée qu'une fois
+    const merged = dedupeLotSuppliers(mergedRaw)
     onUpdate({
       ...submission,
       lots: [merged, ...submission.lots.filter((l) => !checked.has(l.id))],
@@ -376,7 +378,7 @@ function LotDetail({
   // because suggestCategories() missed or misfired, not for confirming an already-correct
   // automatic suggestion (that would just add noise to the learned table).
   function addSupplierToLot(s: SupplierRecord, learn = false) {
-    if (lot.suppliers.some((x) => x.supplierId === s.id)) return
+    if (lot.suppliers.some((x) => x.supplierId === s.id || companyKey(x.name) === companyKey(s.name))) return
     onChange({ suppliers: [...lot.suppliers, { supplierId: s.id, name: s.name, email: s.email, status: 'valide' }] })
     if (learn) {
       learnManualSupplier(lot, s.id)
