@@ -129,6 +129,8 @@ export interface SupplierRecord {
   zone?: string
   status?: string // Actif / à confirmer, Ne pas consulter, Inactif / à exclure
   comments?: string
+  keywords?: string // mots-clés de recherche (soumission)
+  canPositions?: string // positions CAN associées
 }
 
 export const uid = (): string =>

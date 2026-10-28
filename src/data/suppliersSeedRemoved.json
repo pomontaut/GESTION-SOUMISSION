@@ -1,0 +1,914 @@
+[
+ {
+  "category": "ACIER INOXYDABLE",
+  "name": "Ancon"
+ },
+ {
+  "category": "ACIER INOXYDABLE",
+  "name": "Bewetec"
+ },
+ {
+  "category": "ACIER INOXYDABLE",
+  "name": "Ferroflex"
+ },
+ {
+  "category": "ACIER INOXYDABLE",
+  "name": "Ancotech"
+ },
+ {
+  "category": "ACIER INOXYDABLE",
+  "name": "GRAVIS"
+ },
+ {
+  "category": "ACIER ARMATURE et ACC",
+  "name": "Ferroflex"
+ },
+ {
+  "category": "ACIER ARMATURE et ACC",
+  "name": "Bewetec"
+ },
+ {
+  "category": "ACIER ARMATURE et ACC",
+  "name": "Favre"
+ },
+ {
+  "category": "ACIER ARMATURE et ACC",
+  "name": "Jaquet"
+ },
+ {
+  "category": "ACIER ARMATURE et ACC",
+  "name": "Pfefferle"
+ },
+ {
+  "category": "ALPHADOCK",
+  "name": "TEBETEC"
+ },
+ {
+  "category": "ANNEAUX ETANCHEITE",
+  "name": "Plastitech"
+ },
+ {
+  "category": "ANNEAUX ETANCHEITE",
+  "name": "Canplast"
+ },
+ {
+  "category": "ANTI GRAFFITI",
+  "name": "PSS"
+ },
+ {
+  "category": "ANTI GRAFFITI",
+  "name": "DMB"
+ },
+ {
+  "category": "ANTI GRAFFITI",
+  "name": "Vacca"
+ },
+ {
+  "category": "ANTI GRAFFITI",
+  "name": "Sika Travaux"
+ },
+ {
+  "category": "ANTI GRAFFITI",
+  "name": "Asmedia"
+ },
+ {
+  "category": "APPUIS ESCALIERS",
+  "name": "Aschwanden"
+ },
+ {
+  "category": "APPUIS ESCALIERS",
+  "name": "Rimebat"
+ },
+ {
+  "category": "spéciaux",
+  "name": "Getzner France"
+ },
+ {
+  "category": "spéciaux",
+  "name": "Angst et Pfister"
+ },
+ {
+  "category": "spéciaux",
+  "name": "Regupol"
+ },
+ {
+  "category": "spéciaux",
+  "name": "PRONOUVO"
+ },
+ {
+  "category": "spéciaux",
+  "name": "SODECOUPE"
+ },
+ {
+  "category": "ARMATURES (POSE)",
+  "name": "SNAP"
+ },
+ {
+  "category": "ARMATURES (POSE)",
+  "name": "ISLAMI"
+ },
+ {
+  "category": "ARMATURES (POSE)",
+  "name": "L&A FERRAILLAGE"
+ },
+ {
+  "category": "ARMATURES DE POINCONNEMENT (DURA)",
+  "name": "Aschwanden"
+ },
+ {
+  "category": "ARMATURES DE POINCONNEMENT (DURA)",
+  "name": "Ruwa"
+ },
+ {
+  "category": "BANC BETON",
+  "name": "SNPPN"
+ },
+ {
+  "category": "BARTEC",
+  "name": "Ferroflex"
+ },
+ {
+  "category": "BASYTUBE",
+  "name": "ASCHWANDEN"
+ },
+ {
+  "category": "BASYTUBE",
+  "name": "RUWA"
+ },
+ {
+  "category": "BASYTUBE",
+  "name": "FERROFLEX"
+ },
+ {
+  "category": "BENNES",
+  "name": "Nyon: CHALLANDE"
+ },
+ {
+  "category": "BENNES",
+  "name": "Genève: Dépôt Induni ! Ou Serbeco, Ducret, Transvoirie"
+ },
+ {
+  "category": "BENNES",
+  "name": "Lausanne: Veolia, Gerzner recycling"
+ },
+ {
+  "category": "BETON NYON",
+  "name": "PQR"
+ },
+ {
+  "category": "BETON NYON",
+  "name": "(Pro Beton)"
+ },
+ {
+  "category": "BETON NYON",
+  "name": "(Juran Leman Beton)"
+ },
+ {
+  "category": "BETON LAUSANNE",
+  "name": "Roulin"
+ },
+ {
+  "category": "BETON LAUSANNE",
+  "name": "ORLLATI"
+ },
+ {
+  "category": "BOITES ATTENTES",
+  "name": "Rimebat"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Getaz"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Jerome"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Proz"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Montant"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Imporphyre"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Ferd. Lietti"
+ },
+ {
+  "category": "BORDURES GRANIT",
+  "name": "Internazionale Graniti spa"
+ },
+ {
+  "category": "BRIQUE SILICO CALCAIRE",
+  "name": "KUBRIX (FBB)"
+ },
+ {
+  "category": "BRIQUE TERRE CUITE",
+  "name": "Morandi"
+ },
+ {
+  "category": "BRIQUE TERRE CRUE",
+  "name": "Batibrique"
+ },
+ {
+  "category": "BRIQUE TERRE CRUE",
+  "name": "DS Construction"
+ },
+ {
+  "category": "CAILLEBOTIS POLYESTER",
+  "name": "Caillebotis Polyester Françias"
+ },
+ {
+  "category": "CAILLEBOTIS POLYESTER",
+  "name": "JK Technic"
+ },
+ {
+  "category": "CANIVEAUX",
+  "name": "Watersys"
+ },
+ {
+  "category": "CANIVEAUX",
+  "name": "Debrunner"
+ },
+ {
+  "category": "CANALISATIONS PVC",
+  "name": "Plastitech"
+ },
+ {
+  "category": "CANALISATIONS PVC",
+  "name": "Xplast"
+ },
+ {
+  "category": "CANALISATIONS PVC",
+  "name": "Watersys"
+ },
+ {
+  "category": "CARBONATATION",
+  "name": "SVEMA"
+ },
+ {
+  "category": "CHARPENTE BOIS",
+  "name": "Avenir Bois"
+ },
+ {
+  "category": "CHARPENTE BOIS",
+  "name": "Tschopp"
+ },
+ {
+  "category": "CHARPENTE BOIS",
+  "name": "Lanthmann Construction"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "Chablaix"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "Mauron"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "Orlatti"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "Stephan SA"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "Hevron"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "ZM"
+ },
+ {
+  "category": "CHARPENTE METALLIQUE",
+  "name": "DINPRO"
+ },
+ {
+  "category": "COFFRAGES BOIS",
+  "name": "Hk Services"
+ },
+ {
+  "category": "COFFRAGES BOIS",
+  "name": "Gradel"
+ },
+ {
+  "category": "CONSOLES ISOLANTES",
+  "name": "Ruwa"
+ },
+ {
+  "category": "CONSOLES ISOLANTES",
+  "name": "Ancon"
+ },
+ {
+  "category": "COSMETIQUE DU BETON",
+  "name": "Promaro"
+ },
+ {
+  "category": "COSMETIQUE DU BETON",
+  "name": "SGR PEINTURE"
+ },
+ {
+  "category": "COSMETIQUE DU BETON",
+  "name": "GRAFANOVA"
+ },
+ {
+  "category": "COUVERCLE SPECIAUX",
+  "name": "PLASTITECH"
+ },
+ {
+  "category": "COUVERCLE SPECIAUX",
+  "name": "Helmut breschan ag"
+ },
+ {
+  "category": "CREPIS",
+  "name": "Isobat = Maulini Façades depuis le 01.01.19"
+ },
+ {
+  "category": "CREPIS",
+  "name": "Posse Peinture"
+ },
+ {
+  "category": "CREPIS",
+  "name": "MTB Multitravaux Bâtiment SA"
+ },
+ {
+  "category": "CREPIS",
+  "name": "Pistocco"
+ },
+ {
+  "category": "CREPIS",
+  "name": "RB SA"
+ },
+ {
+  "category": "CURES DU BETON",
+  "name": "HGC"
+ },
+ {
+  "category": "CURES DU BETON",
+  "name": "Getaz"
+ },
+ {
+  "category": "CURAGE",
+  "name": "Hubert Etter"
+ },
+ {
+  "category": "CURAGE",
+  "name": "Guimet"
+ },
+ {
+  "category": "CURAGE",
+  "name": "Chavaz assainissement (=Amoudruz)"
+ },
+ {
+  "category": "DECHARGE - TAXES - BENNE",
+  "name": "INDUNI Dépôt"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "SABLES ET GRAVIERS TUFFIERE"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "ORLLATI"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "Fracheboud"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "TR DEMOLITION"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "HTP (PIASIO)"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "TRDemolition SA"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "ALPHA BAT"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "msd GROUPE"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "Coquoz démolition SA"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "Michel démolition SA"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "DMB = racheté par Orlatti"
+ },
+ {
+  "category": "DEMOLITION",
+  "name": "GESTRAG"
+ },
+ {
+  "category": "ECHAFAUDAGES",
+  "name": "Miraco"
+ },
+ {
+  "category": "ECHAFAUDAGES",
+  "name": "NEW LOOK"
+ },
+ {
+  "category": "ECHAFAUDAGES",
+  "name": "PCM"
+ },
+ {
+  "category": "ECHAFAUDAGES",
+  "name": "MERCALU"
+ },
+ {
+  "category": "ECHAFAUDAGES",
+  "name": "UNIBAT"
+ },
+ {
+  "category": "ECHAFAUDAGES",
+  "name": "EGC BAT"
+ },
+ {
+  "category": "ENROBES BITUME",
+  "name": "SAPA"
+ },
+ {
+  "category": "ENROBES BITUME",
+  "name": "REPROAD"
+ },
+ {
+  "category": "EPI",
+  "name": "DENIOS AG"
+ },
+ {
+  "category": "EPI",
+  "name": "MAAGTECHNIK"
+ },
+ {
+  "category": "EPI",
+  "name": "THOMI + CO AG"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "MFP"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "Leva"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "Constantin"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "Creabeton"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "Trovato"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "Müller Steinag"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "Sabag Matériaux"
+ },
+ {
+  "category": "ESCALIERS",
+  "name": "MURS STYLE"
+ },
+ {
+  "category": "ESSAIS BETON",
+  "name": "IMPLENIA LABORATOIRE"
+ },
+ {
+  "category": "ESSAIS BETON",
+  "name": "SOLFOR"
+ },
+ {
+  "category": "ESSAIS BETON",
+  "name": "ECM (Raphael WITSCHI) : expertise sur les materiaux du bâtiment"
+ },
+ {
+  "category": "ESSAIS BETON",
+  "name": "X"
+ },
+ {
+  "category": "ETANCHEITE A CHAUD",
+  "name": "Geneux Dancet"
+ },
+ {
+  "category": "ETANCHEITE A FROID",
+  "name": "Mapei"
+ },
+ {
+  "category": "ETANCHEITE A FROID",
+  "name": "MT Etancheite"
+ },
+ {
+  "category": "ETANCHEITE A FROID",
+  "name": "Injectoplus"
+ },
+ {
+  "category": "ETANCHEITE A FROID",
+  "name": "ETICO"
+ },
+ {
+  "category": "ETANCHEITE A FROID",
+  "name": "TMB (Type Voltex)"
+ },
+ {
+  "category": "ETANCHEITE A FROID",
+  "name": "GTS"
+ },
+ {
+  "category": "ETANCHEITE CUVE JAUNE CUVE BLANCHE",
+  "name": "ISOTECH GENEVE"
+ },
+ {
+  "category": "ETANCHEITE CUVE JAUNE CUVE BLANCHE",
+  "name": "MAPEI"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "atr decoupe BETON"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "Mauroux SA"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "Coupe Béton & Renova"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "ALPHA BAT"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "Discobeton"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "GB Frères Sàrl"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "STM sarl"
+ },
+ {
+  "category": "FORAGES / SCIAGES",
+  "name": "AQUAGS"
+ },
+ {
+  "category": "GOUJONS",
+  "name": "Ferroflex"
+ },
+ {
+  "category": "GOUJONS",
+  "name": "Aschwanden"
+ },
+ {
+  "category": "GRAVIER GENEVE",
+  "name": "GRAVIERES D'EPEISSES SA"
+ },
+ {
+  "category": "GRILLE SAUT DE LOUP",
+  "name": "3c service"
+ },
+ {
+  "category": "ISOLATION PERIPHERIQUE",
+  "name": "MAULINI FACADES"
+ },
+ {
+  "category": "ISOLATION PERIPHERIQUE",
+  "name": "DITECO"
+ },
+ {
+  "category": "ISOLATION PERIPHERIQUE",
+  "name": "ISOLFACADES"
+ },
+ {
+  "category": "ISOLATION PERIPHERIQUE",
+  "name": "LES FACADIERS GENEVOIS"
+ },
+ {
+  "category": "ISOLATION PERIPHERIQUE",
+  "name": "DC SANTOS"
+ },
+ {
+  "category": "ISOLATION PERIPHERIQUE",
+  "name": "FACADES DU LEMAN"
+ },
+ {
+  "category": "JOINT DILATATION",
+  "name": "Mageba"
+ },
+ {
+  "category": "JOINT DILATATION",
+  "name": "Etasa"
+ },
+ {
+  "category": "JOINT DILATATION",
+  "name": "Isotosi"
+ },
+ {
+  "category": "JOINT DILATATION",
+  "name": "Veda France"
+ },
+ {
+  "category": "JOINT DILATATION",
+  "name": "Prodex"
+ },
+ {
+  "category": "JOINT DILATATION",
+  "name": "SIREG"
+ },
+ {
+  "category": "JOINTS FACADE",
+  "name": "Implenia Joints"
+ },
+ {
+  "category": "JOINTS FACADE",
+  "name": "Mapei"
+ },
+ {
+  "category": "JOINTS FACADE",
+  "name": "Sika Travaux"
+ },
+ {
+  "category": "JOINTS FACADE",
+  "name": "Rimebat"
+ },
+ {
+  "category": "JOINTS FACADE",
+  "name": "Etajoint"
+ },
+ {
+  "category": "JOINTS FACADE",
+  "name": "Vacca"
+ },
+ {
+  "category": "MANNEQUINS BOIS",
+  "name": "SAVOIE COFFRAGE"
+ },
+ {
+  "category": "MANNEQUINS BOIS",
+  "name": "AGIL BOIS"
+ },
+ {
+  "category": "MURS EN L",
+  "name": "Creabeton"
+ },
+ {
+  "category": "MURS EN L",
+  "name": "Pothain"
+ },
+ {
+  "category": "MURS EN L",
+  "name": "Stradal"
+ },
+ {
+  "category": "MURS EN L",
+  "name": "Bonna Sabla"
+ },
+ {
+  "category": "MURS EN L",
+  "name": "PREFA CONSEIL"
+ },
+ {
+  "category": "MURS EN L",
+  "name": "Murstyle"
+ },
+ {
+  "category": "PAROIS ANTI BRUIT",
+  "name": "PBM GROUPE"
+ },
+ {
+  "category": "PILIERS BETON (Orso B)",
+  "name": "Betontec"
+ },
+ {
+  "category": "PILIERS Metal",
+  "name": "Pfefferle (Maire)"
+ },
+ {
+  "category": "PILIERS Metal",
+  "name": "Jaquet (Salvi)"
+ },
+ {
+  "category": "PILIERS Metal",
+  "name": "Metal Distribution"
+ },
+ {
+  "category": "PILIERS Metal",
+  "name": "Orllati metal"
+ },
+ {
+  "category": "PILIERS Metal",
+  "name": "Alfer"
+ },
+ {
+  "category": "PILIERS Metal",
+  "name": "Favre"
+ },
+ {
+  "category": "Plots",
+  "name": "HGC"
+ },
+ {
+  "category": "Plots",
+  "name": "Challande"
+ },
+ {
+  "category": "Plots",
+  "name": "Getaz"
+ },
+ {
+  "category": "POSE MACONNERIE",
+  "name": "BATI BRIQUES"
+ },
+ {
+  "category": "PREFA GC",
+  "name": "CREABETON"
+ },
+ {
+  "category": "PREFA GC",
+  "name": "CREABTON BAUSTOFFE (MÜLLER STEINAG)"
+ },
+ {
+  "category": "PREFA GC",
+  "name": "DOBER BAUSTOFFE"
+ },
+ {
+  "category": "PREFA GC",
+  "name": "Tschümperlin AG, Baustoffe"
+ },
+ {
+  "category": "PREFA GC",
+  "name": "Silisport (anciennement Beton Christen)"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Prelco"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "MFP"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Creabeton"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "SNPPN"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Trovato"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Demander à Nina selon dossier svp :-)"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Leva"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Constantin"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Cotec"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Sabag Matériaux"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Modultech"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Murstyle"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Delta Fabrication"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Fanger"
+ },
+ {
+  "category": "PREFABRIQUES (FACADES - PARAPETS - BALCONS - BANDEAUX)",
+  "name": "Filigran Bauelemente AG (M.SCHOEBI)"
+ },
+ {
+  "category": "PREMURS",
+  "name": "Fehr"
+ },
+ {
+  "category": "PREMURS",
+  "name": "Spurgin"
+ },
+ {
+  "category": "PREMURS",
+  "name": "Prefa du Léman"
+ },
+ {
+  "category": "PREMURS",
+  "name": "Murstyle"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "Reno Sutech"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "Sateb"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "DMB (racheté par Orlatti)"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "XL Betonnage"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "Framix (rabotage)"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "Reproad"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "Weiss + Appetito"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "ALPHA BAT"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "svema"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "dst decap"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "MS SABLAGE"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "Rénovation ANB SARL"
+ },
+ {
+  "category": "SABLAGE",
+  "name": "MEGA SA TRAVAUX SPECIAUX"
+ },
+ {
+  "category": "TEST LABO",
+  "name": "IMPLENIA LABO"
+ },
+ {
+  "category": "TOLE HOLORIB",
+  "name": "Metal Distribution"
+ },
+ {
+  "category": "TRACAGES ROUTIERS",
+  "name": "SIZE SERVICES - laurent.pezzoli@size.swiss"
+ },
+ {
+  "category": "Coupe-feu",
+  "name": "ISOLTESA SA"
+ }
+]
