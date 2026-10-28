@@ -94,6 +94,7 @@ export default function ChatTab({ submission, onUpdate }: { submission: Submissi
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showAllConsignes, setShowAllConsignes] = useState(false)
   const [applyInfo, setApplyInfo] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -280,7 +281,7 @@ export default function ChatTab({ submission, onUpdate }: { submission: Submissi
         {applyInfo && <p className="text-xs text-emerald-700 mb-3">{applyInfo}</p>}
         {consignes.length === 0 && <p className="text-sm text-slate-400">Aucune consigne.</p>}
         <ul className="space-y-2">
-          {consignes.map((c) => (
+          {(showAllConsignes ? consignes : consignes.slice(-1)).map((c) => (
             <li key={c.id} className="text-sm border border-slate-200 rounded-lg p-2">
               <span className="text-xs text-slate-500">{c.rule ? '⚙ ' : ''}{SCOPE_LABELS[c.scope] ?? c.scope}</span>
               <div>{c.text}</div>
@@ -290,6 +291,11 @@ export default function ChatTab({ submission, onUpdate }: { submission: Submissi
             </li>
           ))}
         </ul>
+        {consignes.length > 1 && (
+          <button className="btn-secondary mt-3" onClick={() => setShowAllConsignes((v) => !v)}>
+            {showAllConsignes ? 'Masquer les anciennes consignes' : `Afficher toutes les consignes (${consignes.length - 1} de plus)`}
+          </button>
+        )}
       </div>
     </div>
   )
