@@ -15,26 +15,34 @@ router.post('/', async (req, res) => {
       ? { filename: attachment.filename, contentBase64: attachment.content }
       : undefined
   try {
-    // Bcc addresses are stripped from the delivered message for every recipient, including the
-    // "to" one - that's the point of Bcc, but it also means the copy landing in soumissions@induni.ch
-    // never shows who the request actually went to. A separate internal-only e-mail (no bcc, so it
-    // reaches nobody else) spells out the recipient list in its own body instead. Kept text-only -
-    // it's an internal audit copy, not what the fournisseur sees.
-    await sendResendEmail({
+    // Chaque fournisseur reçoit son propre message (il n'y voit que lui-même, jamais les autres) ;
+    // soumissions@induni.ch reçoit UN seul e-mail, identique, dont l'en-tête « Cci » liste les
+    // fournisseurs (rien n'est ajouté dans le corps) : en cas de contact absent, on renvoie
+    // l'e-mail tel quel sans rien supprimer dans le texte.
+    for (const supplier of bcc as string[]) {
+      await sendResendEmail({
+        to: [supplier],
+        bcc: [],
+        subject,
+        text,
+        html: typeof html === 'string' ? html : undefined,
+        attachment: attachmentParam,
+      })
+    }
+    const copy = {
       to: [from],
-      bcc: [],
-      subject,
-      text: `Destinataires (Cci) : ${bcc.join(', ')}\n\n${text}`,
-      attachment: attachmentParam,
-    })
-    await sendResendEmail({
-      to: [from],
-      bcc,
+      bcc: [] as string[],
       subject,
       text,
       html: typeof html === 'string' ? html : undefined,
       attachment: attachmentParam,
-    })
+    }
+    try {
+      await sendResendEmail({ ...copy, headers: { Bcc: (bcc as string[]).join(', ') } })
+    } catch {
+      // En-tête Cci refusé par le prestataire : la copie interne part quand même, sans lui.
+      await sendResendEmail(copy)
+    }
     res.status(204).end()
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : "Échec de l'envoi" })
