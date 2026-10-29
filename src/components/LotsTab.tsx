@@ -196,9 +196,9 @@ function PdfPreviewModal({ lot, pdfData, onClose }: { lot: Lot; pdfData: ArrayBu
   }, [lot, pdfData])
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3" onClick={onClose}>
       <div
-        className="bg-white rounded-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-xl w-full max-w-[1400px] h-[94vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
@@ -218,6 +218,9 @@ function PdfPreviewModal({ lot, pdfData, onClose }: { lot: Lot; pdfData: ArrayBu
     </div>
   )
 }
+
+/** Adresse INDUNI en destinataire : un seul e-mail, les fournisseurs sont en Cci. */
+const INDUNI_SOUMISSIONS_EMAIL = 'soumissions@induni.ch'
 
 const KEEP_IN_ORIGINAL = '__keep__'
 
@@ -434,7 +437,7 @@ function LotDetail({
   }
 
   function generateEmail() {
-    const subject = `Demande de prix — ${lot.title}${submission.info.projectName ? ' — ' + submission.info.projectName : ''}`
+    const subject = `Demande de prix — ${[submission.info.siteNumber, submission.info.projectName].filter(Boolean).join(' - ') || submission.name}`
     const deadlineTxt = submission.info.deadline
       ? new Date(submission.info.deadline).toLocaleDateString('fr-CH')
       : '[date limite]'
@@ -490,6 +493,14 @@ function LotDetail({
   }
 
   const bccList = lot.suppliers.map((s) => s.email).filter(Boolean)
+  // Zone Cci modifiable (sélection + collage possibles) ; repart de la liste des fournisseurs dès qu'elle change.
+  const [bccText, setBccText] = useState(bccList.join(', '))
+  const bccKey = bccList.join(', ')
+  useEffect(() => setBccText(bccKey), [bccKey, lot.id])
+  const bccValue = bccText
+    .split(/[,;\s]+/)
+    .filter(Boolean)
+    .join(',')
   const missingEmail = lot.suppliers.filter((s) => !s.email)
 
   return (
@@ -715,7 +726,7 @@ function LotDetail({
               E-mail groupé — {lot.suppliers.length} fournisseur(s) en copie cachée (Cci)
             </h4>
             <Field label="Destinataires (Cci, séparés par des virgules)">
-              <input className="input" readOnly value={bccList.join(', ')} />
+              <input className="input" value={bccText} onChange={(e) => setBccText(e.target.value)} />
             </Field>
             <Field label="Objet">
               <input
@@ -733,7 +744,7 @@ function LotDetail({
             <div className="flex flex-wrap gap-2 mt-3">
               <a
                 className="btn-primary"
-                href={`mailto:?bcc=${encodeURIComponent(bccList.join(','))}&subject=${encodeURIComponent(
+                href={`mailto:${INDUNI_SOUMISSIONS_EMAIL}?bcc=${encodeURIComponent(bccValue)}&subject=${encodeURIComponent(
                   lot.emailSubject ?? '',
                 )}&body=${encodeURIComponent(lot.emailBody ?? '')}`}
               >
@@ -742,7 +753,7 @@ function LotDetail({
               <button
                 className="btn-secondary"
                 onClick={() =>
-                  copyToClipboard(`À (Cci): ${bccList.join(', ')}\nObjet: ${lot.emailSubject}\n\n${lot.emailBody}`)
+                  copyToClipboard(`À: ${INDUNI_SOUMISSIONS_EMAIL}\nCci: ${bccValue.split(',').join(', ')}\nObjet: ${lot.emailSubject}\n\n${lot.emailBody}`)
                 }
               >
                 Copier objet + destinataires + corps

@@ -1,7 +1,6 @@
 import type { Lot, Submission } from '../types'
 
 const GREY = 'FFA6A6A6' // gris du modèle (blanc, assombri de 35 %)
-const YELLOW = 'FFFFFF00'
 const thin = { style: 'thin' as const }
 const medium = { style: 'medium' as const }
 
@@ -104,15 +103,12 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   suppliers.forEach((sup, i) => {
     const r = headRow + 1 + i
     const grey = i % 2 === 1
-    const allSent = submission.lots.every((l) => !l.suppliers.some((s) => s.supplierId === sup.id && s.status !== 'ignore') ||
-      l.followUp.find((f) => f.supplierId === sup.id)?.status === 'envoye')
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c)
       if (c === 1) cell.value = i + 1
       else if (c === 2) cell.value = sup.name
       else if (c < lastCol && sup.lotIds.has(lots[c - 3].id)) cell.value = 'X'
       style(cell, grey, c === 1 ? undefined : c === 2 ? 'left' : 'center')
-      if (c === 2 && allSent) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YELLOW } }
       cell.border = { top: thin, bottom: thin, left: c === 1 ? medium : thin, right: c === lastCol ? medium : thin }
     }
   })
@@ -123,7 +119,16 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   )
   const a = document.createElement('a')
   a.href = url
-  a.download = `Grille soumission ${info.projectName || submission.name || ''}.xlsx`.trim()
+  const title = [info.siteNumber, info.projectName || submission.name]
+    .filter(Boolean)
+    .join(' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_/\\:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+  a.download = `Grille soumission ${title}.xlsx`.trim()
   a.click()
   URL.revokeObjectURL(url)
 }
