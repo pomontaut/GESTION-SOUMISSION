@@ -5,7 +5,6 @@ export async function sendResendEmail(params: {
   text: string
   html?: string
   attachment?: { filename: string; contentBase64: string }
-  headers?: Record<string, string>
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
@@ -23,7 +22,6 @@ export async function sendResendEmail(params: {
   // text stays as the fallback for clients that can't render HTML - Resend (like any mail
   // provider) shows html when both are present.
   if (params.html) payload.html = params.html
-  if (params.headers) payload.headers = params.headers
   if (params.attachment) {
     payload.attachments = [
       { filename: params.attachment.filename, content: params.attachment.contentBase64 },
