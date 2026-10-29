@@ -21,7 +21,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'suppliers', label: '3. Envoi par fournisseur' },
   { key: 'dashboard', label: '4. Suivi' },
   { key: 'chat', label: '5. Chat agent' },
-  { key: 'annexe', label: '6. Annexe — Méthode de détection' },
+  // Onglet masqué (composant AnnexeTab conservé) : { key: 'annexe', label: '6. Annexe — Méthode de détection' },
 ]
 
 export default function Workspace({
