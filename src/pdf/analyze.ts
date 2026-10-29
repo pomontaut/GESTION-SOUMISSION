@@ -1,7 +1,8 @@
 import { pdfjsLib } from './pdfjs'
+import { detectColorBands } from './highlightRegions'
 import type { DetectedZone, Lot, PrestationType } from '../types'
 import { uid } from '../types'
-import { suggestCategories } from '../data/categorize'
+import { suggestLotCategories } from '../data/categorize'
 
 /**
  * Detection method (see the "Annexe" tab in the app for the user-facing explanation):
@@ -10,25 +11,157 @@ import { suggestCategories } from '../data/categorize'
  * the preparer using the PDF highlighter tool, which pdf.js exposes as native `Highlight`
  * annotations (subtype "Highlight") with an exact rectangle and RGB color - no pixel sampling
  * needed. Convention: yellow highlight = fourniture seule, any other highlight color =
- * fourniture et pose.
+ * fourniture et pose. A highlight rectangle can be tiny (one header line) or huge (a whole page
+ * or more) - the preparer just drags the highlighter down the margin, so the same rectangle
+ * commonly covers a chapter header AND all its articles AND unrelated sibling sub-chapters below
+ * it. Never assume one highlight == one lot; always resolve each *line* under the rectangle to
+ * its own chapter context.
  *
- * CAN documents have three nested levels above a priced article:
- *  - L0: the CAN chapter itself, repeated on every page as a banner
- *    "CAN Construction : <code> <title> ...". A change of <code> between two consecutive pages
- *    marks the start of a new chapter (e.g. "246 Systèmes de précontrainte").
- *  - L1 ("chapitre"): a section header printed at the page's left margin and followed by a long
- *    dashed rule (e.g. "440 Incorporés, bandes d'appui").
- *  - L2 ("sous-chapitre"): a header at the same margin but with NO dashed rule after it - it
- *    introduces the priced articles directly (e.g. "442 Matériau isolant dans coffrages de
- *    dalles." followed by ".001 ...").
+ * CAN documents number every row in the "Pos." column, headers and priced articles alike, all at
+ * the same left margin - there is no indentation or literal dashed rule to tell a header apart
+ * from a priced position. The one reliable signal is the code's shape:
+ *  - A header code has NO decimal point: "500", "540", "R592", "134", "447"... It only ever
+ *    carries a title, never a quantity/price. "R"-prefixed codes are the preparer's own custom
+ *    additions (the CAN legend prints this explicitly) and must be recognised as headers too.
+ *    "E"/"e" is a second, independently confirmed custom-prefix letter used the exact same way by
+ *    some bureaux/software versions (see the "26-30 Pôle Bio" bullet further down) - recognised
+ *    identically to "R" everywhere a custom prefix matters.
+ *  - A priced article's code always has a decimal point: "511.201", "134.308", "R592.101". Such a
+ *    line never changes the current chapter context, it just belongs to it.
+ * Headers nest arbitrarily deep with no visual cue ("500 Armatures" > "540 Accessoires
+ * d'armature" > "541 Armatures de support" are three consecutive header lines), so the algorithm
+ * tracks a single "current chapter" pointer that gets overwritten by *every* header line it sees.
+ * By the time a priced (decimal) line is reached, that pointer naturally holds the most specific
+ * header above it - which is exactly the lot boundary the preparer intends: siblings like 541,
+ * 543, 544, 545, 546 under the same umbrella "540" are distinct lots, while a header with no
+ * priced children of its own (500, 540, 430, R590...) never becomes a lot by itself.
  *
- * If a highlight covers a header line itself (L0, L1 or L2) rather than a specific priced
- * article, the preparer means "everything under this heading is one lot" - the lot is expanded
- * to the header's full span (until the next header at the same or a shallower level, or the end
- * of the chapter). Otherwise, the highlight is attached to whichever L1/L2 heading is currently
- * active, and lots are grouped by (color, L1 code, L2 code) across the *whole* document - several
- * highlighted articles under the same sous-chapitre become one lot; a different sous-chapitre (or
- * a different highlight color, since that changes fourniture vs fourniture+pose) becomes another.
+ * Lots are grouped by (highlight color, current chapter code) across the *whole* document -
+ * several highlighted runs under the same code become one lot; a different code (or a different
+ * highlight color, since that changes fourniture vs fourniture+pose) becomes another. The header
+ * line itself does not need to be inside the highlighted rectangle for this to work: if only the
+ * priced children are highlighted (e.g. "R891 Escaliers..." left white, but R891.100-104
+ * highlighted), the chapter pointer was still set when the header line was read, so the children
+ * resolve to the right lot regardless.
+ *
+ * A single position's own text/quantity routinely wraps across a page break, still under the same
+ * highlight color, without necessarily repeating the chapter's code prefix at the top of the new
+ * page (some bureaux only print the full code on the first line after a break, see the orphan-code
+ * bullet further down) - the run of highlighted lines on the FIRST page can therefore end with no
+ * decimal/quantity/dot-fill signal of its own (`hasPricedLine` false), deferring its text to
+ * `pendingHeaderText` for the run that resolves the same scoped code on the following page. That
+ * pending map carries the deferred PAGE NUMBER(S) forward too, not just the text, and prepends them
+ * to the resolving run's `pages` - confirmed necessary on a real document (CFC 211.4 "511
+ * Caniveaux, dispositifs de fermeture...": highlighted from its header down through ".111 Aco-drain
+ * multiline..." at the bottom of one page, with the position's quantity/price row only appearing
+ * once "511.111 fonte." resumes at the top of the next page) where the lot's `pages` previously
+ * contained only the later page, silently dropping the earlier page that was genuinely highlighted
+ * - caught by a user manually reading the source PDF ("il manquait la page 32").
+ *
+ * That grouping code is only ever the bare sub-chapter code ("511"), never the full CFC path, so
+ * two entirely unrelated top-level CFC chapters that each happen to have their own sub-chapter
+ * numbered "511" (seen on "26-58 HEP": CFC 172 "Drainage de surfaces..." and CFC 241 "Aciers
+ * d'armature...", both coded "511") would otherwise merge into one nonsensical lot spanning both -
+ * betrayed by the merged lot's suggested categories belonging to only one of the two chapters. The
+ * fix scopes every code-keyed grouping/dedup step (the final lot key, `pendingHeaderText`,
+ * `highlightCodesByRound`/`wholeChapterNoteCodes`) by the top-level CFC chapter (`pageCanChapter`)
+ * active on the page the run was read from, via a `topChapter` field on `RawHighlight`/`RawNote` -
+ * while keeping the *displayed* `Lot.chapterCode`/title as the bare code the preparer would
+ * recognise. A document with no recognised top-level chapter banner at all has `topChapter` empty
+ * everywhere, which collapses the scoped key back to the bare code - i.e. bureaux without this
+ * banner convention keep their pre-existing grouping behaviour unchanged.
+ *
+ * Separately, some preparers drop a `FreeText` annotation (a text box, often boxed in red) next
+ * to a chapter instead of highlighting it - typically a logistics note ("livraison groupée ~800m3
+ * pour les 2 soumissions") that applies to the whole chapter rather than one article. Whenever
+ * such a note is found, the nearest enclosing "round" chapter (a code ending in "00", e.g. "500"
+ * or "600" - the level *above* the fine-grained per-sibling lots described above) becomes its own
+ * lot, spanning every page until the next round-numbered chapter starts. Fourniture seule by
+ * default; this only encodes one confirmed real-world example and may need revisiting once more
+ * cases turn up.
+ *
+ * Different bid-software vendors/bureaux export CAN documents with the same underlying structure
+ * but different surface conventions - each confirmed on real submissions, not hypothetical:
+ *  - Chapter codes are usually 2-3 digits, but a bureau numbering by CFC sub-position (e.g.
+ *    "1100 ARMATURE", "1110 Fourniture et pose d'acier B500B") uses 4 digits - same header rule,
+ *    just a wider digit count.
+ *  - One bureau (Thomas Jundt) numbers chapters "N.00" (e.g. "1.00 Fourniture et pose des piliers
+ *    béton") and its priced articles "N.01", "N.02"... - i.e. *every* code has a decimal point,
+ *    and the header/article distinction is the ".00" suffix specifically, not "has a dot at all".
+ *    Recognised as an alternate header shape; a priced-article code is still anything decimal
+ *    that ISN'T "x.00", so "1.01" already satisfies the normal article check once the digit-count
+ *    bound below is widened to allow a 1-digit prefix.
+ *  - Some bureaux print an article's code in full ("532.001") only the first time or right after a
+ *    page break, and drop the chapter prefix on every following position on the same page
+ *    ("541 Armatures de support." followed by ".200", ".203", ".204"... instead of "541.200",
+ *    "541.203"...). Such an orphan code never carries a chapter prefix to match against, so it
+ *    can't be told apart from a bare sub-heading by shape alone - the reliable signal instead is
+ *    that every priced row (wherever the quantity/price actually lands, sometimes several
+ *    wrapped description lines below the code, or in an "up = <unité> :<zone> <qté> up ...
+ *    ...................." tally) ends in a long run of dots, the blank fill for the still-empty
+ *    Prix/Montant columns - a bare sub-heading with no quantity never has one. That dot-fill is
+ *    checked across the whole highlighted run's text, not just the code's own line.
+ *  - The repeating table banner above each chapter's articles ("Pos. Cd. Description...") is
+ *    filtered out as boilerplate, but its exact wording differs by bureau ("Pos. Libellé U.
+ *    Quant. P.U. Prix", "Article Description des travaux Unité Quantité", "Pos. Descriptif des
+ *    travaux Unité Quantité Prix total"...). A banner variant that isn't recognised doesn't just
+ *    pollute a zone's text - if its (unrelated) left margin is lower than the real code column's,
+ *    it can drag the whole page's computed margin left and break the alignment check every real
+ *    header on that page depends on.
+ *  - A running header/footer with no fixed wording ("OU3 SA" / "Bureau d'ingénieurs... Page 8 /
+ *    38", a bureau's own project-title preamble) is caught without naming its exact text: any
+ *    line that repeats verbatim across a large share of the document's pages is boilerplate, since
+ *    real submission content essentially never does that (see the repeated-line pass before the
+ *    main per-page loop). Wording that embeds a per-page value (a page number, a date) still needs
+ *    its own pattern in FOOTER_RE, since it's never byte-identical twice.
+ *  - One bureau (seen on "26-542 Surélévation Favon") numbers headers AND priced positions with
+ *    the exact same bare-code shape at the exact same left margin ("40 DEMOLITION & TRAVAUX
+ *    PREPARATOIRE" then "41 Démolition du dallage... m2 231.00 -") - decimal-vs-not can't
+ *    distinguish them at all here, and the empty Prix cell is printed as a literal dash, not the
+ *    usual dot-fill. The only signal left is content: a header never carries a quantity, so a
+ *    bare-code line is only treated as a real header if it does NOT also carry a quantity + unit
+ *    (see QUANTITY_UNIT_RE) - a position keeps the current chapter's key instead of overwriting
+ *    it. Confirmed not to regress the decimal-coded documents, since this check only ever
+ *    reclassifies a line that already matched the no-decimal header shape.
+ *  - Not yet solved: a different bureau on the same Favon project (its MA/TP-Démol documents)
+ *    nests multi-level dotted headers ("211.6.520 Isolations sous plafond étage -2") whose priced
+ *    children reset to small flat codes ("001", "002"...) with the quantity landing several
+ *    wrapped lines below the code, not on it - genuinely different enough from every pattern above
+ *    (dotted codes are headers here, never articles) that forcing a fix in without a second
+ *    confirming example risked destabilizing the decimal-article convention everywhere else. Left
+ *    as 0 lots on that document until a second real case confirms the general rule.
+ *  - One bureau (seen on "26-58 HEP") prints its top-level chapter banner as "Chapitre <code>
+ *    <title> GQ Quantité GP PU Montant..." instead of "CAN Construction: <code> ...", and its
+ *    per-page footer as "<project initials> <page> | <total pages>" (e.g. "DRNK 16 | 161") instead
+ *    of the usual "Page N / M" - both recognised as alternates feeding the same mechanisms
+ *    (CHAPITRE_BANNER_RE/_TITLE_RE alongside CAN_CHAPTER_RE/_TITLE_RE; the generic "token N | M"
+ *    case in FOOTER_RE). Without the footer fix, the unrecognised line polluted marginX for the
+ *    rest of the document, freezing currentKey on a match picked up from the document's own
+ *    Récapitulatif/table-of-contents page - the actual bug behind a single mega-lot spanning
+ *    dozens of unrelated chapters.
+ *  - Not yet solved: a handful of other real documents (Surville 3 BA - codes shaped "F.4", "F.5";
+ *    Ker Yan Charpente Métal; Chemin de Rojoux 5 BA/MA; "26-55 Soum_ABing") have real highlight
+ *    annotations but currently produce 0 lots. Each looked like a different, not-yet-diagnosed
+ *    code/margin convention rather than one shared cause - left alone rather than guessing a fix
+ *    from a single under-investigated case each; revisit once there's time to properly root-cause
+ *    them individually (same discipline as the Favon MA/TP-Démol case above).
+ *  - "E"/"e" as a second custom-prefix letter, used exactly like "R" (see NONDECIMAL_HEADER_RE
+ *    comment), confirmed independently on THREE real documents - never built from a single case:
+ *    "26-30 Pôle Bio - BA" ("E 231 Escalier droit, massif, en béton." / "e .100" / "e .110" -
+ *    without this fix the whole chapter was silently dropped, not merged elsewhere, because "E"
+ *    isn't excluded from the margin vote the way "R" is, so it drags marginX down to its own
+ *    leftward x and breaks alignment for every real (bare-numeric) header on that page, including
+ *    the ones before/after the "E" line - see the rHeaderMarginX comment above for the mechanism,
+ *    identical to the "R891...R991 merged into one lot" case but one step worse here because the
+ *    native headers fail too, so currentKey goes to null and the runs are dropped outright rather
+ *    than merged into a neighbour); "26-20 Surville 3 - MA" ("E 142 Maçonnerie..." /
+ *    "E142.142"-shaped decimal children / "e 143 Maçonnerie..." as a second header); "26-15 Casino
+ *    Théâtre" ("E .100"/"E .200"/"E .300"/"E .400"/"e .100" - here used for a purely explanatory
+ *    CAN sub-paragraph, never itself a priced header, but it still needed to be excluded from the
+ *    margin vote to avoid the same corruption). Lowercase "e" never carries a chapter-rooted code
+ *    in any confirmed example (always an orphan "e .NNN", like "R"'s orphan children) - it only
+ *    ever needs the margin-vote exclusion, never fires the header-recognition branch itself, which
+ *    is expected and requires no special-casing beyond what "R"'s orphan children already get.
  */
 
 interface TextLine {
@@ -38,12 +171,103 @@ interface TextLine {
   items: { x: number; y: number }[]
 }
 
-const HEADER_RE = /^(\d{2,3}(?:\.\d+)?)\s+[A-ZÀ-Þ]/
-const DASH_RE = /^-{8,}/
+interface ChapterKey {
+  code: string
+  title: string
+}
+
+// "R" prefix tolerates an optional space before the digits ("R 433", "R 500") as well as the
+// glued form ("R592") - bureau Pillet SA (seen on "26-23 Rolliet A/B/C - BA", "2267 - CFC
+// 211.5-212-217...") writes the preparer's custom "R"-prefixed codes as two separate tokens.
+// Same semantic role either way; the code is normalised (space stripped) where it's captured
+// below, so "R 433" and "R433" share the same identity. "E"/"e" is a second, independently
+// confirmed custom-prefix letter (seen on "26-15 Casino Théâtre" - "E .100"/"e .100" sub-
+// paragraphs; "26-20 Surville 3 - MA" - "E 142"/"e 143" headers with "E142.142"-shaped decimal
+// children; "26-30 Pôle Bio - BA" - "E 231 Escalier droit..."/"e .100"/"e .110") - same spaced-
+// or-glued shape and the same semantic role as "R", just a different letter some bureaux/software
+// versions use. Both letters share the exact same recognition and margin-exclusion treatment
+// below (see CUSTOM_PREFIX_LETTER_RE).
+const NONDECIMAL_HEADER_RE = /^((?:[ERe]\s?)?\d{2,4})\s+[A-ZÀ-Þ]/
+// Alternate header shape used by bureaux that give every code a decimal point ("1.00", "3.00")
+// instead of reserving the bare (no-dot) form for headers - see the file-header comment above.
+const HEADER_DOT_ZERO_RE = /^((?:[ERe]\s?)?\d{1,4})\.00\s+[A-ZÀ-Þ]/
+// Prefix widened to 1-4 digits (some bureaux use "1.01" or "1110.101"); a bare ".00" suffix is
+// excluded because that's exactly the alternate header shape above, never a priced article.
+const DECIMAL_ARTICLE_RE = /^(?:[ERe]\s?)?\d{1,4}\.(?!00\b)\d+\b/
+// Tests whether a header-shaped match's captured code starts with one of the confirmed
+// preparer-custom-code prefix letters ("R" or "E"/"e" - see NONDECIMAL_HEADER_RE comment above).
+// Centralised here so every place that needs "is this a custom-added code, not a native CAN one"
+// (the margin-vote exclusion, the round-key modulo-100 check, the alternate-margin alignment
+// check) agrees on the exact same letter set.
+const CUSTOM_PREFIX_LETTER_RE = /^[ERe]/
+// "Letter-chapter" bureaux (seen on "26-20 Surville 3 - BA", SBING SA, produced from Excel, not CAN
+// software): chapters are single capital letters ("A RADIER SS1 - Phase 1", "B MURS AU SOUS-SOL 1")
+// and priced articles "A.1", "A.2"... "A.20", with no numeric code anywhere, so none of the
+// digit-based header/article shapes above ever match and every highlight run is dropped for lack of
+// a chapter context (0 lots on a document with 76 real highlights). Only enabled document-wide when
+// enough "<letter>.<n>" articles exist (see letterMode below), never on a digit-coded document.
+const LETTER_ARTICLE_RE = /^[A-Z]\.\d{1,3}\s+\S/
+const LETTER_HEADER_RE = /^([A-Z])\s+([A-ZÀ-Þ].*)$/
+const LETTER_TOTAL_RE = /^TOTAL\s+([A-Z])\.\s/
+// Roman-numeral part banner of the same documents ("II CFC 211.5 BÉTON ET BÉTON ARMÉ"): the letter
+// chapters restart in every part (A GÉNÉRALITÉS in CFC 211.0, A RADIER SS1 in CFC 211.5), so the
+// CFC of the part scopes the lot key and fills Lot.cfcCode.
+const LETTER_PART_RE = /^[IVX]+\s+CFC\s+(\d{3}(?:\.\d+)?)\b/
+// A priced row's Prix/Montant columns are printed blank (to be filled in by hand) as a long run
+// of dots - "................. ................." or "up = kg ... .......... .........." - the
+// one signal that survives even when the code itself is an orphan ".NNN" with no chapter prefix
+// to match DECIMAL_ARTICLE_RE against (see file-header comment). A bare sub-heading with no
+// quantity/price never has this.
+const PRICE_ROW_RE = /\.{4,}/
+// The highlight-containment check below tolerates a few points of slop (antialiasing/rounding),
+// which occasionally lets the trailing dot-fill of an unrelated PREVIOUS chapter's last line leak
+// into the next highlight a hair above it - always a bare zone tag ("COMMUN 4 ..."), never real
+// position content. Requiring some actual text before the dots (not just a short tag) is enough
+// to tell that stray leak apart from a genuine priced line, which always carries its code and/or
+// description alongside the dot-fill.
+const MIN_PRICE_ROW_CONTENT = 15
+// A genuine priced position always carries a quantity + unit ("m2 231.00", "kg 154 460,00",
+// "up = gl :PG 1 up") - the one signal that survives even when a bureau gives a priced position
+// the *exact same bare-code shape* as a real header (no decimal point either way, same left
+// margin) and prints an empty/dash Prix column instead of the usual dot-fill (see
+// NONDECIMAL_HEADER_RE usage below). Units are curated from real documents only, never guessed.
+const QUANTITY_UNIT_RE =
+  /\b(?:m²|m2|m³|m3|kg|pce?s?|gl|up|ml|tonnes?)\b\s*[\d']|[\d][\d'.,]*\s*\b(?:m²|m2|m³|m3|kg|pce?s?|gl|up|ml|tonnes?)\b/i
+// A running chapter subtotal ("300 Total Alimentation, évacuation, télécommunication ....") is
+// printed at the same left margin as a real header and also ends in a dot-fill - matches both
+// NONDECIMAL_HEADER_RE and, now, PRICE_ROW_RE, but it's a summary row, not a lot boundary or a
+// priced position. Filtered out like the other page boilerplate below.
+const TOTAL_ROW_RE = /^(?:R)?\d{2,4}\s+Total\b/
 const CFC_RE = /CFC:\s*([\d.]+)/
 const CAN_CHAPTER_RE = /CAN Construction\s*:\s*(\d+)/
 const CAN_CHAPTER_TITLE_RE = /CAN Construction\s*:\s*\d+\s+(.+?)\s+[A-Z]\/\d+\(/
-const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission)\s*:/
+const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission|Chapitre)\s*:/
+// Page-footer boilerplate (software name, printer, pagination like "Page 27 de 40", or a bureau's
+// own "Imprimé le <date>" export stamp) - not submission content, but ordinary body text with no
+// colon, so BANNER_RE above doesn't catch it. A highlight rectangle dragged too far down a page
+// routinely oversteps into this line; it must never be treated as part of a lot's text, and must
+// never break up a run mid-chapter. Critically, it also sits at the page's true left margin or
+// lower (often the lowest text on the page) - left unfiltered, it silently becomes the computed
+// marginX and breaks the alignment check for every real header on that page (same failure mode as
+// an unrecognised column-header banner, see COLUMN_HEADER_RE below).
+const FOOTER_RE =
+  /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d|Page\s+\d+\s*\/\s*\d+|Date\s+d.impression\s*:|^\S+\s+\d+\s*\|\s*\d+\s*$/
+// One bureau (seen on "26-58 HEP") prints its page-level top banner as "Chapitre <code> <title>"
+// instead of "CAN Construction: <code> <title> A/B(..." - same semantic role (the top-level CFC
+// chapter active on this page, used to scope/reset the sub-chapter "current chapter" pointer so
+// reused sub-codes like "100"/"200"/"600" under two different top-level chapters never collide
+// into the same lot) - fed into the exact same pageCanChapter/pageCanChapterTitle maps below.
+const CHAPITRE_BANNER_RE = /^Chapitre\s+((?:R)?\d{2,4})\b/
+const CHAPITRE_BANNER_TITLE_RE =
+  /^Chapitre\s+(?:R)?\d{2,4}\s+(.+?)\s+(?:GQ\s+Quantité|Pos\.\s+Cd\.|Pos\.\s+Libellé|Article\s+Description|Pos\.\s+Descriptif|N°\s+Texte)/
+// The article-table header repeats at the top of every page's article table - same reasoning as
+// FOOTER_RE, it just happens to sit a bit lower on the page (below the y < 775 banner cutoff)
+// whenever a chapter's table starts partway down a page. Wording varies by bureau/software; an
+// unrecognised variant doesn't just leak into a zone's text, it can also drag the page's computed
+// left margin (see marginX below) off the real code column and break every header's alignment
+// check for that whole page.
+const COLUMN_HEADER_RE =
+  /^(?:Pos\.\s+Cd\.\s+Description\b|Pos\.\s+Libellé\b|Article\s+Description\s+des\s+travaux\b|Pos\.\s+Descriptif\s+des\s+travaux\b)/
 
 function groupLines(items: Array<{ str: string; transform: number[] }>): TextLine[] {
   const list = items
@@ -71,24 +295,44 @@ function groupLines(items: Array<{ str: string; transform: number[] }>): TextLin
   })
 }
 
-interface HeaderEvent {
-  page: number
-  y: number
-  code: string
-  title: string
-  level: 'L1' | 'L2'
-}
-
 interface RawHighlight {
-  kind: 'L0' | 'L1' | 'article'
+  kind: 'L0' | 'article'
   color: 'jaune' | 'autre'
   code: string
   title: string
-  subCode: string
-  subTitle: string
+  /** The round (x00) chapter this run sits under, e.g. "600" for a run coded "612" - used to
+   *  tell apart a genuine lot from highlighter spillover into a chapter a FreeText note already
+   *  claims whole (see the filter right after the main page loop below). */
+  roundCode: string
+  /** The top-level CFC chapter (pageCanChapter) active on the page this run was found on, e.g.
+   *  "172" or "241" - NOT shown to the user, only used to scope the grouping/dedup keys below so
+   *  that two unrelated top-level chapters which happen to share the same bare sub-chapter code
+   *  (e.g. both have a "511") never collide into a single lot. Empty when the document has no
+   *  recognised "CAN Construction:"/"Chapitre" banner at all, in which case every scoped key below
+   *  degrades back to the bare code, exactly the pre-existing behaviour for such bureaux. */
+  topChapter: string
   pages: number[]
   cfc: string
   text: string
+}
+
+interface RawNote {
+  code: string
+  title: string
+  pages: number[]
+  cfc: string
+  text: string
+  /** See RawHighlight.topChapter above - same purpose, same fallback when absent. */
+  topChapter: string
+}
+
+/** Scopes a bare sub-chapter/round code by the top-level CFC chapter it was read under, so the
+ *  same code reused by two unrelated chapters (see file-header comment on the HEP "511"/"111"
+ *  collision) never gets merged. Falls back to the bare code untouched when topChapter is empty
+ *  (bureau with no recognised top-level chapter banner) - this must never artificially split runs
+ *  that were correctly merged before this scoping was introduced. */
+function scopedKey(topChapter: string, code: string): string {
+  return topChapter ? `${topChapter}::${code}` : code
 }
 
 export interface AnalyzeResult {
@@ -121,99 +365,269 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   const pageCfc = new Map<number, string>()
   const pageCanChapter = new Map<number, string>()
   const pageCanChapterTitle = new Map<number, string>()
-  const pageAnnots = new Map<number, Array<{ color: Uint8ClampedArray; rect: number[] }>>()
-  const headerEvents: HeaderEvent[] = []
-  let prevPageLastLine: string | null = null
+  const pageHighlightAnnots = new Map<number, Array<{ color: Uint8ClampedArray; rect: number[] }>>()
+  const pageNoteAnnots = new Map<number, Array<{ rect: number[]; contents: string }>>()
+  // For every body line, the chapter header code/title active at that point (the "current
+  // chapter" pointer described above), plus the coarser "round" (x00) chapter for FreeText notes.
+  const pageLineChapters = new Map<
+    number,
+    Array<{ line: TextLine; key: ChapterKey | null; roundKey: ChapterKey | null }>
+  >()
+  const pageRoundKeyAtEnd = new Map<number, ChapterKey | null>()
 
+  const pageAnnots = new Map<number, unknown[]>()
+  // Top-of-page banner cutoff: 775 on A4 (842pt) - taller pages (26-20 Surville 3 is 924pt, header
+  // banner at y~870, first chapter header at y~826) shift it up, otherwise a chapter header printed
+  // right under the banner is discarded as banner text. Never lower than 775 (no change <= A4).
+  const pageTopCut = new Map<number, number>()
+
+  // First pass: read every page once (text + annotations) - needed up front because the
+  // repeated-boilerplate detection below has to see the whole document before any page's body
+  // lines can be filtered.
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p)
     const [annots, textContent] = await Promise.all([page.getAnnotations(), page.getTextContent()])
-    const lines = groupLines(textContent.items as Array<{ str: string; transform: number[] }>)
-    pageAllLines.set(p, lines)
+    pageAnnots.set(p, annots)
+    pageTopCut.set(p, Math.max(775, (page.view?.[3] ?? 842) - 67))
+    pageAllLines.set(p, groupLines(textContent.items as Array<{ str: string; transform: number[] }>))
+  }
+
+  // Flattened exports: the highlighter was baked into the page content, so the text layer is
+  // there but there is no Highlight annotation at all. Only when the whole document has none
+  // (so a document with real annotations is never affected), recover the highlighted regions
+  // from the rendered pixels and feed them through the same path as native annotations.
+  if (Array.from(pageAnnots.values()).every((a) => (a as unknown[]).length === 0)) {
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p)
+      const viewport = page.getViewport({ scale: 2 })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.ceil(viewport.width)
+      canvas.height = Math.ceil(viewport.height)
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) continue
+      await page.render({ canvasContext: ctx, viewport }).promise
+      const bands = detectColorBands(ctx.getImageData(0, 0, canvas.width, canvas.height))
+      pageAnnots.set(
+        p,
+        bands.map((b) => {
+          const [px0, py1] = viewport.convertToPdfPoint(b.x0, b.y0)
+          const [px1, py0] = viewport.convertToPdfPoint(b.x1, b.y1)
+          return {
+            subtype: 'Highlight',
+            color: new Uint8ClampedArray(b.color === 'jaune' ? [255, 255, 0] : [0, 255, 0]),
+            rect: [px0, py0, px1, py1],
+          }
+        }),
+      )
+    }
+  }
+
+  // A running header/footer ("OU3 SA" / "Bureau d'ingénieurs... Page 8 / 38", a bureau's own
+  // project-title preamble, a repeated CAN legend paragraph...) has no fixed wording to filter by
+  // name across every bureau - but it's the one kind of line that repeats verbatim across most of
+  // the document, which real submission content essentially never does. Catching it this way
+  // means a new bureau's exact phrasing doesn't need its own regex before it stops contaminating
+  // marginX (see COLUMN_HEADER_RE/FOOTER_RE comments above for the alternative, name-based route
+  // still used for banners that appear too rarely for a frequency threshold to catch).
+  const lineCounts = new Map<string, number>()
+  for (const lines of pageAllLines.values()) {
+    for (const l of lines) lineCounts.set(l.text, (lineCounts.get(l.text) ?? 0) + 1)
+  }
+  const repeatThreshold = Math.max(3, Math.ceil(doc.numPages * 0.3))
+  const repeatedTexts = new Set(
+    [...lineCounts.entries()].filter(([, count]) => count >= repeatThreshold).map(([text]) => text),
+  )
+
+  // Whole-document count of custom-prefixed ("R" or "E"/"e", see CUSTOM_PREFIX_LETTER_RE) vs.
+  // bare-numeric header-shaped lines, used below to decide whether custom-prefixed lines should be
+  // excluded from a page's margin vote (marginX). In every bureau confirmed so far (Biopole, HEP,
+  // Soum IC, OMB Prilly, 26-47...), "R"-prefixed codes are the rare, preparer-added extra sitting a
+  // few points to the LEFT of that bureau's real header column (e.g. "R 229 Ensemble des
+  // places..." at x=18.8 vs. the native "220 Places, surfaces de dépôt" at x=31.3 a few lines above
+  // on "Soum IC") - if included in the margin vote, marginX collapses to that leftward offset and
+  // breaks the alignment check for every real (non-custom) header on the page. But bureau Pillet SA
+  // (seen on "26-23 Rolliet A/B/C - BA" and "2267 - CFC 211.5...") writes essentially EVERY
+  // header/article in the whole document with the "R" prefix - there is no separate "native" column
+  // to fall back on, so excluding "R" lines there leaves only indented description/continuation
+  // text as margin candidates, which collapses the whole document into one lot. The one signal that
+  // tells the two situations apart without guessing per-page is document-wide volume: a bureau
+  // where the custom prefix is a rare add-on has far more bare-numeric headers than custom-prefixed
+  // ones; a bureau where it's the norm has the opposite ratio (confirmed 128 "R" vs 10 bare on
+  // Rolliet A, versus e.g. 20 "R" vs 253 bare on Biopole).
+  // Document-wide left margin of custom-prefixed header-shaped lines specifically, kept separate
+  // from marginX below - confirmed necessary on a real document ("26-30 Pôle Bio - BA"): a bureau
+  // can write a handful of real, multi-position "R" sub-chapters (R891 "Joints" i.e. étanchéité,
+  // R892 "Piliers...", R893/R894 "Toiture..." i.e. poutres précontraintes, R919 "Construction
+  // métallique", R991 "Divers" i.e. tiges filetées et sabots) a few points to the LEFT of that same
+  // page's native (non-custom) header column, exactly like the rare-addition case just below -
+  // except here the custom prefix is not a rare one-off, it is the ONLY way several genuine,
+  // separately-lotted chapters are introduced. Per-page marginX intentionally excludes custom-
+  // prefixed lines from its own vote (see rHeadersAreTheNorm below) specifically so those rare
+  // additions don't drag marginX leftward and break alignment for the real headers - but that same
+  // exclusion then makes every custom header fail ITS OWN alignment check against marginX, silently
+  // freezing the chapter pointer on whatever bare header came before the custom run and merging
+  // every subsequent distinct custom chapter (and all its priced children) into that one frozen lot
+  // (confirmed: the whole R891 through R991 run collapsed into a single "910 Prix global"-titled
+  // lot, hiding Étanchéité, Piliers béton, Poutres précontraintes and Tiges filetées et sabots
+  // entirely). Computed once for the whole document, exactly like rHeadersAreTheNorm, from the same
+  // header-shaped lines. "E"/"e" (lowercase included - see NONDECIMAL_HEADER_RE comment) shares
+  // this exact same count/margin tracking: confirmed on "26-20 Surville 3 - MA" ("E 142"/"e 143"
+  // headers) and "26-15 Casino Théâtre" ("E .100"-style sub-paragraphs) in addition to Pôle Bio, so
+  // it is a second genuine bureau/software convention, not a one-off typo of "R".
+  let rHeaderCount = 0
+  let bareHeaderCount = 0
+  let rHeaderMarginX: number | null = null
+  for (const [pageNo, lines] of pageAllLines) {
+    for (const l of lines) {
+      if (l.y >= (pageTopCut.get(pageNo) ?? 775)) continue
+      const m = l.text.match(NONDECIMAL_HEADER_RE) ?? l.text.match(HEADER_DOT_ZERO_RE)
+      if (!m) continue
+      if (CUSTOM_PREFIX_LETTER_RE.test(m[1])) {
+        rHeaderCount++
+        rHeaderMarginX = rHeaderMarginX === null ? l.xStart : Math.min(rHeaderMarginX, l.xStart)
+      } else bareHeaderCount++
+    }
+  }
+  const rHeadersAreTheNorm = rHeaderCount > 0 && rHeaderCount > bareHeaderCount
+
+  // Letter-chapter mode (see LETTER_ARTICLE_RE): requires many "A.12"-shaped articles and clearly
+  // more of them than digit-coded headers, so a digit-coded document is never switched into it.
+  // A letter counts as a real chapter header only if the document also prints "TOTAL <letter>. ..."
+  // for it - this rejects recap rows (dot-fill / CHF), roman part banners and stray capitals.
+  let letterArticleCount = 0
+  const letterTotals = new Set<string>()
+  for (const lines of pageAllLines.values()) {
+    for (const l of lines) {
+      if (LETTER_ARTICLE_RE.test(l.text)) letterArticleCount++
+      const tm = l.text.match(LETTER_TOTAL_RE)
+      if (tm) letterTotals.add(tm[1])
+    }
+  }
+  const letterMode = letterArticleCount >= 10 && letterArticleCount > 3 * (rHeaderCount + bareHeaderCount)
+  const pageLetterPart = new Map<number, string>()
+  let currentLetterPart = ''
+
+  let prevPageLastLine: string | null = null
+  let currentKey: ChapterKey | null = null
+  let currentRoundKey: ChapterKey | null = null
+  let currentChapterForKeys: string | undefined
+
+  for (let p = 1; p <= doc.numPages; p++) {
+    const lines = pageAllLines.get(p) ?? []
 
     const bannerText = lines.slice(0, 6).map((l) => l.text).join(' ')
     const cfcMatch = bannerText.match(CFC_RE)
     if (cfcMatch) pageCfc.set(p, cfcMatch[1])
+    if (letterMode) {
+      const partMatch = lines.slice(0, 6).map((l) => l.text.match(LETTER_PART_RE)).find((x) => x)
+      if (partMatch) {
+        if (partMatch[1] !== currentLetterPart) currentKey = null
+        currentLetterPart = partMatch[1]
+      }
+      pageLetterPart.set(p, currentLetterPart)
+      if (currentLetterPart && !cfcMatch) pageCfc.set(p, currentLetterPart)
+    }
     const canMatch = bannerText.match(CAN_CHAPTER_RE)
     if (canMatch) pageCanChapter.set(p, canMatch[1])
+    else {
+      const altMatch = bannerText.match(CHAPITRE_BANNER_RE)
+      if (altMatch) pageCanChapter.set(p, altMatch[1])
+    }
     const canTitleMatch = bannerText.match(CAN_CHAPTER_TITLE_RE)
     if (canTitleMatch) pageCanChapterTitle.set(p, canTitleMatch[1].trim())
+    else {
+      const altTitleMatch = bannerText.match(CHAPITRE_BANNER_TITLE_RE)
+      if (altTitleMatch) pageCanChapterTitle.set(p, altTitleMatch[1].trim())
+    }
 
-    const bodyLines = lines.filter((l) => !BANNER_RE.test(l.text) && l.y < 775)
+    const bodyLines = lines.filter(
+      (l) =>
+        !BANNER_RE.test(l.text) &&
+        !FOOTER_RE.test(l.text) &&
+        !COLUMN_HEADER_RE.test(l.text) &&
+        !TOTAL_ROW_RE.test(l.text) &&
+        !repeatedTexts.has(l.text) &&
+        l.y < (pageTopCut.get(p) ?? 775),
+    )
     pageBodyLines.set(p, bodyLines)
 
-    const marginCandidates = bodyLines.filter((l) => !/^R\b/.test(l.text))
+    // A bureau's project-title/subtitle preamble ("Structure béton armé", "CAHIER DE
+    // L'INGENIEUR CIVIL"...) sits above the column-header banner and, unlike BANNER_RE's
+    // colon-suffixed keywords, has no fixed wording to filter by name - but it's always above
+    // the "Pos. ..." table banner, so once that banner's y is known, nothing real ever appears
+    // higher up on the same page. Anchoring marginX to below it sidesteps the wording entirely.
+    const columnHeaderY = lines.find((l) => COLUMN_HEADER_RE.test(l.text))?.y
+    // Only exclude custom-prefixed ("R"/"E"/"e") lines from the margin vote when this document's
+    // custom prefix is the rare preparer add-on (see rHeadersAreTheNorm above) - for a Pillet SA
+    // document where "R" is used on essentially every header/article, keeping the exclusion would
+    // leave only indented description lines as margin candidates, which is wrong.
+    const marginCandidates = bodyLines.filter(
+      (l) => (rHeadersAreTheNorm || !/^[ERe]\b/.test(l.text)) && (columnHeaderY === undefined || l.y < columnHeaderY),
+    )
     const marginX = marginCandidates.length ? Math.min(...marginCandidates.map((l) => l.xStart)) : null
 
+    if (pageCanChapter.get(p) !== currentChapterForKeys) {
+      currentKey = null
+      currentRoundKey = null
+      currentChapterForKeys = pageCanChapter.get(p)
+    }
+
     const endedWithAReporter = prevPageLastLine !== null && /^A reporter\s*:/.test(prevPageLastLine)
+    const lineChapters: Array<{ line: TextLine; key: ChapterKey | null; roundKey: ChapterKey | null }> = []
     bodyLines.forEach((line, idx) => {
-      if (idx === 0 && endedWithAReporter) return
-      const m = line.text.match(HEADER_RE)
-      if (m && marginX !== null && Math.abs(line.xStart - marginX) < 6) {
-        const nextLine = bodyLines[idx + 1]
-        const level: 'L1' | 'L2' = nextLine && DASH_RE.test(nextLine.text) ? 'L1' : 'L2'
-        headerEvents.push({ page: p, y: line.y, code: m[1], title: line.text.slice(m[0].length - 1).trim(), level })
+      if (letterMode) {
+        const lm = line.text.match(LETTER_HEADER_RE)
+        if (lm && letterTotals.has(lm[1]) && !PRICE_ROW_RE.test(line.text) && !/[…]{2}|\bCHF\b/.test(line.text) && !/^CFC\b/.test(lm[2])) {
+          currentKey = { code: lm[1], title: lm[2].trim() }
+        }
+      } else if (!(idx === 0 && endedWithAReporter)) {
+        const m = line.text.match(NONDECIMAL_HEADER_RE) ?? line.text.match(HEADER_DOT_ZERO_RE)
+        // A custom-prefixed ("R"/"E"/"e") header candidate may legitimately sit at the document's
+        // separate rHeaderMarginX column instead of the native marginX (see rHeaderMarginX comment
+        // above) - tried as an alternate alignment target, never instead of marginX, so a bureau
+        // where the custom prefix happens to already align with marginX (the norm case, or plain
+        // coincidence) is unaffected.
+        const isRCandidate = !!m && CUSTOM_PREFIX_LETTER_RE.test(m[1])
+        const aligned =
+          m !== null &&
+          ((marginX !== null && Math.abs(line.xStart - marginX) < 6) ||
+            (isRCandidate && rHeaderMarginX !== null && Math.abs(line.xStart - rHeaderMarginX) < 6))
+        // A bare-code line carrying its own quantity ("41 Démolition du dallage... m2 231.00")
+        // is a priced position wearing a header's clothing, not a real header - some bureaux use
+        // the exact same shape (no decimal, same margin) for both. A genuine header never has one.
+        if (m && aligned && !QUANTITY_UNIT_RE.test(line.text)) {
+          // Normalise "R 433" -> "R433" (and "E 142" -> "E142") so the space-separated convention
+          // groups under the same code identity as the glued one used elsewhere ("R592").
+          const code = m[1].replace(/\s+/g, '')
+          const title = line.text.slice(m[0].length - 1).trim()
+          currentKey = { code, title }
+          if (Number(code.replace(CUSTOM_PREFIX_LETTER_RE, '')) % 100 === 0) currentRoundKey = { code, title }
+        }
       }
+      lineChapters.push({ line, key: currentKey, roundKey: currentRoundKey })
     })
+    pageLineChapters.set(p, lineChapters)
+    pageRoundKeyAtEnd.set(p, currentRoundKey)
     prevPageLastLine = bodyLines.length ? bodyLines[bodyLines.length - 1].text : prevPageLastLine
 
-    pageAnnots.set(
+    const typedAnnots = (pageAnnots.get(p) ?? []) as Array<{
+      subtype: string
+      color?: Uint8ClampedArray
+      rect: number[]
+      contents?: string
+    }>
+    pageHighlightAnnots.set(
       p,
-      (annots as Array<{ subtype: string; color?: Uint8ClampedArray; rect: number[] }>)
+      typedAnnots
         .filter((a) => a.subtype === 'Highlight' && a.color)
         .map((a) => ({ color: a.color as Uint8ClampedArray, rect: a.rect })),
     )
-  }
-
-  // running L1/L2 state snapshot after each header event, reset whenever the CAN chapter changes
-  const snapshots: Array<{ l1: HeaderEvent | null; l2: HeaderEvent | null }> = []
-  {
-    let l1: HeaderEvent | null = null
-    let l2: HeaderEvent | null = null
-    let currentChapterForState: string | undefined
-    for (const ev of headerEvents) {
-      const chapterNow = pageCanChapter.get(ev.page)
-      if (chapterNow !== currentChapterForState) {
-        l1 = null
-        l2 = null
-        currentChapterForState = chapterNow
-      }
-      if (ev.level === 'L1') {
-        l1 = ev
-        l2 = null
-      } else {
-        l2 = ev
-      }
-      snapshots.push({ l1, l2 })
-    }
-  }
-
-  function stateBefore(page: number, y: number): { l1: HeaderEvent | null; l2: HeaderEvent | null } {
-    let idx = -1
-    for (let i = 0; i < headerEvents.length; i++) {
-      const ev = headerEvents[i]
-      if (ev.page > page) break
-      if (ev.page === page && ev.y < y) break
-      idx = i
-    }
-    return idx === -1 ? { l1: null, l2: null } : snapshots[idx]
-  }
-
-  function headerEventIndexAt(page: number, y: number): number {
-    return headerEvents.findIndex((ev) => ev.page === page && Math.abs(ev.y - y) < 0.5)
-  }
-
-  function nextHeaderIndex(afterIndex: number, level: 'L1' | 'L2'): number {
-    for (let i = afterIndex + 1; i < headerEvents.length; i++) {
-      if (level === 'L1' && headerEvents[i].level === 'L1') return i
-      if (level === 'L2') return i
-    }
-    return -1
-  }
-
-  function isFirstBodyLineOfPage(ev: HeaderEvent): boolean {
-    const bl = pageBodyLines.get(ev.page) ?? []
-    return bl.length > 0 && Math.abs(bl[0].y - ev.y) < 0.5
+    pageNoteAnnots.set(
+      p,
+      typedAnnots
+        .filter((a) => a.subtype === 'FreeText')
+        .map((a) => ({ rect: a.rect, contents: (a.contents ?? '').trim() })),
+    )
   }
 
   function chapterPageRange(startPage: number): number {
@@ -226,31 +640,75 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
     return last
   }
 
-  const highlights: RawHighlight[] = []
+  /** Last page (from startPage) for which `code` is still the active "round" chapter. */
+  function roundKeyPageRange(startPage: number, code: string): number {
+    let last = startPage
+    let sawIt = false
+    for (let p = startPage; p <= doc.numPages; p++) {
+      if (pageCanChapter.get(p) !== pageCanChapter.get(startPage)) break
+      const chapters = pageLineChapters.get(p) ?? []
+      let brokeOnThisPage = false
+      for (const c of chapters) {
+        if (c.roundKey?.code === code) {
+          sawIt = true
+          last = p
+        } else if (sawIt) {
+          brokeOnThisPage = true
+          break
+        }
+      }
+      if (brokeOnThisPage) break
+    }
+    return last
+  }
+
+  let highlights: RawHighlight[] = []
+  const notes: RawNote[] = []
+  // Header-only runs (see below) are never lots by themselves, but their title carries real
+  // information ("R592 Poteaux métalliques.") that a bare priced line ("Type: RRW 120x120x6,3
+  // S355...") doesn't. Keep that text (and the page(s) it was highlighted on) per chapter code and
+  // prepend/merge it into the next priced run under the same code, even if that run is a different
+  // highlight annotation on a later page - exactly the case where the header (plus maybe a
+  // continuing description, still highlighted) sits at the bottom of one page and the first priced
+  // row for the very same position only lands on the next page after a line wrap (confirmed on a
+  // real document: CFC 211.4 "511 Caniveaux..." highlighted from its header down through ".111
+  // Aco-drain multiline..." at the bottom of one page, with the position's quantity/price row - the
+  // only signal `hasPricedLine` checks for - only appearing once "511.111 fonte." resumes at the
+  // top of the next page). Without carrying the page number forward here too, the resulting lot's
+  // `pages` only ever contained the page where the priced signal was finally found, silently
+  // dropping every earlier page that was genuinely highlighted but never itself contained a
+  // decimal/quantity/dot-fill line - the exact bug a user caught by hand ("il manquait la page 32").
+  const pendingHeaderText = new Map<string, { text: string; pages: number[] }>()
 
   for (let p = 1; p <= doc.numPages; p++) {
     const bodyLines = pageBodyLines.get(p) ?? []
     const allLines = pageAllLines.get(p) ?? []
-    const annots = pageAnnots.get(p) ?? []
+    const chapters = pageLineChapters.get(p) ?? []
     const isChapterStartPage = pageCanChapter.get(p) !== undefined && pageCanChapter.get(p) !== pageCanChapter.get(p - 1)
     const firstBodyLine = bodyLines[0]
+    const cfc = pageCfc.get(p) ?? ''
+    const topChapter = pageCanChapter.get(p) ?? pageLetterPart.get(p) ?? ''
 
-    for (const h of annots) {
+    for (const h of pageHighlightAnnots.get(p) ?? []) {
       const [rx0, ry0, rx1, ry1] = h.rect
-      const contained = bodyLines
-        .filter((l) => l.items.some((it) => it.x >= rx0 - 3 && it.x <= rx1 + 3 && it.y >= ry0 - 3 && it.y <= ry1 + 3))
-        .sort((a, b) => b.y - a.y)
-      const text = contained.map((l) => l.text).join(' ')
-      const isYellow = h.color[0] > 200 && h.color[1] > 200 && h.color[2] < 100
+      const contained = chapters.filter(({ line }) =>
+        line.items.some((it) => it.x >= rx0 - 3 && it.x <= rx1 + 3 && it.y >= ry0 - 3 && it.y <= ry1 + 3),
+      )
+      // Threshold on blue widened from 100 to 160: one bureau ("DRNK" software, seen on 26-54,
+      // 26-57 Clarens, 26-58 HEP) highlights in a duller/golder yellow, RGB(252,244,133), that
+      // failed the original check and got misclassified as "autre" (fourniture+pose) instead of
+      // "jaune" (fourniture seule) - confirmed by the user directly reading the PDF. Checked
+      // against every other highlight colour confirmed "autre" across the full test corpus (the
+      // oranges and cyan used elsewhere all fail on R or G already, independently of B), so this
+      // stays a safe margin, not just a fit to this one shade.
+      const isYellow = h.color[0] > 200 && h.color[1] > 200 && h.color[2] < 160
       const color: 'jaune' | 'autre' = isYellow ? 'jaune' : 'autre'
-      const topY = contained.length ? contained[0].y : ry1
-      const cfc = pageCfc.get(p) ?? ''
 
       let isL0 = false
       if (isChapterStartPage && contained.length === 0) {
         isL0 = allLines.some((l) => l.y >= 760 && l.y >= ry0 - 3 && l.y <= ry1 + 3)
       } else if (isChapterStartPage && contained.length > 0 && firstBodyLine) {
-        isL0 = Math.abs(topY - firstBodyLine.y) < 3
+        isL0 = Math.abs(contained[0].line.y - firstBodyLine.y) < 3
       }
 
       if (isL0) {
@@ -260,8 +718,8 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           color,
           code: pageCanChapter.get(p) ?? '',
           title: pageCanChapterTitle.get(p) ?? '',
-          subCode: '',
-          subTitle: '',
+          roundCode: '',
+          topChapter,
           pages: Array.from({ length: endPage - p + 1 }, (_, i) => p + i),
           cfc,
           text: pageCanChapterTitle.get(p) ?? '',
@@ -269,72 +727,144 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         continue
       }
 
-      const selfHeaderIdx = contained.length ? headerEventIndexAt(p, contained[0].y) : -1
-      if (selfHeaderIdx !== -1) {
-        const ev = headerEvents[selfHeaderIdx]
-        const endIdx = nextHeaderIndex(selfHeaderIdx, ev.level)
-        const endEvent = endIdx === -1 ? null : headerEvents[endIdx]
-        const pageEnd = !endEvent
-          ? chapterPageRange(p)
-          : isFirstBodyLineOfPage(endEvent)
-            ? endEvent.page - 1
-            : endEvent.page
-        const pages = Array.from({ length: Math.max(pageEnd - p + 1, 1) }, (_, i) => p + i)
+      if (contained.length === 0) continue
 
-        if (ev.level === 'L1') {
-          highlights.push({ kind: 'L1', color, code: ev.code, title: ev.title, subCode: '', subTitle: '', pages, cfc, text })
-        } else {
-          const state = stateBefore(p, ev.y)
+      // Contained lines are already in top-to-bottom document order (groupLines sorts that way).
+      // Split them into consecutive runs that share the same chapter code, one highlight entry
+      // per run. A run is dropped if it has no chapter context yet (shouldn't normally happen),
+      // or if it never reaches a priced (decimal-coded) line - a run that's just a header title
+      // (and maybe its intro paragraph) before the code changes again is a pure umbrella chapter,
+      // never a lot on its own (see "500 Armatures" / "540 Accessoires d'armature" in the header
+      // comment above). Its text isn't lost though - see pendingHeaderText above.
+      let runStart = 0
+      for (let i = 1; i <= contained.length; i++) {
+        const sameAsPrev = i < contained.length && contained[i].key?.code === contained[runStart].key?.code
+        if (sameAsPrev) continue
+        const run = contained.slice(runStart, i)
+        const key = run[0].key
+        const runText = run.map((r) => r.line.text).join(' ')
+        const dotIndex = runText.search(PRICE_ROW_RE)
+        const hasPriceRowWithContent =
+          dotIndex > 0 && runText.slice(0, dotIndex).replace(/\s+/g, '').length >= MIN_PRICE_ROW_CONTENT
+        const hasPricedLine =
+          run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim())) ||
+          (letterMode && run.some((r) => LETTER_ARTICLE_RE.test(r.line.text.trim()))) ||
+          hasPriceRowWithContent ||
+          run.some((r) => QUANTITY_UNIT_RE.test(r.line.text))
+        // Letter-chapter documents: the preparer may highlight only a sub-heading line (e.g.
+        // "Piliers préfabriqués au sous-sol -2" on 26-20 Surville 3, pages 67-71) while the priced
+        // positions below stay white - a highlight under a known chapter is the intent to source it.
+        if (key && (hasPricedLine || letterMode)) {
+          const pendingKey = scopedKey(topChapter, key.code)
+          const pending = pendingHeaderText.get(pendingKey)
           highlights.push({
             kind: 'article',
             color,
-            code: state.l1?.code ?? '',
-            title: state.l1?.title ?? '',
-            subCode: ev.code,
-            subTitle: ev.title,
-            pages,
+            code: key.code,
+            title: key.title,
+            roundCode: run[0].roundKey?.code ?? '',
+            topChapter,
+            pages: pending ? [...pending.pages, p] : [p],
             cfc,
-            text,
+            text: pending ? `${pending.text} ${runText}` : runText,
+          })
+          pendingHeaderText.delete(pendingKey)
+        } else if (key) {
+          const pendingKey = scopedKey(topChapter, key.code)
+          const pending = pendingHeaderText.get(pendingKey)
+          pendingHeaderText.set(pendingKey, {
+            text: `${pending?.text ?? ''} ${runText}`.trim(),
+            pages: [...(pending?.pages ?? []), p],
           })
         }
-        continue
+        runStart = i
       }
+    }
 
-      const state = stateBefore(p, topY)
-      highlights.push({
-        kind: 'article',
-        color,
-        code: state.l1?.code ?? '',
-        title: state.l1?.title ?? '',
-        subCode: state.l2?.code ?? '',
-        subTitle: state.l2?.title ?? '',
-        pages: [p],
+    for (const note of pageNoteAnnots.get(p) ?? []) {
+      const [, , , ny1] = note.rect
+      let roundKey: ChapterKey | null = null
+      let noteTopChapter = topChapter
+      for (const c of chapters) {
+        if (c.line.y >= ny1 - 3) roundKey = c.roundKey
+        else break
+      }
+      if (!roundKey) {
+        roundKey = pageRoundKeyAtEnd.get(p - 1) ?? null
+        // The round chapter was still the previous page's when nothing on this page's own
+        // banner/header lines has been read yet (note sits above the first header on the new
+        // page) - scope it by the previous page's top chapter, not this page's, so a note that
+        // trails the tail end of one CFC chapter is never mis-scoped to the chapter starting here.
+        if (roundKey) noteTopChapter = pageCanChapter.get(p - 1) ?? ''
+      }
+      if (!roundKey) continue
+
+      const endPage = roundKeyPageRange(p, roundKey.code)
+      notes.push({
+        code: roundKey.code,
+        title: roundKey.title,
+        topChapter: noteTopChapter,
+        pages: Array.from({ length: Math.max(endPage - p + 1, 1) }, (_, i) => p + i),
         cfc,
-        text,
+        text: note.contents,
       })
     }
   }
 
-  // ---- Build zones (one per highlight annotation, for display/traceability) ----
-  const zones: DetectedZone[] = highlights.map((h) => ({
-    id: uid(),
-    page: h.pages[0],
-    chapterCode: h.code,
-    chapterTitle: h.title,
-    subChapterCode: h.subCode,
-    subChapterTitle: h.subTitle,
-    cfcCode: h.cfc,
-    text: h.text,
-    color: h.color,
-  }))
+  // A FreeText note only means "this whole round chapter is a lot" when that chapter has at most
+  // one distinct highlighted code of its own - exactly the "600 Béton" case, where the only
+  // colour under "600" is a single-position sliver ("612") bled in from the previous chapter's
+  // over-drawn highlighter, and the preparer left a note instead of highlighting anything real.
+  // When the round chapter has several distinct highlighted codes (e.g. "800" already has R891,
+  // R892, R894, R898, each its own genuine multi-position lot), the highlighting is clearly
+  // deliberate and a small note nearby (e.g. "Variante préfa" next to one article) is a side
+  // remark on that content, not a chapter-wide instruction - keep the fine-grained lots and drop
+  // the note instead of the other way around.
+  const highlightCodesByRound = new Map<string, Set<string>>()
+  for (const h of highlights) {
+    if (!h.roundCode) continue
+    const roundKey = scopedKey(h.topChapter, h.roundCode)
+    const set = highlightCodesByRound.get(roundKey) ?? new Set<string>()
+    set.add(h.code)
+    highlightCodesByRound.set(roundKey, set)
+  }
+  const wholeChapterNotes = notes.filter(
+    (n) => (highlightCodesByRound.get(scopedKey(n.topChapter, n.code))?.size ?? 0) < 2,
+  )
+  const wholeChapterNoteCodes = new Set(wholeChapterNotes.map((n) => scopedKey(n.topChapter, n.code)))
+  highlights = highlights.filter((h) => !wholeChapterNoteCodes.has(scopedKey(h.topChapter, h.roundCode)))
 
-  // ---- Build lots: group by (color, L1 code, L2 code) across the whole document ----
+  // ---- Build zones (one per highlight run / note, for display and traceability) ----
+  const zones: DetectedZone[] = [
+    ...highlights.map((h) => ({
+      id: uid(),
+      page: h.pages[0],
+      chapterCode: h.code,
+      chapterTitle: h.title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      cfcCode: h.cfc,
+      text: h.text,
+      color: h.color,
+    })),
+    ...wholeChapterNotes.map((n) => ({
+      id: uid(),
+      page: n.pages[0],
+      chapterCode: n.code,
+      chapterTitle: n.title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      cfcCode: n.cfc,
+      text: n.text || n.title,
+      color: 'jaune' as const,
+    })),
+  ]
+
+  // ---- Build lots: group highlight runs by (color, chapter code) across the whole document ----
   interface LotGroup {
     color: 'jaune' | 'autre'
     code: string
     title: string
-    subCode: string
-    subTitle: string
     cfc: string
     pages: Set<number>
     zoneIds: string[]
@@ -344,7 +874,7 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
 
   highlights.forEach((h, idx) => {
     const zoneId = zones[idx].id
-    const key = `${h.color}|${h.code}|${h.subCode}`
+    const key = `${h.color}|${scopedKey(h.topChapter, h.code)}`
     const existing = lotGroups.get(key)
     if (existing) {
       h.pages.forEach((pg) => existing.pages.add(pg))
@@ -355,8 +885,6 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         color: h.color,
         code: h.code,
         title: h.title,
-        subCode: h.subCode,
-        subTitle: h.subTitle,
         cfc: h.cfc,
         pages: new Set(h.pages),
         zoneIds: [zoneId],
@@ -366,16 +894,16 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   })
 
   const lots: Lot[] = Array.from(lotGroups.values()).map((g): Lot => {
-    const title = g.subCode ? `${g.code} ${g.title} — ${g.subCode} ${g.subTitle}` : `${g.code} ${g.title}`
-    const categories = suggestCategories(`${title} ${g.title} ${g.subTitle} ${g.textSample}`)
+    const title = `${g.code} ${g.title}`
+    const categories = suggestLotCategories(title, g.textSample)
     return {
       id: uid(),
       title,
       cfcCode: g.cfc,
       chapterCode: g.code,
       chapterTitle: g.title,
-      subChapterCode: g.subCode,
-      subChapterTitle: g.subTitle,
+      subChapterCode: '',
+      subChapterTitle: '',
       prestationType: (g.color === 'jaune' ? 'fourniture' : 'fourniture_pose') as PrestationType,
       pages: Array.from(g.pages).sort((a, b) => a - b),
       positionCount: g.zoneIds.length,
@@ -385,6 +913,28 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       suppliers: [],
       followUp: [],
     }
+  })
+
+  wholeChapterNotes.forEach((n, idx) => {
+    const zoneId = zones[highlights.length + idx].id
+    const title = `${n.code} ${n.title}`
+    lots.push({
+      id: uid(),
+      title,
+      cfcCode: n.cfc,
+      chapterCode: n.code,
+      chapterTitle: n.title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      prestationType: 'fourniture',
+      pages: n.pages,
+      positionCount: 1,
+      zoneIds: [zoneId],
+      validated: false,
+      categories: suggestLotCategories(title, n.text),
+      suppliers: [],
+      followUp: [],
+    })
   })
 
   lots.sort((a, b) => a.pages[0] - b.pages[0])

@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DetectedZone, Lot, PrestationType, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
-import { listSuppliers, saveSupplier } from '../storage'
+import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
-import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
-
-const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
+import { INACTIVE_STATUSES, companyKey, dedupeLotSuppliers, matchSuppliersForCategories } from '../data/matching'
+import { buildLotEmail } from '../email/draftEmail'
+import { sendLotEmailNow } from '../email/sendLotNow'
+import PdfPreviewModal from './PdfPreviewModal'
 
 export default function LotsTab({
   submission,
   onUpdate,
+  initialSelectedId,
+  onBack,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  initialSelectedId?: string | null
+  onBack?: () => void
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(submission.lots[0]?.id ?? null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? submission.lots[0]?.id ?? null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
@@ -24,6 +29,10 @@ export default function LotsTab({
   useEffect(() => {
     listSuppliers().then(setSuppliers)
   }, [])
+
+  useEffect(() => {
+    if (initialSelectedId) setSelectedId(initialSelectedId)
+  }, [initialSelectedId])
 
   const selectedLot = submission.lots.find((l) => l.id === selectedId) ?? null
 
@@ -51,7 +60,7 @@ export default function LotsTab({
     const toMerge = submission.lots.filter((l) => checked.has(l.id))
     if (toMerge.length < 2) return
     const base = toMerge[0]
-    const merged: Lot = {
+    const mergedRaw: Lot = {
       ...base,
       pages: Array.from(new Set(toMerge.flatMap((l) => l.pages))).sort((a, b) => a - b),
       zoneIds: toMerge.flatMap((l) => l.zoneIds),
@@ -59,7 +68,10 @@ export default function LotsTab({
       categories: Array.from(new Set(toMerge.flatMap((l) => l.categories))),
       suppliers: toMerge.flatMap((l) => l.suppliers),
       followUp: toMerge.flatMap((l) => l.followUp),
+      redactions: toMerge.flatMap((l) => l.redactions ?? []),
     }
+    // une même société présente dans plusieurs lots fusionnés n'est gardée qu'une fois
+    const merged = dedupeLotSuppliers(mergedRaw)
     onUpdate({
       ...submission,
       lots: [merged, ...submission.lots.filter((l) => !checked.has(l.id))],
@@ -94,14 +106,6 @@ export default function LotsTab({
             Fusionner {checked.size} lots sélectionnés
           </button>
         )}
-        <button
-          className="btn-primary w-full mb-3"
-          disabled={!anyEmailSent(submission)}
-          title={anyEmailSent(submission) ? '' : "Disponible dès qu'au moins un e-mail est marqué « envoyé » (seules les consultations envoyées figurent dans la grille)"}
-          onClick={() => exportTrackingGrid(submission)}
-        >
-          ⭳ Générer le tableau de suivi (Excel)
-        </button>
         <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
           {submission.lots.map((lot) => (
             <div
@@ -161,6 +165,7 @@ export default function LotsTab({
             onDelete={() => deleteLot(selectedLot.id)}
             onPreview={() => setPreviewLot(selectedLot)}
             onSplit={(newLots, remainder) => splitLot(selectedLot.id, newLots, remainder)}
+            onBack={onBack}
           />
         ) : (
           <div className="card text-slate-500">Sélectionnez un lot à gauche.</div>
@@ -173,54 +178,6 @@ export default function LotsTab({
     </div>
   )
 }
-
-function PdfPreviewModal({ lot, pdfData, onClose }: { lot: Lot; pdfData: ArrayBuffer; onClose: () => void }) {
-  const [url, setUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let objectUrl: string | null = null
-    extractLotPdf(pdfData, lot.pages)
-      .then((bytes) => {
-        const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
-        objectUrl = URL.createObjectURL(blob)
-        setUrl(objectUrl)
-      })
-      .catch((err) => {
-        console.error(err)
-        setError('Impossible de générer la prévisualisation.')
-      })
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [lot, pdfData])
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3" onClick={onClose}>
-      <div
-        className="bg-white rounded-xl w-full max-w-[1400px] h-[94vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <h3 className="font-medium text-slate-800 truncate">
-            CFC {lot.cfcCode} — {lot.title} · pages {lot.pages.join(', ')}
-          </h3>
-          <button className="btn-secondary" onClick={onClose}>
-            ✕ Fermer
-          </button>
-        </div>
-        <div className="flex-1 bg-slate-100">
-          {error && <p className="p-4 text-sm text-red-600">{error}</p>}
-          {url && <iframe title="Prévisualisation du lot" src={url} className="w-full h-full border-0" />}
-          {!url && !error && <p className="p-4 text-sm text-slate-500">Génération de la prévisualisation…</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/** Adresse INDUNI en destinataire : un seul e-mail, les fournisseurs sont en Cci. */
-const INDUNI_SOUMISSIONS_EMAIL = 'soumissions@induni.ch'
 
 const KEEP_IN_ORIGINAL = '__keep__'
 
@@ -354,6 +311,7 @@ function LotDetail({
   onDelete,
   onPreview,
   onSplit,
+  onBack,
 }: {
   lot: Lot
   submission: Submission
@@ -363,19 +321,33 @@ function LotDetail({
   onDelete: () => void
   onPreview: () => void
   onSplit: (newLots: Lot[], remainder: Lot | null) => void
+  onBack?: () => void
 }) {
   const [categoryInput, setCategoryInput] = useState('')
   const [newSupplier, setNewSupplier] = useState({ name: '', email: '', category: '' })
   const [pdfBusy, setPdfBusy] = useState(false)
   const [emailGenerated, setEmailGenerated] = useState(Boolean(lot.emailBody))
   const [splitOpen, setSplitOpen] = useState(false)
+  const [bccOverride, setBccOverride] = useState<string | null>(null)
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [sendOk, setSendOk] = useState(false)
+  const [manualSearch, setManualSearch] = useState('')
 
-  const categoryMatches = useMemo(() => {
-    if (!lot.categories.length) return []
-    const norm = (s: string) => s.trim().toLowerCase()
-    const wanted = new Set(lot.categories.map(norm))
-    return suppliers.filter((s) => wanted.has(norm(s.category)))
-  }, [suppliers, lot.categories])
+  const categoryMatches = useMemo(
+    () => matchSuppliersForCategories(suppliers, lot.categories, lot.prestationType),
+    [suppliers, lot.categories, lot.prestationType],
+  )
+
+  // Independent of category matching, for when suggestCategories() missed or misfired and
+  // there's nothing to browse otherwise (search the whole base by name, not by category).
+  const manualMatches = useMemo(() => {
+    const q = manualSearch.trim().toLowerCase()
+    if (q.length < 2) return []
+    return suppliers
+      .filter((s) => s.name.toLowerCase().includes(q) && !lot.suppliers.some((x) => x.supplierId === s.id))
+      .slice(0, 8)
+  }, [manualSearch, suppliers, lot.suppliers])
 
   const lotZones = useMemo(
     () => submission.zones.filter((z) => lot.zoneIds.includes(z.id)),
@@ -401,9 +373,16 @@ function LotDetail({
     onChange({ categories: lot.categories.filter((x) => x !== c) })
   }
 
-  function addSupplierToLot(s: SupplierRecord) {
-    if (lot.suppliers.some((x) => x.supplierId === s.id)) return
+  // `learn` records that this supplier belongs with this CFC/chapter (a national CAN code, not
+  // project-specific) for next time - reserved for the cases where a human had to step in
+  // because suggestCategories() missed or misfired, not for confirming an already-correct
+  // automatic suggestion (that would just add noise to the learned table).
+  function addSupplierToLot(s: SupplierRecord, learn = false) {
+    if (lot.suppliers.some((x) => x.supplierId === s.id || companyKey(x.name) === companyKey(s.name))) return
     onChange({ suppliers: [...lot.suppliers, { supplierId: s.id, name: s.name, email: s.email, status: 'valide' }] })
+    if (learn) {
+      learnManualSupplier(lot, s.id)
+    }
   }
 
   function removeSupplierFromLot(supplierId: string) {
@@ -415,7 +394,7 @@ function LotDetail({
     const record: SupplierRecord = { id: uid(), ...newSupplier, status: 'Actif / à confirmer' }
     await saveSupplier(record)
     onSuppliersChange([...suppliers, record])
-    addSupplierToLot(record)
+    addSupplierToLot(record, true)
     setNewSupplier({ name: '', email: '', category: '' })
   }
 
@@ -423,7 +402,7 @@ function LotDetail({
     if (!submission.pdfData) return
     setPdfBusy(true)
     try {
-      const bytes = await extractLotPdf(submission.pdfData, lot.pages)
+      const bytes = await extractLotPdf(submission.pdfData, lot.pages, lot.redactions)
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -436,27 +415,35 @@ function LotDetail({
     }
   }
 
+  // Sends the lot's e-mail for real, server-side, with the lot's PDF already attached - no file
+  // to download, nothing to double-click. The recipients/subject/body are already editable right
+  // above this button, so review happens in the app before the click, not in an external mail
+  // client afterwards.
+  async function sendEmailNow() {
+    const recipients = bccText.split(',').map((s) => s.trim()).filter(Boolean)
+    if (recipients.length === 0) return
+    setSendBusy(true)
+    setSendError(null)
+    setSendOk(false)
+    try {
+      await sendLotEmailNow({
+        submission,
+        lot,
+        bcc: recipients,
+        subject: lot.emailSubject ?? '',
+        body: lot.emailBody ?? '',
+      })
+      setSendOk(true)
+      markAllSent()
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Échec de l'envoi")
+    } finally {
+      setSendBusy(false)
+    }
+  }
+
   function generateEmail() {
-    const subject = `Demande de prix — ${[submission.info.siteNumber, submission.info.projectName].filter(Boolean).join(' - ') || submission.name}`
-    const deadlineTxt = submission.info.deadline
-      ? new Date(submission.info.deadline).toLocaleDateString('fr-CH')
-      : '[date limite]'
-    const body = [
-      `DATE DE REPONSE SOUHAITEE : ${deadlineTxt}`,
-      '',
-      'Bonjour,',
-      '',
-      `Merci de bien vouloir nous transmettre votre offre pour les prestations décrites selon soumission ci-annexée (${lot.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'}).`,
-      '',
-      "N'hésitez pas à chiffrer l'ensemble des positions qui vous intéressent et à proposer des variantes qui vous semblent pertinentes.",
-      '',
-      `Plans : ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
-      '',
-      'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
-      `${submission.info.siteNumber || '[N° de chantier]'} - ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
-      '',
-      `Calculateur : ${submission.info.calculatorName || '[Nom]'} — ${submission.info.calculatorEmail || ''} — ${submission.info.calculatorPhone || ''}`,
-    ].join('\n')
+    const { subject, body } = buildLotEmail(lot, submission.info)
 
     const followUp = lot.suppliers.map((s) => {
       const existing = lot.followUp.find((f) => f.supplierId === s.supplierId)
@@ -479,6 +466,8 @@ function LotDetail({
       followUp,
     })
     setEmailGenerated(true)
+    setSendOk(false)
+    setSendError(null)
   }
 
   function copyToClipboard(text: string) {
@@ -493,18 +482,18 @@ function LotDetail({
   }
 
   const bccList = lot.suppliers.map((s) => s.email).filter(Boolean)
-  // Zone Cci modifiable (sélection + collage possibles) ; repart de la liste des fournisseurs dès qu'elle change.
-  const [bccText, setBccText] = useState(bccList.join(', '))
-  const bccKey = bccList.join(', ')
-  useEffect(() => setBccText(bccKey), [bccKey, lot.id])
-  const bccValue = bccText
-    .split(/[,;\s]+/)
-    .filter(Boolean)
-    .join(',')
   const missingEmail = lot.suppliers.filter((s) => !s.email)
+  // Editable, and seeded from the retained suppliers' addresses - lets you type in one by hand
+  // when a supplier (like one with no e-mail on file yet) needs to be added on the fly.
+  const bccText = bccOverride ?? bccList.join(', ')
 
   return (
     <div className="space-y-6">
+      {onBack && (
+        <button className="btn-secondary" onClick={onBack}>
+          ← Retour au suivi
+        </button>
+      )}
       <div className="card">
         <div className="flex items-start justify-between">
           <div className="grid grid-cols-3 gap-4 flex-1">
@@ -670,7 +659,41 @@ function LotDetail({
           </div>
         )}
 
-        <details className="mt-2">
+        <div className="mt-3">
+          <label className="label">Rechercher un fournisseur existant dans la base</label>
+          <input
+            className="input"
+            placeholder="Nom du fournisseur..."
+            value={manualSearch}
+            onChange={(e) => setManualSearch(e.target.value)}
+          />
+          {manualSearch.trim().length >= 2 &&
+            (manualMatches.length > 0 ? (
+              <div className="space-y-1.5 mt-2">
+                {manualMatches.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
+                    <span>
+                      <strong>{s.name}</strong> · {s.category}
+                      {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
+                    </span>
+                    <button
+                      className="btn-secondary !py-1"
+                      onClick={() => {
+                        addSupplierToLot(s, true)
+                        setManualSearch('')
+                      }}
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 mt-2">Aucun fournisseur trouvé pour « {manualSearch} ».</p>
+            ))}
+        </div>
+
+        <details className="mt-3">
           <summary className="cursor-pointer text-sm text-indigo-600">+ Ajouter un nouveau fournisseur à la base</summary>
           <div className="grid grid-cols-2 gap-3 mt-3">
             <input
@@ -706,12 +729,13 @@ function LotDetail({
             📄 {pdfBusy ? 'Génération...' : "Générer le PDF du lot (pages d'origine)"}
           </button>
           <button className="btn-primary" onClick={generateEmail} disabled={lot.suppliers.length === 0}>
-            ✉️ Générer l'e-mail groupé pour ce lot
+            ✉️ Préparer l'e-mail groupé pour ce lot
           </button>
         </div>
         <p className="text-sm text-slate-500">
-          Un seul e-mail est créé par lot, avec tous les fournisseurs retenus en copie cachée (Cci) afin qu'ils ne
-          se voient pas entre eux.
+          Un seul e-mail est préparé par lot, avec tous les fournisseurs retenus en copie cachée (Cci) afin qu'ils
+          ne se voient pas entre eux, et le PDF du lot déjà joint. Relisez les destinataires, l'objet et le corps
+          ci-dessous puis cliquez sur « Envoyer » — l'e-mail part directement, sans fichier à ouvrir.
         </p>
 
         {missingEmail.length > 0 && (
@@ -726,7 +750,12 @@ function LotDetail({
               E-mail groupé — {lot.suppliers.length} fournisseur(s) en copie cachée (Cci)
             </h4>
             <Field label="Destinataires (Cci, séparés par des virgules)">
-              <input className="input" value={bccText} onChange={(e) => setBccText(e.target.value)} />
+              <input
+                className="input"
+                value={bccText}
+                onChange={(e) => setBccOverride(e.target.value)}
+                placeholder="adresse@exemple.ch, ..."
+              />
             </Field>
             <Field label="Objet">
               <input
@@ -741,20 +770,21 @@ function LotDetail({
               value={lot.emailBody}
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
+            {sendError && <p className="text-sm text-red-600 mt-3">⚠ {sendError}</p>}
+            {sendOk && !sendError && (
+              <p className="text-sm text-green-600 mt-3">✅ E-mail envoyé et suivi marqué "Envoyé".</p>
+            )}
             <div className="flex flex-wrap gap-2 mt-3">
-              <a
+              <button
                 className="btn-primary"
-                href={`mailto:${INDUNI_SOUMISSIONS_EMAIL}?bcc=${encodeURIComponent(bccValue)}&subject=${encodeURIComponent(
-                  lot.emailSubject ?? '',
-                )}&body=${encodeURIComponent(lot.emailBody ?? '')}`}
+                disabled={sendBusy || bccText.trim().length === 0}
+                onClick={sendEmailNow}
               >
-                ✉️ Ouvrir dans ma messagerie
-              </a>
+                🚀 {sendBusy ? 'Envoi en cours...' : "Envoyer l'e-mail maintenant"}
+              </button>
               <button
                 className="btn-secondary"
-                onClick={() =>
-                  copyToClipboard(`À: ${INDUNI_SOUMISSIONS_EMAIL}\nCci: ${bccValue.split(',').join(', ')}\nObjet: ${lot.emailSubject}\n\n${lot.emailBody}`)
-                }
+                onClick={() => copyToClipboard(`À (Cci): ${bccText}\nObjet: ${lot.emailSubject}\n\n${lot.emailBody}`)}
               >
                 Copier objet + destinataires + corps
               </button>

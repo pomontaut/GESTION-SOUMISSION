@@ -1,47 +1,34 @@
-import { useState } from 'react'
-import type { FollowUpEntry, Lot, Submission } from '../types'
-import { MODELS, generateTco, getApiKey, getModel, setApiKey, setModel } from '../agent/acheteurAgent'
-import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
+import { useId, useMemo, useState } from 'react'
+import type { FollowUpEntry, Lot, LotPosition, Submission } from '../types'
+import { uid } from '../types'
+import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
+import { extractAmountFromPdf } from '../pdf/extractAmount'
+import { detectLotHeterogeneity } from '../data/categorize'
+import { exportTrackingGrid, hasGridData } from '../export/trackingGrid'
+import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
+import { runTcoAgent } from '../tco/runTcoAgent'
 import { exportTcoExcel } from '../export/tcoExcel'
+import PdfPreviewModal from './PdfPreviewModal'
 
-/** Seules les consultations réellement envoyées apparaissent dans le suivi. */
-const sentFollowUp = (lot: Lot) => lot.followUp.filter((f) => f.status === 'envoye')
+// Fournisseur à qui la consultation a réellement été envoyée (statut Envoyé, ou date d'envoi saisie
+// pour un envoi fait hors de l'outil).
+function sentFollowUp(lot: Lot): FollowUpEntry[] {
+  return lot.followUp.filter((f) => f.status === 'envoye' || !!f.sentDate)
+}
 
 export default function DashboardTab({
   submission,
   onUpdate,
+  onEditLot,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  onEditLot: (lotId: string) => void
 }) {
-  const [apiKey, setApiKeyState] = useState(getApiKey())
-  const [model, setModelState] = useState(getModel())
-  const [tcoBusy, setTcoBusy] = useState<Record<string, string>>({})
-  const [tcoError, setTcoError] = useState<Record<string, string>>({})
-
-  async function attachOffer(lotId: string, supplierId: string, file: File | undefined) {
-    if (!file) return
-    updateFollowUp(lotId, supplierId, {
-      offerFileName: file.name,
-      offerMime: file.type || 'application/pdf',
-      offerData: await file.arrayBuffer(),
-    })
-  }
-
-  async function runTco(lot: Lot) {
-    setTcoError((e) => ({ ...e, [lot.id]: '' }))
-    try {
-      const tco = await generateTco(submission, lot, (msg) => setTcoBusy((b) => ({ ...b, [lot.id]: msg })))
-      await exportTcoExcel(tco, `TCO ${submission.info.projectName || submission.name} - CFC ${lot.cfcCode}.xlsx`)
-    } catch (e) {
-      setTcoError((er) => ({ ...er, [lot.id]: e instanceof Error ? e.message : String(e) }))
-    } finally {
-      setTcoBusy((b) => {
-        const { [lot.id]: _done, ...rest } = b
-        return rest
-      })
-    }
-  }
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const [previewLot, setPreviewLot] = useState<Lot | null>(null)
+  const [generatingTcoId, setGeneratingTcoId] = useState<string | null>(null)
+  const [tcoStatus, setTcoStatus] = useState('')
 
   function updateLot(id: string, patch: Partial<Lot>) {
     onUpdate({ ...submission, lots: submission.lots.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
@@ -54,6 +41,48 @@ export default function DashboardTab({
       followUp: lot.followUp.map((f) => (f.supplierId === supplierId ? { ...f, ...patch } : f)),
     })
   }
+
+  // Dropping the supplier's offer stores the file server-side and, when it's a PDF, tries to
+  // pick out the quote's total automatically so "Montant estimé" doesn't have to be retyped by
+  // hand - it stays a plain editable field afterwards for whenever the heuristic misses.
+  async function handleOfferFile(lotId: string, supplierId: string, file: File) {
+    const key = `${lotId}:${supplierId}`
+    setUploadingKey(key)
+    try {
+      const fileId = uid()
+      await uploadOfferFile(submission.id, fileId, file)
+      const patch: Partial<FollowUpEntry> = { offerFileId: fileId, offerFileName: file.name }
+      if (file.type === 'application/pdf') {
+        const amount = await extractAmountFromPdf(await file.arrayBuffer())
+        if (amount) patch.estimatedAmount = amount
+      }
+      updateFollowUp(lotId, supplierId, patch)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Échec de l'envoi du fichier")
+    } finally {
+      setUploadingKey(null)
+    }
+  }
+
+  async function handleRemoveOffer(lotId: string, supplierId: string, fileId: string) {
+    try {
+      await deleteOfferFile(submission.id, fileId)
+    } catch {
+      // The reference is cleared locally regardless - a stray blob server-side isn't worth blocking on.
+    }
+    updateFollowUp(lotId, supplierId, { offerFileId: undefined, offerFileName: undefined })
+  }
+
+  // Flags lots the agent grouped together that actually mix distinct product categories - worth a
+  // manual look before the automatically-picked suppliers go out.
+  const heterogeneityByLot = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof detectLotHeterogeneity>>()
+    for (const lot of submission.lots) {
+      const texts = submission.zones.filter((z) => lot.zoneIds.includes(z.id)).map((z) => z.text)
+      map.set(lot.id, detectLotHeterogeneity(texts))
+    }
+    return map
+  }, [submission.lots, submission.zones])
 
   function relance(lotId: string, supplierId: string) {
     updateFollowUp(lotId, supplierId, { relanceDate: new Date().toISOString().slice(0, 10) })
@@ -94,15 +123,35 @@ export default function DashboardTab({
     downloadBlob(csv, `${submission.info.projectName || 'soumission'}-suivi.csv`, 'text/csv')
   }
 
-  function exportJson() {
-    const { pdfData: _pdfData, ...base } = submission
-    const rest = {
-      ...base,
-      lots: base.lots.map((l) => ({
-        ...l,
-        followUp: l.followUp.map(({ offerData: _offer, ...f }) => f),
-      })),
+  async function handleTrackingGrid() {
+    try {
+      await exportTrackingGrid(submission)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Échec de la génération du tableau de suivi')
     }
+  }
+
+  async function handleGenerateTco(lot: Lot) {
+    setGeneratingTcoId(lot.id)
+    try {
+      if (lot.followUp.some((f) => f.offerFileId)) {
+        // Offres jointes : l'agent acheteur les lit et produit le TCO synthétique (format de référence).
+        const tco = await runTcoAgent(lot, submission, setTcoStatus)
+        await exportTcoExcel(tco, tcoFilename(lot))
+      } else {
+        // Aucune offre jointe : comparatif de suivi simple, à partir des montants saisis.
+        downloadBlobFile(await generateTcoWorkbook(lot, submission), tcoFilename(lot))
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Échec de la génération du TCO')
+    } finally {
+      setGeneratingTcoId(null)
+      setTcoStatus('')
+    }
+  }
+
+  function exportJson() {
+    const { pdfData: _pdfData, ...rest } = submission
     downloadBlob(JSON.stringify(rest, null, 2), `${submission.info.projectName || 'soumission'}.json`, 'application/json')
   }
 
@@ -140,8 +189,9 @@ export default function DashboardTab({
         <div className="flex gap-2 mt-4">
           <button
             className="btn-primary"
-            disabled={!anyEmailSent(submission)}
-            onClick={() => exportTrackingGrid(submission)}
+            disabled={!hasGridData(submission)}
+            title={hasGridData(submission) ? '' : "Aucun lot n'a de fournisseur"}
+            onClick={handleTrackingGrid}
           >
             ⭳ Générer le tableau de suivi (Excel)
           </button>
@@ -152,56 +202,23 @@ export default function DashboardTab({
             ⭳ Exporter tout (JSON, sans fichiers joints)
           </button>
         </div>
-        {!anyEmailSent(submission) && (
-          <p className="text-xs text-slate-500 mt-2">
-            Le tableau de suivi est disponible quand au moins un e-mail est marqué « envoyé » (onglet 2) ; seules les consultations envoyées y figurent.
-          </p>
-        )}
       </div>
 
-      <div className="card">
-        <h3 className="font-semibold text-slate-800 mb-1">Assistant acheteur (IA)</h3>
-        <p className="text-sm text-slate-500 mb-3">
-          Génère le TCO d'un lot à partir du besoin et des offres jointes. La clé API reste dans ce navigateur et les
-          documents sont envoyés à l'API Anthropic pour l'analyse.
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Clé API Anthropic</label>
-            <input
-              type="password"
-              className="input"
-              placeholder="sk-ant-…"
-              value={apiKey}
-              onChange={(e) => {
-                setApiKeyState(e.target.value)
-                setApiKey(e.target.value)
-              }}
-            />
-          </div>
-          <div>
-            <label className="label">Modèle</label>
-            <select
-              className="input"
-              value={model}
-              onChange={(e) => {
-                setModelState(e.target.value)
-                setModel(e.target.value)
-              }}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {submission.lots.filter((l) => sentFollowUp(l).length > 0).map((lot) => (
+      {submission.lots.map((fullLot) => {
+        // Le suivi ne concerne que les fournisseurs à qui la consultation a été envoyée.
+        const lot = { ...fullLot, followUp: sentFollowUp(fullLot) }
+        const heterogeneity = heterogeneityByLot.get(lot.id)
+        return (
         <div key={lot.id} className="card overflow-x-auto">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <button
+              title="Voir le PDF et la zone détectée pour ce lot"
+              className="text-slate-400 hover:text-indigo-600 text-lg leading-none"
+              onClick={() => setPreviewLot(fullLot)}
+              disabled={!submission.pdfData}
+            >
+              🔍
+            </button>
             <h3 className="font-semibold text-slate-800">
               CFC {lot.cfcCode} — {lot.title}
             </h3>
@@ -209,36 +226,59 @@ export default function DashboardTab({
               {lot.validated ? 'Validé' : 'Proposé'}
             </span>
             <span className="text-xs text-slate-500">
-              {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.suppliers.length} fournisseur(s) ·{' '}
-              {sentFollowUp(lot).filter((f) => f.offeredAmount).length}/{sentFollowUp(lot).length} offre(s) reçue(s)
+              {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.followUp.length} fournisseur(s) sollicité(s) ·{' '}
+              {lot.followUp.filter((f) => f.offeredAmount).length}/{lot.followUp.length} offre(s) reçue(s)
             </span>
-            <span className="text-xs text-slate-400 ml-auto">pages {lot.pages.join(', ')}</span>
-            <button
-              className="btn-primary"
-              disabled={Boolean(tcoBusy[lot.id]) || !lot.followUp.some((f) => f.offerData)}
-              title={lot.followUp.some((f) => f.offerData) ? '' : 'Joignez au moins une offre à ce lot'}
-              onClick={() => runTco(lot)}
-            >
-              {tcoBusy[lot.id] ? '⏳ ' + tcoBusy[lot.id] : '⭳ Générer un TCO'}
-            </button>
+            <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
+            <div className="flex gap-2 ml-auto">
+              <button
+                className="btn-secondary !py-1"
+                disabled={lot.followUp.length === 0 || generatingTcoId === lot.id}
+                title={lot.followUp.length === 0 ? 'Aucun fournisseur sollicité pour ce lot' : undefined}
+                onClick={() => handleGenerateTco(lot)}
+              >
+                📊 {generatingTcoId === lot.id ? tcoStatus || 'Génération...' : 'Générer un TCO'}
+              </button>
+              <button className="btn-secondary !py-1" onClick={() => onEditLot(lot.id)}>
+                ✎ Modifier fournisseurs / e-mail
+              </button>
+            </div>
           </div>
-          {tcoError[lot.id] && <p className="text-sm text-red-600 mb-2">{tcoError[lot.id]}</p>}
 
-          {sentFollowUp(lot).length === 0 ? (
+          {heterogeneity && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+              ⚠️ Ce lot semble mélanger des produits différents ({heterogeneity.categories.join(', ')}) — vérifiez
+              s'il ne faudrait pas le scinder.{' '}
+              <button className="underline" onClick={() => onEditLot(lot.id)}>
+                Vérifier / scinder
+              </button>
+            </p>
+          )}
+
+          {lot.followUp.length === 0 ? (
             <p className="text-sm text-slate-400">
-              Aucun suivi — générez l'e-mail groupé dans l'onglet 2 pour initialiser le suivi des fournisseurs.
+              {fullLot.followUp.length === 0
+                ? 'Aucun fournisseur trouvé automatiquement pour ce lot — '
+                : "Aucun fournisseur sollicité pour l'instant : ils apparaissent ici une fois la consultation envoyée — "}
+              <button className="underline" onClick={() => onEditLot(lot.id)}>
+                {fullLot.followUp.length === 0 ? 'ouvrez-le pour en ajouter manuellement' : 'ouvrir le lot'}
+              </button>
+              .
             </p>
           ) : (
             <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="text-left text-slate-500 border-b border-slate-200">
                   <th className="py-1.5 pr-2">Fournisseur</th>
-                  <th className="py-1.5 pr-2">Offre jointe</th>
                   <th className="py-1.5 pr-2">Statut</th>
                   <th className="py-1.5 pr-2">Date envoi</th>
                   <th className="py-1.5 pr-2">Relance</th>
-                  <th className="py-1.5 pr-2">Montant estimé</th>
-                  <th className="py-1.5 pr-2">Montant offert</th>
+                  <th className="py-1.5 pr-2">Offre reçue</th>
+                  <th className="py-1.5 pr-2">Montant estimé (HT)</th>
+                  <th className="py-1.5 pr-2">Montant offert (HT)</th>
+                  <th className="py-1.5 pr-2">Délai</th>
+                  <th className="py-1.5 pr-2">Validité offre</th>
+                  <th className="py-1.5 pr-2">Conditions paiement</th>
                   <th className="py-1.5 pr-2">Conforme</th>
                   <th className="py-1.5 pr-2">Date retour</th>
                   <th className="py-1.5 pr-2">Notes</th>
@@ -246,39 +286,11 @@ export default function DashboardTab({
                 </tr>
               </thead>
               <tbody>
-                {sentFollowUp(lot).map((f) => (
+                {lot.followUp.map((f) => (
                   <tr key={f.supplierId} className="border-b border-slate-100">
                     <td className="py-1.5 pr-2">
                       {f.name}
                       <div className="text-xs text-slate-400">{f.email}</div>
-                    </td>
-                    <td className="py-1.5 pr-2 text-xs">
-                      {f.offerFileName ? (
-                        <div className="flex items-center gap-1">
-                          <span className="truncate max-w-[140px]" title={f.offerFileName}>
-                            📎 {f.offerFileName}
-                          </span>
-                          <button
-                            className="text-slate-400 hover:text-red-600"
-                            onClick={() =>
-                              updateFollowUp(lot.id, f.supplierId, {
-                                offerFileName: undefined,
-                                offerMime: undefined,
-                                offerData: undefined,
-                              })
-                            }
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <input
-                          type="file"
-                          accept="application/pdf,image/png,image/jpeg"
-                          className="w-40"
-                          onChange={(e) => attachOffer(lot.id, f.supplierId, e.target.files?.[0])}
-                        />
-                      )}
                     </td>
                     <td className="py-1.5 pr-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs ${f.status === 'envoye' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
@@ -300,9 +312,21 @@ export default function DashboardTab({
                       {f.relanceDate && <div className="text-xs text-slate-400 mt-0.5">{f.relanceDate}</div>}
                     </td>
                     <td className="py-1.5 pr-2">
+                      <OfferDropCell
+                        fileName={f.offerFileName}
+                        fileUrl={f.offerFileId ? offerFileUrl(submission.id, f.offerFileId) : undefined}
+                        busy={uploadingKey === `${lot.id}:${f.supplierId}`}
+                        onFile={(file) => handleOfferFile(lot.id, f.supplierId, file)}
+                        onRemove={
+                          f.offerFileId ? () => handleRemoveOffer(lot.id, f.supplierId, f.offerFileId!) : undefined
+                        }
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
                       <input
                         className="input !py-1 w-24"
-                        placeholder="CHF"
+                        placeholder="CHF HT"
+                        title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
                         value={f.estimatedAmount ?? ''}
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { estimatedAmount: e.target.value })}
                       />
@@ -310,9 +334,34 @@ export default function DashboardTab({
                     <td className="py-1.5 pr-2">
                       <input
                         className="input !py-1 w-24"
-                        placeholder="CHF"
+                        placeholder="CHF HT"
+                        title="Toujours en HT - le comparatif compare systématiquement les montants hors taxe"
                         value={f.offeredAmount ?? ''}
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { offeredAmount: e.target.value })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        className="input !py-1 w-24"
+                        placeholder="8 semaines"
+                        value={f.deliveryTime ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { deliveryTime: e.target.value })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        type="date"
+                        className="input !py-1"
+                        value={f.offerValidUntil ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { offerValidUntil: e.target.value })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        className="input !py-1 w-28"
+                        placeholder="30 jours net"
+                        value={f.paymentTerms ?? ''}
+                        onChange={(e) => updateFollowUp(lot.id, f.supplierId, { paymentTerms: e.target.value })}
                       />
                     </td>
                     <td className="py-1.5 pr-2 text-center">
@@ -321,6 +370,14 @@ export default function DashboardTab({
                         checked={f.conforme}
                         onChange={(e) => updateFollowUp(lot.id, f.supplierId, { conforme: e.target.checked })}
                       />
+                      {!f.conforme && (
+                        <input
+                          className="input !py-1 w-28 mt-1"
+                          placeholder="Motif"
+                          value={f.nonConformityReason ?? ''}
+                          onChange={(e) => updateFollowUp(lot.id, f.supplierId, { nonConformityReason: e.target.value })}
+                        />
+                      )}
                     </td>
                     <td className="py-1.5 pr-2">
                       <input
@@ -350,20 +407,220 @@ export default function DashboardTab({
               </tbody>
             </table>
           )}
+
+          {lot.followUp.length > 0 && <PositionsGrid lot={lot} onUpdate={(patch) => updateLot(lot.id, patch)} />}
         </div>
-      ))}
+        )
+      })}
+
+      {previewLot && submission.pdfData && (
+        <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
+      )}
+    </div>
+  )
+}
+
+function OfferDropCell({
+  fileName,
+  fileUrl,
+  busy,
+  onFile,
+  onRemove,
+}: {
+  fileName?: string
+  fileUrl?: string
+  busy: boolean
+  onFile: (file: File) => void
+  onRemove?: () => void
+}) {
+  const [dragOver, setDragOver] = useState(false)
+  const inputId = useId()
+
+  return (
+    <div
+      className={`w-36 rounded border border-dashed px-2 py-1.5 text-xs transition-colors ${
+        dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300'
+      }`}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        const file = e.dataTransfer.files[0]
+        if (file) onFile(file)
+      }}
+    >
+      {busy ? (
+        <span className="text-slate-400">Envoi...</span>
+      ) : fileName ? (
+        <div className="flex items-center justify-between gap-1">
+          {fileUrl ? (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-600 truncate"
+              title={fileName}
+            >
+              📎 {fileName}
+            </a>
+          ) : (
+            <span className="truncate" title={fileName}>
+              📎 {fileName}
+            </span>
+          )}
+          {onRemove && (
+            <button type="button" onClick={onRemove} className="text-slate-400 hover:text-red-600">
+              ✕
+            </button>
+          )}
+        </div>
+      ) : (
+        <label htmlFor={inputId} className="cursor-pointer text-slate-400 block">
+          ⭱ Glisser l'offre ici
+          <input
+            id={inputId}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onFile(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      )}
     </div>
   )
 }
 
 function downloadBlob(content: string, filename: string, type: string) {
-  const blob = new Blob([content], { type })
+  downloadBlobFile(new Blob([content], { type }), filename)
+}
+
+function downloadBlobFile(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// Per-CAN-article price grid (see types.ts Lot.positions) - no supplier returns this in a common
+// structured format, so it's entered by hand here rather than extracted automatically, unlike the
+// single lump "Montant offert" above. Collapsed by default since most lots won't need this level
+// of detail; useful when the lump-sum totals alone don't explain why offers differ.
+function PositionsGrid({ lot, onUpdate }: { lot: Lot; onUpdate: (patch: Partial<Lot>) => void }) {
+  // `unitPrices` defaults to {} defensively - a position saved before this field existed (or any
+  // future shape drift) must never crash the grid, just show empty PU cells.
+  const positions = (lot.positions ?? []).map((p) => ({ ...p, unitPrices: p.unitPrices ?? {} }))
+
+  function addPosition() {
+    onUpdate({ positions: [...positions, { id: uid(), code: '', title: '', unitPrices: {} }] })
+  }
+  function updatePosition(id: string, patch: Partial<LotPosition>) {
+    onUpdate({ positions: positions.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+  }
+  function removePosition(id: string) {
+    onUpdate({ positions: positions.filter((p) => p.id !== id) })
+  }
+  function updateUnitPrice(posId: string, supplierId: string, amount: string) {
+    onUpdate({
+      positions: positions.map((p) =>
+        p.id === posId ? { ...p, unitPrices: { ...p.unitPrices, [supplierId]: amount } } : p,
+      ),
+    })
+  }
+
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer text-sm text-slate-500 hover:text-indigo-600">
+        📐 Comparatif par article CAN {positions.length > 0 ? `(${positions.length})` : ''}
+      </summary>
+      <p className="text-xs text-slate-400 mt-1">
+        La quantité est celle du métré, commune à tous les fournisseurs - un fournisseur qui ne
+        donne que son prix unitaire (PU) sans quantité ni total reste comparable : le total par
+        article se calcule automatiquement (PU × quantité).
+      </p>
+      <div className="mt-2 overflow-x-auto">
+        <table className="text-sm min-w-[700px]">
+          <thead>
+            <tr className="text-left text-slate-500 border-b border-slate-200">
+              <th className="py-1 pr-2">Code</th>
+              <th className="py-1 pr-2">Désignation</th>
+              <th className="py-1 pr-2">Quantité</th>
+              <th className="py-1 pr-2">Unité</th>
+              {lot.followUp.map((f) => (
+                <th key={f.supplierId} className="py-1 pr-2">
+                  {f.name} (PU HT)
+                </th>
+              ))}
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((p) => (
+              <tr key={p.id} className="border-b border-slate-100">
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-20"
+                    placeholder="541.201"
+                    value={p.code}
+                    onChange={(e) => updatePosition(p.id, { code: e.target.value })}
+                  />
+                </td>
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-40"
+                    value={p.title}
+                    onChange={(e) => updatePosition(p.id, { title: e.target.value })}
+                  />
+                </td>
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-20"
+                    placeholder="120.5"
+                    value={p.quantity ?? ''}
+                    onChange={(e) => updatePosition(p.id, { quantity: e.target.value })}
+                  />
+                </td>
+                <td className="py-1 pr-2">
+                  <input
+                    className="input !py-1 w-16"
+                    placeholder="m2"
+                    value={p.unit ?? ''}
+                    onChange={(e) => updatePosition(p.id, { unit: e.target.value })}
+                  />
+                </td>
+                {lot.followUp.map((f) => (
+                  <td key={f.supplierId} className="py-1 pr-2">
+                    <input
+                      className="input !py-1 w-24"
+                      placeholder="CHF HT"
+                      value={p.unitPrices[f.supplierId] ?? ''}
+                      onChange={(e) => updateUnitPrice(p.id, f.supplierId, e.target.value)}
+                    />
+                  </td>
+                ))}
+                <td>
+                  <button onClick={() => removePosition(p.id)} className="text-slate-400 hover:text-red-600">
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button className="btn-secondary !py-1 mt-2" onClick={addPosition}>
+          + Ajouter un article
+        </button>
+      </div>
+    </details>
+  )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
