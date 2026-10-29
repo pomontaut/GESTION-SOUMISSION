@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Submission, SubmissionInfo } from '../types'
-import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
+import { BUYER_OPTIONS, ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
 import { listAgentRules, listLotSupplierLearnings, listSuppliers } from '../storage'
@@ -158,6 +158,20 @@ export default function ExtractionTab({
               value={submission.info.siteLocation}
               onChange={(e) => updateInfo({ siteLocation: e.target.value })}
             />
+          </Field>
+          <Field label="Acheteur">
+            <select
+              className="input"
+              value={submission.info.buyerName ?? ''}
+              onChange={(e) => updateInfo({ buyerName: e.target.value })}
+            >
+              <option value="">— Choisir —</option>
+              {BUYER_OPTIONS.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Entité">
             <select

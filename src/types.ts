@@ -17,6 +17,8 @@ export const KNOWN_CALCULATORS: Calculator[] = [
   { name: 'Lucas Mouaz', email: 'lmouaz@induni.ch', phone: '+41 76 380 83 45', entities: ['BAT VD'] },
 ]
 
+export const BUYER_OPTIONS = ['Nina HEIDER', 'Emilie BARANSKI', 'Pierre-Olivier MONTAUT']
+
 export const ENTITY_OPTIONS = ['BAT GE', 'BAT VD', 'GC', 'TRANSFO GE', 'TRANSFO VD']
 
 export interface SubmissionInfo {
@@ -24,6 +26,7 @@ export interface SubmissionInfo {
   projectName: string // Nom du chantier
   siteLocation: string
   entity: string
+  buyerName?: string // Acheteur (encadré ACHETEUR de la grille de suivi)
   calculatorName: string
   calculatorEmail: string
   calculatorPhone: string

@@ -75,7 +75,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
 
   const sentDates = lots.flatMap((l) => l.followUp.map((f) => f.sentDate).filter(Boolean) as string[]).sort()
   const header: [string, string][] = [
-    ['ACHETEUR', ''],
+    ['ACHETEUR', info.buyerName ?? ''],
     ['NOM DU PROJET', [info.projectName, info.siteLocation, info.siteNumber].filter(Boolean).join(' - ')],
     ['DATE DE LA DEMANDE', fmtDate(sentDates[0])],
     ['DATE DE RETOUR', fmtDate(info.deadline)],
