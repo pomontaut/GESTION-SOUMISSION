@@ -103,6 +103,15 @@ export interface Lot {
   emailGeneratedAt?: string
 }
 
+/** Pièce jointe « plan » glissée dans l'onglet 1 (stockée localement). */
+export interface PlanAttachment {
+  id: string
+  name: string
+  mime: string
+  size: number
+  data: ArrayBuffer
+}
+
 export interface Submission {
   id: string
   name: string
@@ -111,6 +120,7 @@ export interface Submission {
   info: SubmissionInfo
   pdfFileName?: string
   pdfData?: ArrayBuffer
+  plans?: PlanAttachment[]
   zones: DetectedZone[]
   lots: Lot[]
 }

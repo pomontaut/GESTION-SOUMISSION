@@ -95,7 +95,7 @@ export default function DashboardTab({
   }
 
   function exportJson() {
-    const { pdfData: _pdfData, ...base } = submission
+    const { pdfData: _pdfData, plans: _plans, ...base } = submission
     const rest = {
       ...base,
       lots: base.lots.map((l) => ({

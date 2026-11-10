@@ -448,6 +448,10 @@ function LotDetail({
       "N'hésitez pas à chiffrer l'ensemble des positions qui vous intéressent et à proposer des variantes qui vous semblent pertinentes.",
       '',
       `Plans : ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
+      ...(submission.info.documentsLink ? [`Documents : ${submission.info.documentsLink}`] : []),
+      ...((submission.plans ?? []).length
+        ? ['Plans annexés :', ...(submission.plans ?? []).map((p) => `- ${p.name}`)]
+        : []),
       '',
       'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
       `${submission.info.siteNumber || '[N° de chantier]'} - ${submission.info.projectName || '[Nom du projet]'} - ${submission.info.siteLocation || '[Ville]'}`,
@@ -476,6 +480,15 @@ function LotDetail({
       followUp,
     })
     setEmailGenerated(true)
+  }
+
+  function downloadPlan(p: { name: string; mime: string; data: ArrayBuffer }) {
+    const url = URL.createObjectURL(new Blob([p.data], { type: p.mime }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = p.name
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function copyToClipboard(text: string) {
@@ -730,6 +743,27 @@ function LotDetail({
               value={lot.emailBody}
               onChange={(e) => onChange({ emailBody: e.target.value })}
             />
+            {(submission.plans ?? []).length > 0 && (
+              <div className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm">
+                <p className="font-medium text-slate-800 mb-1">
+                  📐 Plans à joindre à l'e-mail ({(submission.plans ?? []).length}) — la messagerie ne permet pas
+                  l'ajout automatique, téléchargez-les puis glissez-les dans le message :
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(submission.plans ?? []).map((p) => (
+                    <button key={p.id} className="btn-secondary" onClick={() => downloadPlan(p)}>
+                      ⬇ {p.name}
+                    </button>
+                  ))}
+                  <button
+                    className="btn-secondary"
+                    onClick={() => (submission.plans ?? []).forEach((p, i) => setTimeout(() => downloadPlan(p), i * 300))}
+                  >
+                    ⬇ Tout télécharger
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 mt-3">
               <a
                 className="btn-primary"

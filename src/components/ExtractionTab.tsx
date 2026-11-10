@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import type { Submission, SubmissionInfo } from '../types'
+import type { PlanAttachment, Submission, SubmissionInfo } from '../types'
+import { uid } from '../types'
 import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
@@ -21,6 +22,7 @@ export default function ExtractionTab({
     !submission.info.calculatorName || !KNOWN_CALCULATORS.some((c) => c.name === submission.info.calculatorName),
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const plansInputRef = useRef<HTMLInputElement>(null)
 
   function updateInfo(patch: Partial<SubmissionInfo>) {
     onUpdate({ ...submission, info: { ...submission.info, ...patch } })
@@ -82,6 +84,29 @@ export default function ExtractionTab({
     e.preventDefault()
     const file = e.dataTransfer.files[0]
     if (file) handleFile(file)
+  }
+
+  async function addPlans(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (!list.length) return
+    const added: PlanAttachment[] = []
+    for (const f of list) {
+      added.push({ id: uid(), name: f.name, mime: f.type || 'application/octet-stream', size: f.size, data: await f.arrayBuffer() })
+    }
+    onUpdate({ ...submission, plans: [...(submission.plans ?? []), ...added] })
+  }
+
+  function removePlan(id: string) {
+    onUpdate({ ...submission, plans: (submission.plans ?? []).filter((p) => p.id !== id) })
+  }
+
+  function downloadPlan(p: PlanAttachment) {
+    const url = URL.createObjectURL(new Blob([p.data], { type: p.mime }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = p.name
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function resetAll() {
@@ -203,6 +228,55 @@ export default function ExtractionTab({
             />
           </Field>
         </div>
+      </div>
+
+      <div className="card">
+        <h3 className="font-semibold text-slate-800 mb-1">Plans (pièces jointes)</h3>
+        <p className="text-sm text-slate-500 mb-4">
+          Glissez ici les plans du projet (PDF, DWG, images…). Ils restent locaux à votre navigateur et sont
+          enregistrés avec la soumission.
+        </p>
+        <div
+          className="border-2 border-dashed border-emerald-200 rounded-xl p-8 text-center bg-emerald-50/40"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            addPlans(e.dataTransfer.files)
+          }}
+        >
+          <p className="text-slate-600 mb-3">📐 Glissez-déposez vos plans ici, ou</p>
+          <button className="btn-secondary" onClick={() => plansInputRef.current?.click()}>
+            Choisir des fichiers
+          </button>
+          <input
+            ref={plansInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) addPlans(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </div>
+        {(submission.plans ?? []).length > 0 && (
+          <ul className="mt-4 divide-y divide-slate-100 text-sm">
+            {(submission.plans ?? []).map((p) => (
+              <li key={p.id} className="flex items-center gap-3 py-2">
+                <span className="truncate flex-1" title={p.name}>
+                  📎 {p.name}
+                </span>
+                <span className="text-slate-400">{(p.size / 1024 / 1024).toFixed(2)} Mo</span>
+                <button className="btn-secondary" onClick={() => downloadPlan(p)}>
+                  Télécharger
+                </button>
+                <button className="btn-danger" onClick={() => removePlan(p.id)}>
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="card">
