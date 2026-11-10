@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Submission } from './types'
-import { seedSuppliersIfEmpty } from './storage'
+import { syncSuppliersFromBase } from './storage'
 import { buildSupplierSeed } from './data/suppliers'
 import SubmissionsList from './components/SubmissionsList'
 import Workspace from './components/Workspace'
@@ -9,7 +9,7 @@ export default function App() {
   const [openSubmission, setOpenSubmission] = useState<Submission | null>(null)
 
   useEffect(() => {
-    seedSuppliersIfEmpty(buildSupplierSeed())
+    syncSuppliersFromBase(buildSupplierSeed())
   }, [])
 
   return (

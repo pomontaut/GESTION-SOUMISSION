@@ -139,6 +139,8 @@ export interface SupplierRecord {
   zone?: string
   status?: string // Actif / à confirmer, Ne pas consulter, Inactif / à exclure
   comments?: string
+  keywords?: string[] // mots clefs de recherche (base fournisseur), utilisés pour le matching article/fournisseur
+  fromBase?: boolean // issu de la base fournisseur Induni (mise à jour automatiquement)
 }
 
 export const uid = (): string =>

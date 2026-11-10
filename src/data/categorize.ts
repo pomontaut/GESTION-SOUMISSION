@@ -1,4 +1,6 @@
 import { ALL_CATEGORIES } from './suppliers'
+import seedRaw from './suppliersSeed.json'
+import type { SupplierRecord } from '../types'
 
 const STOPWORDS = new Set([
   'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'ET', 'EN', 'POUR', 'AVEC', 'SUR', 'AU', 'AUX', 'A', 'D',
@@ -27,6 +29,43 @@ function significantWords(s: string): string[] {
     .filter((w) => w.length >= 4 && !STOPWORDS.has(w))
 }
 
+/** Mots clefs de recherche de la base fournisseur, regroupés par catégorie (normalisés, ≥ 4 caractères). */
+const CATEGORY_KEYWORDS: Map<string, string[]> = (() => {
+  const m = new Map<string, Set<string>>()
+  for (const r of seedRaw as { category: string; keywords?: string[] }[]) {
+    for (const k of r.keywords ?? []) {
+      const nk = normalize(k)
+      if (nk.length < 4) continue
+      if (!m.has(r.category)) m.set(r.category, new Set())
+      m.get(r.category)!.add(nk)
+    }
+  }
+  return new Map([...m].map(([c, set]) => [c, [...set]]))
+})()
+
+/** Nombre de mots clefs du fournisseur retrouvés dans le texte (mot entier / expression). */
+export function supplierKeywordHits(text: string, keywords: string[] | undefined): string[] {
+  if (!keywords?.length) return []
+  const hay = ` ${normalize(text)} `
+  const hits: string[] = []
+  for (const k of keywords) {
+    const nk = normalize(k)
+    if (nk.length >= 4 && hay.includes(` ${nk} `)) hits.push(k)
+  }
+  return hits
+}
+
+/** Fournisseurs de la base dont les mots clefs apparaissent dans le texte du lot, les plus pertinents d'abord. */
+export function matchSuppliersByKeywords(
+  text: string,
+  suppliers: SupplierRecord[],
+): { supplier: SupplierRecord; hits: string[] }[] {
+  return suppliers
+    .map((supplier) => ({ supplier, hits: supplierKeywordHits(text, supplier.keywords) }))
+    .filter((m) => m.hits.length > 0)
+    .sort((a, b) => b.hits.length - a.hits.length || a.supplier.name.localeCompare(b.supplier.name))
+}
+
 /** Suggests likely supplier categories for a lot based on its title/content text. */
 export function suggestCategories(text: string, max = 3): string[] {
   const haystack = normalize(text)
@@ -39,6 +78,12 @@ export function suggestCategories(text: string, max = 3): string[] {
     if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
     if (haystack.includes(normCat)) {
       scored.push({ category, score: 100 + normCat.length })
+      continue
+    }
+    const kwHits = (CATEGORY_KEYWORDS.get(category) ?? []).filter((k) => ` ${haystack} `.includes(` ${k} `))
+    if (kwHits.length) {
+      // mots clefs de la base fournisseur : signal fiable, pondéré par le nombre de mots retrouvés
+      scored.push({ category, score: 60 + Math.min(kwHits.length, 5) * 5 })
       continue
     }
     const matched = words.filter((w) => haystack.includes(w)).length
