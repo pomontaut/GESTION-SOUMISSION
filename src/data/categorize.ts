@@ -1,6 +1,4 @@
 import { ALL_CATEGORIES } from './suppliers'
-import seedRaw from './suppliersSeed.json'
-import type { SupplierRecord } from '../types'
 
 const STOPWORDS = new Set([
   'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'ET', 'EN', 'POUR', 'AVEC', 'SUR', 'AU', 'AUX', 'A', 'D',
@@ -29,51 +27,51 @@ function significantWords(s: string): string[] {
     .filter((w) => w.length >= 4 && !STOPWORDS.has(w))
 }
 
-/** Mots clefs de recherche de la base fournisseur, regroupés par catégorie (normalisés, ≥ 4 caractères). */
-const CATEGORY_KEYWORDS: Map<string, string[]> = (() => {
-  const m = new Map<string, Set<string>>()
-  for (const r of seedRaw as { category: string; keywords?: string[] }[]) {
-    for (const k of r.keywords ?? []) {
-      const nk = normalize(k)
-      if (nk.length < 4) continue
-      if (!m.has(r.category)) m.set(r.category, new Set())
-      m.get(r.category)!.add(nk)
-    }
-  }
-  return new Map([...m].map(([c, set]) => [c, [...set]]))
-})()
-
-/** Nombre de mots clefs du fournisseur retrouvés dans le texte (mot entier / expression). */
-export function supplierKeywordHits(text: string, keywords: string[] | undefined): string[] {
-  if (!keywords?.length) return []
-  const norm = normalize(text)
-  const hay = ` ${norm} `
-  const compact = norm.replace(/ /g, '')
-  const hits: string[] = []
-  for (const k of keywords) {
-    const nk = normalize(k)
-    if (nk.length < 4) continue
-    if (hay.includes(` ${nk} `)) {
-      hits.push(k)
-      continue
-    }
-    // Nom de produit d'un seul mot (ex. EGCOBOX) : retrouvé aussi collé à autre chose ou coupé
-    // (« EGCO-BOX », « EGCOBOX-Z », « Egcobox®Typ ») - mots d'au moins 6 caractères seulement.
-    const ck = nk.replace(/ /g, '')
-    if (ck.length >= 6 && !nk.includes(' ') && compact.includes(ck)) hits.push(k)
-  }
-  return hits
+// A trailing parenthetical on a category name is a brand/product qualifier ("ARMATURES DE
+// POINCONNEMENT (DURA)", "PILIERS BETON (Orso B)") that a submission's chapter title
+// essentially never repeats verbatim - a real lot titled "Armatures de poinçonnement" has no
+// way to also say "DURA". Required only when it actually appears (the literal full-name check
+// below still uses the untouched category name), never as part of the word-overlap ratio.
+function stripQualifier(category: string): string {
+  return category.replace(/\s*\([^)]*\)\s*$/, '').trim()
 }
 
-/** Fournisseurs de la base dont les mots clefs apparaissent dans le texte du lot, les plus pertinents d'abord. */
-export function matchSuppliersByKeywords(
-  text: string,
-  suppliers: SupplierRecord[],
-): { supplier: SupplierRecord; hits: string[] }[] {
-  return suppliers
-    .map((supplier) => ({ supplier, hits: supplierKeywordHits(text, supplier.keywords) }))
-    .filter((m) => m.hits.length > 0)
-    .sort((a, b) => b.hits.length - a.hits.length || a.supplier.name.localeCompare(b.supplier.name))
+// A category's required word and the word a real chapter title actually uses are sometimes a
+// different derivation of the same real-world term, not just a plural - curated one confirmed
+// pair at a time from real submissions, same spirit as STOPWORDS above:
+//  - "ISOLANTS" (category noun) vs "isolation/isolations" (the verb-derived noun CAN titles use).
+//  - "DESAMIANTAGE" (the trade name) vs "amiante" (what the text actually names: the material).
+//  - "EXTRUDES" (category qualifier) vs "XPS" (the material's own name for extruded polystyrene,
+//    almost always how a real position names it - "Swisspor XPS 300 SF").
+const WORD_ALIASES: Record<string, string[]> = {
+  ISOLANTS: ['ISOLATION', 'ISOLATIONS'],
+  ISOLANT: ['ISOLATION', 'ISOLATIONS'],
+  DESAMIANTAGE: ['AMIANTE'],
+  EXTRUDES: ['XPS'],
+}
+
+// Tolerates a simple singular/plural mismatch between a category's word and the submission
+// text ("APPUIS"/"un appui", "ETANCHEITE"/"étanchéités") - real chapter titles don't reliably
+// use the same number as the category list, and the plain substring check below would
+// otherwise miss both directions.
+function haystackHasWord(haystack: string, word: string): boolean {
+  // Whole-token matching (singular/plural tolerated), never a raw substring: "ESSAIS" used to be
+  // found inside "NECESSAIRES" ("y compris rhabillage si nécessaire" is in almost every CAN article),
+  // which proposed ESSAIS BETON suppliers (agnostic of nature) on any lot, e.g. a joint-injection
+  // lot on "26-20 Surville 3". A long category word (>= 6 letters) may still match as the START of a
+  // longer token (derived forms: ETANCHEITE/ETANCHEITES, ARMATURE/ARMATURES), never mid-word.
+  const tokens = haystack.split(' ')
+  const singular = word.endsWith('S') ? word.slice(0, -1) : word
+  const hit = (w: string) =>
+    tokens.some((t) => t === w || t === `${w}S` || (w.length >= 6 && t.startsWith(w)))
+  if (hit(word) || hit(singular)) return true
+  return (WORD_ALIASES[word] ?? []).some((alias) => hit(alias))
+}
+
+// Categories where ANY single trigger word is enough (the category name lists alternatives -
+// "FORAGES / SCIAGES" is forage OR sciage - rather than words that must all appear together).
+const CATEGORY_TRIGGERS: Record<string, string[]> = {
+  'FORAGES SCIAGES': ['FORAGE', 'SCIAGE'],
 }
 
 /** Suggests likely supplier categories for a lot based on its title/content text. */
@@ -84,19 +82,18 @@ export function suggestCategories(text: string, max = 3): string[] {
   for (const category of ALL_CATEGORIES) {
     const normCat = normalize(category)
     if (!normCat) continue
-    const words = significantWords(category)
-    if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
     if (haystack.includes(normCat)) {
       scored.push({ category, score: 100 + normCat.length })
       continue
     }
-    const kwHits = (CATEGORY_KEYWORDS.get(category) ?? []).filter((k) => ` ${haystack} `.includes(` ${k} `))
-    if (kwHits.length) {
-      // mots clefs de la base fournisseur : signal fiable, pondéré par le nombre de mots retrouvés
-      scored.push({ category, score: 60 + Math.min(kwHits.length, 5) * 5 })
+    const triggers = CATEGORY_TRIGGERS[normCat]
+    if (triggers?.some((t) => haystack.includes(t))) {
+      scored.push({ category, score: 100 + normCat.length })
       continue
     }
-    const matched = words.filter((w) => haystack.includes(w)).length
+    const words = significantWords(stripQualifier(category))
+    if (words.length === 0) continue // category is only generic/stopword terms - too vague to match on
+    const matched = words.filter((w) => haystackHasWord(haystack, w)).length
     const ratio = matched / words.length
     if (ratio >= 0.75) {
       scored.push({ category, score: ratio * 50 + words.length })
@@ -113,6 +110,24 @@ export function suggestCategories(text: string, max = 3): string[] {
     if (result.length >= max) break
   }
   return result
+}
+
+/**
+ * Categories for a whole lot: the chapter title is the authoritative signal, the zone text
+ * (textSample - up to ~800 chars of article descriptions) is only a fallback.
+ *
+ * Real errors on TPG Bachet de Pesay (16.10.2026): "130 Maconnerie en briques silico-calcaires"
+ * also proposed ACIER ARMATURE suppliers (the article text mentions "armatures de joints en
+ * acier"), and "814 chape ciment" also proposed Coupe-feu suppliers ("feuille de separation",
+ * "protection", "coupe" matched COUPE/FEU/PROTECTION by plain substring). Both titles alone
+ * categorize correctly; the body text added unrelated trades of the same weight. So when the
+ * title yields at least one category, body text is ignored; it only helps lots whose title says
+ * nothing usable (e.g. "R893 Toiture..." whose content is the real signal).
+ */
+export function suggestLotCategories(title: string, bodyText: string, max = 3): string[] {
+  const fromTitle = suggestCategories(title, max)
+  if (fromTitle.length > 0) return fromTitle
+  return suggestCategories(`${title} ${bodyText}`, max)
 }
 
 /** The single most likely category for one zone's text, or null if nothing matched. */

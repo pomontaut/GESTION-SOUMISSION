@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Régénère src/data/suppliersSeed.json, categories.json et suppliersLegacyKeys.json
+"""Régénère src/data/suppliersSeed.json et categories.json
 depuis le classeur « base fournisseur soumission Induni ».
 Usage : python3 script/build_suppliers_seed.py <classeur.xlsx> [ancien_seed.json]
 Colonnes : A contrôle HA, B catégorie, C fournisseur, D nature, E fréquence,
 F contact soumission (e-mails), G/H/I VD/GE/VS (x), J mots clefs de recherche, K CAN (ignoré).
-Les statuts « Ne pas consulter » / « Inactif » de l'ancien seed sont conservés."""
+Le statut, référents et commentaires de l'ancien seed sont conservés.
+Penser à incrémenter SUPPLIER_SEED_VERSION (src/data/suppliers.ts)."""
 import json, re, sys, unicodedata
 import openpyxl
 
@@ -49,7 +50,7 @@ for r in list(ws.iter_rows(values_only=True))[1:]:
     rec = rows.setdefault(key, {
         'category': cat, 'name': name, 'nature': str(r[3] or '').strip(),
         'frequency': str(r[4] or '').strip(), 'email': '', 'keywords': [],
-        'zone': '', 'status': prev.get('status') if prev.get('status') in ('Ne pas consulter', 'Inactif / à exclure') else 'Actif',
+        'zone': '', 'status': prev.get('status', ''),
         'referentAchat': prev.get('referentAchat', ''), 'backupAchat': prev.get('backupAchat', ''),
         'contactContrat': prev.get('contactContrat', ''), 'contactCommande': prev.get('contactCommande', ''),
         'comments': prev.get('comments', ''),
@@ -61,7 +62,4 @@ for r in list(ws.iter_rows(values_only=True))[1:]:
 seed = sorted(rows.values(), key=lambda x: (norm(x['category']), norm(x['name'])))
 json.dump(seed, open('src/data/suppliersSeed.json', 'w'), ensure_ascii=False, indent=0)
 json.dump(sorted(cats, key=norm), open('src/data/categories.json', 'w'), ensure_ascii=False, indent=0)
-legacy = sorted({f"{k[0]}|{k[1]}" for k in old})
-if len(sys.argv) > 2 or not __import__('os').path.exists('src/data/suppliersLegacyKeys.json'):
-    json.dump(legacy, open('src/data/suppliersLegacyKeys.json', 'w'), ensure_ascii=False)
 print(len(seed), 'fournisseurs,', len(cats), 'catégories,', sum(1 for s in seed if s['keywords']), 'avec mots clefs')

@@ -1,18 +1,30 @@
 import { useRef, useState } from 'react'
-import type { PlanAttachment, Submission, SubmissionInfo } from '../types'
+import type { PlanFile, Submission, SubmissionInfo } from '../types'
 import { uid } from '../types'
-import { ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
+import { BUYER_OPTIONS, ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
+import { deletePlanFile, listAgentRules, listLotSupplierLearnings, listSuppliers, planFileUrl, uploadPlanFile } from '../storage'
+import { runLotAgent } from '../agent/runLotAgent'
+import { buildLotEmail } from '../email/draftEmail'
 
 const CALCULATOR_CUSTOM = '__custom__'
+
+// Entities with no calculator explicitly assigned (e.g. TRANSFO GE/VD) fall back to the full list
+// rather than an empty dropdown - hiding every option would be worse than showing everyone.
+function calculatorsForEntity(entity: string) {
+  const matches = KNOWN_CALCULATORS.filter((c) => c.entities.includes(entity))
+  return matches.length > 0 ? matches : KNOWN_CALCULATORS
+}
 
 export default function ExtractionTab({
   submission,
   onUpdate,
+  onImported,
 }: {
   submission: Submission
   onUpdate: (s: Submission) => void
+  onImported?: () => void
 }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [ocrProgress, setOcrProgress] = useState<{ page: number; total: number } | null>(null)
@@ -23,18 +35,72 @@ export default function ExtractionTab({
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
   const plansInputRef = useRef<HTMLInputElement>(null)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
 
+  // Every lot's e-mail draft is generated once (at extraction, or on merge) from whatever
+  // "Informations du chantier" holds at that moment - so a field filled in afterwards (typically
+  // "Lien vers les documents", since the OneDrive folder is often created only once lots already
+  // exist) would otherwise stay silently missing from every already-drafted e-mail forever, with
+  // no visible sign anything is stale. Regenerating on every info change keeps drafts in sync;
+  // lots already sent are left untouched since their stored e-mail is now a historical record of
+  // what the fournisseur actually received, not a draft.
   function updateInfo(patch: Partial<SubmissionInfo>) {
-    onUpdate({ ...submission, info: { ...submission.info, ...patch } })
+    const info = { ...submission.info, ...patch }
+    const lots = submission.lots.map((lot) => {
+      if (lot.followUp.some((f) => f.status === 'envoye')) return lot
+      const { subject, body } = buildLotEmail(lot, info)
+      return { ...lot, emailSubject: subject, emailBody: body, emailGeneratedAt: new Date().toISOString() }
+    })
+    onUpdate({ ...submission, info, lots })
+  }
+
+  async function addPlans(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (!list.length) return
+    setPlanError(null)
+    setPlanBusy(true)
+    const added: PlanFile[] = []
+    try {
+      const total = (submission.info.plans ?? []).reduce((n, p) => n + p.size, 0) + list.reduce((n, f) => n + f.size, 0)
+      if (list.some((f) => f.size > 30 * 1024 * 1024)) throw new Error('Un plan dépasse 30 Mo : réduisez-le ou utilisez le lien vers les documents.')
+      if (total > 28 * 1024 * 1024) throw new Error('Total des plans > 28 Mo : trop lourd pour être annexé à un e-mail. Utilisez le lien vers les documents pour les gros plans.')
+      for (const f of list) {
+        const id = uid()
+        await uploadPlanFile(submission.id, id, f)
+        added.push({ id, name: f.name, mime: f.type || 'application/octet-stream', size: f.size })
+      }
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : "Échec de l'ajout des plans")
+    } finally {
+      setPlanBusy(false)
+    }
+    if (added.length) updateInfo({ plans: [...(submission.info.plans ?? []), ...added] })
+  }
+
+  async function removePlan(plan: PlanFile) {
+    try {
+      await deletePlanFile(submission.id, plan.id)
+    } catch (err) {
+      console.warn('Suppression du plan impossible', err)
+    }
+    updateInfo({ plans: (submission.info.plans ?? []).filter((p) => p.id !== plan.id) })
   }
 
   function handleEntitySelect(value: string) {
+    // The calculator dropdown is scoped to the entity - a calculator picked for the previous
+    // entity that doesn't handle the new one would otherwise stay selected but disappear from the
+    // visible options, an inconsistent state the acheteur can't fix from the dropdown itself. A
+    // free-text ("Autre") calculator isn't tied to any entity, so it's left untouched.
+    const stillValid = calculatorsForEntity(value).some((c) => c.name === submission.info.calculatorName)
+    const calculatorPatch =
+      calculatorCustom || stillValid ? {} : { calculatorName: '', calculatorEmail: '', calculatorPhone: '' }
     if (value === CALCULATOR_CUSTOM) {
       setEntityCustom(true)
-      updateInfo({ entity: '' })
+      updateInfo({ entity: '', ...calculatorPatch })
     } else {
       setEntityCustom(false)
-      updateInfo({ entity: value })
+      updateInfo({ entity: value, ...calculatorPatch })
     }
   }
 
@@ -61,14 +127,17 @@ export default function ExtractionTab({
       const result = hasText
         ? await analyzeSubmissionPdf(buffer)
         : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
+      const [suppliers, learnings, rules] = await Promise.all([listSuppliers(), listLotSupplierLearnings(), listAgentRules()])
+      const lots = runLotAgent(result.lots, suppliers, submission.info, learnings, rules, result.zones)
       onUpdate({
         ...submission,
         name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),
         pdfFileName: file.name,
         pdfData: buffer,
         zones: result.zones,
-        lots: result.lots,
+        lots,
       })
+      onImported?.()
     } catch (err) {
       console.error(err)
       setError(
@@ -86,29 +155,6 @@ export default function ExtractionTab({
     if (file) handleFile(file)
   }
 
-  async function addPlans(files: FileList | File[]) {
-    const list = Array.from(files)
-    if (!list.length) return
-    const added: PlanAttachment[] = []
-    for (const f of list) {
-      added.push({ id: uid(), name: f.name, mime: f.type || 'application/octet-stream', size: f.size, data: await f.arrayBuffer() })
-    }
-    onUpdate({ ...submission, plans: [...(submission.plans ?? []), ...added] })
-  }
-
-  function removePlan(id: string) {
-    onUpdate({ ...submission, plans: (submission.plans ?? []).filter((p) => p.id !== id) })
-  }
-
-  function downloadPlan(p: PlanAttachment) {
-    const url = URL.createObjectURL(new Blob([p.data], { type: p.mime }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = p.name
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   function resetAll() {
     if (!confirm('Réinitialiser le PDF, les zones et les lots de cette soumission ? Les informations de chantier sont conservées.')) return
     onUpdate({ ...submission, pdfFileName: undefined, pdfData: undefined, zones: [], lots: [] })
@@ -124,7 +170,7 @@ export default function ExtractionTab({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Informations du chantier</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Ces informations apparaissent sur le dashboard de suivi (onglet 3) et dans les e-mails.
+          Ces informations apparaissent sur le dashboard de suivi (onglet 4) et dans les e-mails.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Field label="N° de chantier">
@@ -148,6 +194,20 @@ export default function ExtractionTab({
               value={submission.info.siteLocation}
               onChange={(e) => updateInfo({ siteLocation: e.target.value })}
             />
+          </Field>
+          <Field label="Acheteur">
+            <select
+              className="input"
+              value={submission.info.buyerName ?? ''}
+              onChange={(e) => updateInfo({ buyerName: e.target.value })}
+            >
+              <option value="">— Choisir —</option>
+              {BUYER_OPTIONS.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Entité">
             <select
@@ -179,7 +239,7 @@ export default function ExtractionTab({
               onChange={(e) => handleCalculatorSelect(e.target.value)}
             >
               <option value="">— Choisir —</option>
-              {KNOWN_CALCULATORS.map((c) => (
+              {calculatorsForEntity(submission.info.entity).map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
                 </option>
@@ -233,8 +293,8 @@ export default function ExtractionTab({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Plans (pièces jointes)</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Glissez ici les plans du projet (PDF, DWG, images…). Ils restent locaux à votre navigateur et sont
-          enregistrés avec la soumission.
+          Glissez ici les plans du projet : ils sont annexés à chaque demande de prix envoyée aux fournisseurs, en plus
+          du PDF du lot et du lien vers les documents (28 Mo au total au maximum ; au-delà, utilisez le lien).
         </p>
         <div
           className="border-2 border-dashed border-emerald-200 rounded-xl p-8 text-center bg-emerald-50/40"
@@ -245,8 +305,8 @@ export default function ExtractionTab({
           }}
         >
           <p className="text-slate-600 mb-3">📐 Glissez-déposez vos plans ici, ou</p>
-          <button className="btn-secondary" onClick={() => plansInputRef.current?.click()}>
-            Choisir des fichiers
+          <button className="btn-secondary" disabled={planBusy} onClick={() => plansInputRef.current?.click()}>
+            {planBusy ? 'Envoi en cours…' : 'Choisir des fichiers'}
           </button>
           <input
             ref={plansInputRef}
@@ -259,18 +319,19 @@ export default function ExtractionTab({
             }}
           />
         </div>
-        {(submission.plans ?? []).length > 0 && (
+        {planError && <p className="text-sm text-red-600 mt-3">{planError}</p>}
+        {(submission.info.plans ?? []).length > 0 && (
           <ul className="mt-4 divide-y divide-slate-100 text-sm">
-            {(submission.plans ?? []).map((p) => (
+            {(submission.info.plans ?? []).map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-2">
                 <span className="truncate flex-1" title={p.name}>
                   📎 {p.name}
                 </span>
                 <span className="text-slate-400">{(p.size / 1024 / 1024).toFixed(2)} Mo</span>
-                <button className="btn-secondary" onClick={() => downloadPlan(p)}>
-                  Télécharger
-                </button>
-                <button className="btn-danger" onClick={() => removePlan(p.id)}>
+                <a className="btn-secondary" href={planFileUrl(submission.id, p.id)} target="_blank" rel="noreferrer">
+                  Ouvrir
+                </a>
+                <button className="btn-danger" onClick={() => removePlan(p)}>
                   ✕
                 </button>
               </li>
@@ -324,8 +385,9 @@ export default function ExtractionTab({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-1">Zones détectées</h3>
         <p className="text-sm text-slate-500 mb-4">
-          Les lots sont créés automatiquement par sous-chapitre (onglet 2). Ajustez le titre, le type de prestation
-          ou fusionnez/scindez des lots directement dans l'onglet suivant.
+          Les lots sont créés automatiquement par sous-chapitre, avec leurs fournisseurs déjà proposés et l'e-mail
+          groupé déjà prérédigé pour chacun — retrouvez tout ça dans l'onglet Suivi. Un lot reste modifiable
+          (fournisseurs, e-mail, fusion/scission) depuis là si besoin.
         </p>
         {submission.zones.length === 0 ? (
           <p className="text-slate-500">Aucune zone détectée pour l'instant — importez un PDF ci-dessus.</p>
