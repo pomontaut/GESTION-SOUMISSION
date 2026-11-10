@@ -46,11 +46,21 @@ const CATEGORY_KEYWORDS: Map<string, string[]> = (() => {
 /** Nombre de mots clefs du fournisseur retrouvés dans le texte (mot entier / expression). */
 export function supplierKeywordHits(text: string, keywords: string[] | undefined): string[] {
   if (!keywords?.length) return []
-  const hay = ` ${normalize(text)} `
+  const norm = normalize(text)
+  const hay = ` ${norm} `
+  const compact = norm.replace(/ /g, '')
   const hits: string[] = []
   for (const k of keywords) {
     const nk = normalize(k)
-    if (nk.length >= 4 && hay.includes(` ${nk} `)) hits.push(k)
+    if (nk.length < 4) continue
+    if (hay.includes(` ${nk} `)) {
+      hits.push(k)
+      continue
+    }
+    // Nom de produit d'un seul mot (ex. EGCOBOX) : retrouvé aussi collé à autre chose ou coupé
+    // (« EGCO-BOX », « EGCOBOX-Z », « Egcobox®Typ ») - mots d'au moins 6 caractères seulement.
+    const ck = nk.replace(/ /g, '')
+    if (ck.length >= 6 && !nk.includes(' ') && compact.includes(ck)) hits.push(k)
   }
   return hits
 }
