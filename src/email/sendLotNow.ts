@@ -27,5 +27,7 @@ export async function sendLotEmailNow(params: {
     text: params.body,
     html: buildEmailHtml(params.body),
     attachment,
+    submissionId: params.submission.id,
+    planIds: (params.submission.info.plans ?? []).map((p) => p.id),
   })
 }

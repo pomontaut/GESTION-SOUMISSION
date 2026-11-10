@@ -374,6 +374,8 @@ function SupplierSendModal({
           filename: `${safeFileName(submission.info.siteNumber || submission.name) || 'soumission'}-${safeFileName(unit.kind === 'lot' ? lots.map((l) => l.chapterCode || l.cfcCode).filter(Boolean).join('-') || 'lots' : label).slice(0, 60)}.pdf`,
           content: toBase64(pdfBytes),
         },
+        submissionId: submission.id,
+        planIds: (submission.info.plans ?? []).map((p) => p.id),
       })
       onSent()
     } catch (err) {

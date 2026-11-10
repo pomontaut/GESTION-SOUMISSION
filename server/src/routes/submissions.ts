@@ -128,4 +128,40 @@ router.delete('/:id/offers/:fileId', async (req, res) => {
   res.status(204).end()
 })
 
+// Plans joints à la soumission : même table que les offres (suppression en cascade avec la soumission).
+router.put('/:id/plans/:fileId', express.raw({ type: '*/*', limit: '30mb' }), async (req, res) => {
+  const fileName = req.get('X-File-Name')
+  if (!fileName) {
+    res.status(400).json({ error: 'X-File-Name manquant' })
+    return
+  }
+  await pool.query(
+    `INSERT INTO offer_files (id, submission_id, file_name, content_type, file_data)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (id) DO UPDATE SET file_name = $3, content_type = $4, file_data = $5`,
+    [req.params.fileId, req.params.id, decodeURIComponent(fileName), req.get('Content-Type') || 'application/octet-stream', req.body],
+  )
+  res.status(204).end()
+})
+
+router.get('/:id/plans/:fileId', async (req, res) => {
+  const result = await pool.query(
+    'SELECT file_name, content_type, file_data FROM offer_files WHERE id = $1 AND submission_id = $2',
+    [req.params.fileId, req.params.id],
+  )
+  const row = result.rows[0]
+  if (!row) {
+    res.status(404).end()
+    return
+  }
+  res.setHeader('Content-Type', row.content_type)
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(row.file_name)}"`)
+  res.send(row.file_data)
+})
+
+router.delete('/:id/plans/:fileId', async (req, res) => {
+  await pool.query('DELETE FROM offer_files WHERE id = $1 AND submission_id = $2', [req.params.fileId, req.params.id])
+  res.status(204).end()
+})
+
 export default router

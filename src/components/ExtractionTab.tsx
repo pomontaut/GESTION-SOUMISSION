@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import type { Submission, SubmissionInfo } from '../types'
+import type { PlanFile, Submission, SubmissionInfo } from '../types'
+import { uid } from '../types'
 import { BUYER_OPTIONS, ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
 import { analyzeSubmissionPdfOcr } from '../pdf/analyzeOcr'
-import { listAgentRules, listLotSupplierLearnings, listSuppliers } from '../storage'
+import { deletePlanFile, listAgentRules, listLotSupplierLearnings, listSuppliers, planFileUrl, uploadPlanFile } from '../storage'
 import { runLotAgent } from '../agent/runLotAgent'
 import { buildLotEmail } from '../email/draftEmail'
 
@@ -33,6 +34,9 @@ export default function ExtractionTab({
     !submission.info.calculatorName || !KNOWN_CALCULATORS.some((c) => c.name === submission.info.calculatorName),
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const plansInputRef = useRef<HTMLInputElement>(null)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
 
   // Every lot's e-mail draft is generated once (at extraction, or on merge) from whatever
   // "Informations du chantier" holds at that moment - so a field filled in afterwards (typically
@@ -49,6 +53,38 @@ export default function ExtractionTab({
       return { ...lot, emailSubject: subject, emailBody: body, emailGeneratedAt: new Date().toISOString() }
     })
     onUpdate({ ...submission, info, lots })
+  }
+
+  async function addPlans(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (!list.length) return
+    setPlanError(null)
+    setPlanBusy(true)
+    const added: PlanFile[] = []
+    try {
+      const total = (submission.info.plans ?? []).reduce((n, p) => n + p.size, 0) + list.reduce((n, f) => n + f.size, 0)
+      if (list.some((f) => f.size > 30 * 1024 * 1024)) throw new Error('Un plan dépasse 30 Mo : réduisez-le ou utilisez le lien vers les documents.')
+      if (total > 28 * 1024 * 1024) throw new Error('Total des plans > 28 Mo : trop lourd pour être annexé à un e-mail. Utilisez le lien vers les documents pour les gros plans.')
+      for (const f of list) {
+        const id = uid()
+        await uploadPlanFile(submission.id, id, f)
+        added.push({ id, name: f.name, mime: f.type || 'application/octet-stream', size: f.size })
+      }
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : "Échec de l'ajout des plans")
+    } finally {
+      setPlanBusy(false)
+    }
+    if (added.length) updateInfo({ plans: [...(submission.info.plans ?? []), ...added] })
+  }
+
+  async function removePlan(plan: PlanFile) {
+    try {
+      await deletePlanFile(submission.id, plan.id)
+    } catch (err) {
+      console.warn('Suppression du plan impossible', err)
+    }
+    updateInfo({ plans: (submission.info.plans ?? []).filter((p) => p.id !== plan.id) })
   }
 
   function handleEntitySelect(value: string) {
@@ -92,7 +128,7 @@ export default function ExtractionTab({
         ? await analyzeSubmissionPdf(buffer)
         : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
       const [suppliers, learnings, rules] = await Promise.all([listSuppliers(), listLotSupplierLearnings(), listAgentRules()])
-      const lots = runLotAgent(result.lots, suppliers, submission.info, learnings, rules)
+      const lots = runLotAgent(result.lots, suppliers, submission.info, learnings, rules, result.zones)
       onUpdate({
         ...submission,
         name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),
@@ -252,6 +288,56 @@ export default function ExtractionTab({
             />
           </Field>
         </div>
+      </div>
+
+      <div className="card">
+        <h3 className="font-semibold text-slate-800 mb-1">Plans (pièces jointes)</h3>
+        <p className="text-sm text-slate-500 mb-4">
+          Glissez ici les plans du projet : ils sont annexés à chaque demande de prix envoyée aux fournisseurs, en plus
+          du PDF du lot et du lien vers les documents (28 Mo au total au maximum ; au-delà, utilisez le lien).
+        </p>
+        <div
+          className="border-2 border-dashed border-emerald-200 rounded-xl p-8 text-center bg-emerald-50/40"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            addPlans(e.dataTransfer.files)
+          }}
+        >
+          <p className="text-slate-600 mb-3">📐 Glissez-déposez vos plans ici, ou</p>
+          <button className="btn-secondary" disabled={planBusy} onClick={() => plansInputRef.current?.click()}>
+            {planBusy ? 'Envoi en cours…' : 'Choisir des fichiers'}
+          </button>
+          <input
+            ref={plansInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) addPlans(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </div>
+        {planError && <p className="text-sm text-red-600 mt-3">{planError}</p>}
+        {(submission.info.plans ?? []).length > 0 && (
+          <ul className="mt-4 divide-y divide-slate-100 text-sm">
+            {(submission.info.plans ?? []).map((p) => (
+              <li key={p.id} className="flex items-center gap-3 py-2">
+                <span className="truncate flex-1" title={p.name}>
+                  📎 {p.name}
+                </span>
+                <span className="text-slate-400">{(p.size / 1024 / 1024).toFixed(2)} Mo</span>
+                <a className="btn-secondary" href={planFileUrl(submission.id, p.id)} target="_blank" rel="noreferrer">
+                  Ouvrir
+                </a>
+                <button className="btn-danger" onClick={() => removePlan(p)}>
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="card">

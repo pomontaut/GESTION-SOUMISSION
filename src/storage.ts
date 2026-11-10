@@ -119,6 +119,24 @@ export async function deleteOfferFile(submissionId: string, fileId: string): Pro
   await assertOk(await fetch(`/api/submissions/${submissionId}/offers/${fileId}`, { method: 'DELETE' }))
 }
 
+export async function uploadPlanFile(submissionId: string, fileId: string, file: File): Promise<void> {
+  await assertOk(
+    await fetch(`/api/submissions/${submissionId}/plans/${fileId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
+      body: file,
+    }),
+  )
+}
+
+export function planFileUrl(submissionId: string, fileId: string): string {
+  return `/api/submissions/${submissionId}/plans/${fileId}`
+}
+
+export async function deletePlanFile(submissionId: string, fileId: string): Promise<void> {
+  await assertOk(await fetch(`/api/submissions/${submissionId}/plans/${fileId}`, { method: 'DELETE' }))
+}
+
 export interface LotSupplierLearning {
   cfcCode: string
   chapterCode: string
@@ -185,6 +203,8 @@ export async function sendLotEmail(params: {
   text: string
   html?: string
   attachment?: { filename: string; content: string }
+  submissionId?: string // avec planIds : le serveur annexe les plans joints de la soumission
+  planIds?: string[]
 }): Promise<void> {
   await assertOk(
     await fetch('/api/send-email', {

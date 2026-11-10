@@ -91,3 +91,41 @@ export function dedupeLotSuppliers(lot: Lot): Lot {
     }),
   }
 }
+
+const kwNorm = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * Fournisseurs dont un NOM DE PRODUIT figure dans les mots clefs de la base (colonne « Mots clefs de
+ * recherche », ex. EGCOBOX → Max Frank, Schöck) et apparaît dans le texte du lot (libellé + positions
+ * surlignées). Volontairement prudent pour ne pas dégrader le matching par catégorie : seuls les
+ * mots clefs d'UN SEUL mot d'au moins 6 lettres portés par 2 sociétés au plus sont retenus (pas
+ * « béton », « isolation »…), retrouvés même collés ou coupés (« EGCO-BOX », « Egcobox® »), et la
+ * nature du fournisseur doit convenir à la prestation du lot.
+ */
+export function matchSuppliersByProductKeywords(
+  lotText: string,
+  suppliers: SupplierRecord[],
+  prestationType: PrestationType,
+): SupplierRecord[] {
+  const compactText = kwNorm(lotText).replace(/ /g, '')
+  if (!compactText) return []
+  const owners = new Map<string, Set<string>>()
+  for (const s of suppliers) {
+    for (const k of s.keywords ?? []) {
+      const nk = kwNorm(k)
+      if (nk.length < 6 || nk.includes(' ')) continue
+      if (!owners.has(nk)) owners.set(nk, new Set())
+      owners.get(nk)!.add(companyKey(s.name))
+    }
+  }
+  return suppliers.filter(
+    (s) =>
+      isSupplierActive(s) &&
+      natureMatchesPrestation(s.nature, prestationType) &&
+      (s.keywords ?? []).some((k) => {
+        const nk = kwNorm(k)
+        return nk.length >= 6 && !nk.includes(' ') && (owners.get(nk)?.size ?? 99) <= 2 && compactText.includes(nk)
+      }),
+  )
+}

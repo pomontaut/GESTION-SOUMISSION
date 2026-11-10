@@ -1,5 +1,11 @@
-import type { Lot, SupplierRecord } from '../types'
-import { isSupplierActive, matchSuppliersForCategories } from '../data/matching'
+import type { DetectedZone, Lot, SupplierRecord } from '../types'
+import { isSupplierActive, matchSuppliersByProductKeywords, matchSuppliersForCategories } from '../data/matching'
+
+/** Texte du lot pour la recherche par mots clefs : libellés + positions surlignées de ses zones. */
+export function lotKeywordText(lot: Lot, zones: DetectedZone[] = []): string {
+  const ids = new Set(lot.zoneIds)
+  return [lot.title, lot.chapterTitle, lot.subChapterTitle, ...zones.filter((z) => ids.has(z.id)).map((z) => z.text)].join(' ')
+}
 
 /** Règle exécutable créée via le chat (table agent_consignes, colonne rule). */
 export interface AgentRule {
@@ -39,6 +45,7 @@ export function applyRulesToLot(
   current: SupplierRecord[],
   suppliers: SupplierRecord[],
   rules: AgentRule[],
+  zones: DetectedZone[] = [],
 ): { suppliers: SupplierRecord[]; categories: string[] } {
   const active = rules.filter((r) => ruleApplies(r, lot))
   const result = [...current]
@@ -46,6 +53,8 @@ export function applyRulesToLot(
   const add = (s: SupplierRecord) => {
     if (isSupplierActive(s) && !result.some((x) => x.id === s.id)) result.push(s)
   }
+  // Mots clefs de la base fournisseur (noms de produits : EGCOBOX, …) retrouvés dans le lot.
+  matchSuppliersByProductKeywords(lotKeywordText(lot, zones), suppliers, lot.prestationType).forEach(add)
   for (const r of active) {
     if (r.action === 'ajouter_categorie' && r.categorie) {
       if (!categories.some((c) => norm(c) === norm(r.categorie!))) categories.push(r.categorie)
@@ -74,12 +83,13 @@ export function applyRulesToExistingLots(
   lots: Lot[],
   suppliers: SupplierRecord[],
   rules: AgentRule[],
+  zones: DetectedZone[] = [],
 ): { lots: Lot[]; changed: number } {
   let changed = 0
   const next = lots.map((lot) => {
     const sent = new Set(lot.followUp.filter((f) => f.status === 'envoye').map((f) => f.supplierId))
     const existing = lot.suppliers.map((a) => suppliers.find((s) => s.id === a.supplierId)).filter((s): s is SupplierRecord => !!s)
-    const { suppliers: desired, categories } = applyRulesToLot(lot, existing, suppliers, rules)
+    const { suppliers: desired, categories } = applyRulesToLot(lot, existing, suppliers, rules, zones)
     const known = new Set(lot.suppliers.map((a) => a.supplierId))
     const desiredIds = new Set(desired.map((s) => s.id))
     const toAdd = desired.filter((s) => !known.has(s.id))

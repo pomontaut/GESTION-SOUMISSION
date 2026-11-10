@@ -16,6 +16,7 @@ interface RawSupplierRow {
   zone: string
   status: string
   comments: string
+  keywords?: string[]
 }
 
 export const ALL_CATEGORIES: string[] = categoriesRaw as string[]
@@ -35,8 +36,9 @@ export function buildSupplierSeed(): SupplierRecord[] {
     zone: r.zone,
     status: r.status,
     comments: r.comments,
+    keywords: r.keywords ?? [],
   }))
 }
 
 /** Bump whenever suppliersSeed.json / categories.json are regenerated from the reference Excel. */
-export const SUPPLIER_SEED_VERSION = '2026-10-28b'
+export const SUPPLIER_SEED_VERSION = '2026-11-10-mots-clefs'

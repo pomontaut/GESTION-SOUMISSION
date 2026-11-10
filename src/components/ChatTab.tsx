@@ -118,7 +118,7 @@ export default function ChatTab({ submission, onUpdate }: { submission: Submissi
   /** Applique toutes les règles exécutables aux lots déjà extraits de la soumission ouverte. */
   async function applyRules(): Promise<void> {
     const [suppliers, rules] = await Promise.all([listSuppliers(), listAgentRules()])
-    const { lots, changed } = applyRulesToExistingLots(submission.lots, suppliers, rules)
+    const { lots, changed } = applyRulesToExistingLots(submission.lots, suppliers, rules, submission.zones)
     if (changed > 0) onUpdate({ ...submission, lots })
     setApplyInfo(
       changed > 0

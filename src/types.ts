@@ -21,6 +21,14 @@ export const BUYER_OPTIONS = ['Nina HEIDER', 'Emilie BARANSKI', 'Pierre-Olivier 
 
 export const ENTITY_OPTIONS = ['BAT GE', 'BAT VD', 'GC', 'TRANSFO GE', 'TRANSFO VD']
 
+/** Plan (pièce jointe) : métadonnées ici, binaire côté serveur (/api/submissions/:id/plans/:id). */
+export interface PlanFile {
+  id: string
+  name: string
+  mime: string
+  size: number
+}
+
 export interface SubmissionInfo {
   siteNumber: string // N° de chantier
   projectName: string // Nom du chantier
@@ -32,6 +40,7 @@ export interface SubmissionInfo {
   calculatorPhone: string
   deadline: string // yyyy-mm-dd
   documentsLink: string
+  plans?: PlanFile[] // plans joints (stockés sur le serveur), annexés à chaque demande de prix
   logoDataUrl?: string
   progressStatus: 'en_cours' | 'termine' | 'annule'
   approvalStatus: 'en_attente' | 'approuve' | 'refuse'
@@ -175,6 +184,7 @@ export interface SupplierRecord {
   zone?: string
   status?: string // Actif / à confirmer, Ne pas consulter, Inactif / à exclure
   comments?: string
+  keywords?: string[] // mots clefs de recherche de la base fournisseur (noms de produits, synonymes)
 }
 
 export const uid = (): string =>

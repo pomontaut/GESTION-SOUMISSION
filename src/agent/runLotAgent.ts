@@ -1,4 +1,4 @@
-import type { Lot, SubmissionInfo, SupplierRecord } from '../types'
+import type { DetectedZone, Lot, SubmissionInfo, SupplierRecord } from '../types'
 import { lotTitleKey, type LotSupplierLearning } from '../storage'
 import { dedupeLotSuppliers, isSupplierActive, matchSuppliersForCategories } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
@@ -23,6 +23,7 @@ export function runLotAgent(
   info: SubmissionInfo,
   learnings: LotSupplierLearning[] = [],
   rules: AgentRule[] = [],
+  zones: DetectedZone[] = [],
 ): Lot[] {
   const suppliersById = new Map(suppliers.map((s) => [s.id, s]))
   return lots.map((lot) => {
@@ -41,7 +42,7 @@ export function runLotAgent(
       .filter(isSupplierActive)
     const learned = [...matches, ...learnedMatches.filter((s) => !matches.some((m) => m.id === s.id))]
     // Règles créées via le chat : ajouts/exclusions de fournisseurs et de catégories.
-    const { suppliers: allMatches, categories } = applyRulesToLot(lot, learned, suppliers, rules)
+    const { suppliers: allMatches, categories } = applyRulesToLot(lot, learned, suppliers, rules, zones)
     const lotSuppliers = allMatches.map((s) => ({
       supplierId: s.id,
       name: s.name,

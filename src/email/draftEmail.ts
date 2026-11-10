@@ -50,6 +50,7 @@ function composeBody(info: SubmissionInfo, requestText: string): string {
     // line is what mail clients (Outlook, Gmail, ...) auto-linkify into a clickable link, so no
     // HTML markup is needed here for the fournisseur to be able to click through.
     ...(info.documentsLink ? [`Documents de la soumission : ${info.documentsLink}`, ''] : []),
+    ...((info.plans ?? []).length ? ['Plans annexés à ce message :', ...(info.plans ?? []).map((p) => `- ${p.name}`), ''] : []),
     'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
     `${info.siteNumber || '[N° de chantier]'} - ${info.projectName || '[Nom du projet]'} - ${info.siteLocation || '[Ville]'}`,
     '',
