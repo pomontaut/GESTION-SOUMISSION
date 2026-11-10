@@ -134,3 +134,39 @@ export function detectLotHeterogeneity(zoneTexts: string[]): LotHeterogeneity | 
   if (categories.length < 2) return null
   return { categories, examples }
 }
+
+export interface RankedSupplier {
+  supplier: SupplierRecord
+  score: number // 0-100, 100 = meilleur match du lot
+  hits: string[] // mots clefs retrouvés dans le texte du lot
+  byCategory: boolean
+}
+
+/**
+ * Classe les fournisseurs par pertinence pour un lot. Score = mots clefs retrouvés (pondérés : une expression
+ * longue ou rare dans la base compte plus qu'un mot courant partagé par beaucoup de fournisseurs) + bonus si le
+ * fournisseur est dans une catégorie du lot. Les fournisseurs qui matchent le plus ressortent en tête.
+ */
+export function rankSuppliers(text: string, suppliers: SupplierRecord[], categories: string[]): RankedSupplier[] {
+  const wantedCats = new Set(categories.map((c) => c.trim().toLowerCase()))
+  const n = Math.max(suppliers.length, 1)
+  const df = new Map<string, number>()
+  for (const s of suppliers) for (const k of new Set((s.keywords ?? []).map(normalize))) df.set(k, (df.get(k) ?? 0) + 1)
+
+  const raw = suppliers
+    .map((supplier) => {
+      const hits = supplierKeywordHits(text, supplier.keywords)
+      const kwScore = hits.reduce((sum, k) => {
+        const nk = normalize(k)
+        const rarity = Math.log(1 + n / (df.get(nk) ?? 1)) // rare = discriminant
+        const length = Math.min(nk.split(' ').length, 4) // expression précise > mot isolé
+        return sum + rarity * (0.5 + length * 0.5)
+      }, 0)
+      const byCategory = wantedCats.has(supplier.category.trim().toLowerCase())
+      return { supplier, hits, byCategory, raw: kwScore + (byCategory ? 3 : 0) }
+    })
+    .filter((m) => m.raw > 0)
+    .sort((a, b) => b.raw - a.raw || a.supplier.name.localeCompare(b.supplier.name))
+  const best = raw[0]?.raw ?? 1
+  return raw.map(({ raw: r, ...m }) => ({ ...m, score: Math.max(1, Math.round((r / best) * 100)) }))
+}

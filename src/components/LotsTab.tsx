@@ -5,7 +5,7 @@ import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
-import { detectLotHeterogeneity, matchSuppliersByKeywords, topCategoryFor } from '../data/categorize'
+import { detectLotHeterogeneity, rankSuppliers, topCategoryFor } from '../data/categorize'
 
 const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
 
@@ -384,16 +384,15 @@ function LotDetail({
     [lotZones],
   )
 
-  const keywordMatches = useMemo(() => {
+  const rankedMatches = useMemo(() => {
     const text = `${lot.title} ${lotZones.map((z) => z.text).join(' ')}`
-    const inCategory = new Set(categoryMatches.map((s) => s.id))
-    return matchSuppliersByKeywords(
+    return rankSuppliers(
       text,
-      suppliers.filter((s) => !inCategory.has(s.id) && !INACTIVE_STATUSES.includes(s.status ?? '')),
-    ).slice(0, 12)
-  }, [suppliers, categoryMatches, lot.title, lotZones])
+      suppliers.filter((s) => !INACTIVE_STATUSES.includes(s.status ?? '')),
+      lot.categories,
+    ).slice(0, 15)
+  }, [suppliers, lot.categories, lot.title, lotZones])
 
-  const activeMatches = categoryMatches.filter((s) => !INACTIVE_STATUSES.includes(s.status ?? ''))
   const inactiveMatches = categoryMatches.filter((s) => INACTIVE_STATUSES.includes(s.status ?? ''))
 
   function addCategory() {
@@ -622,38 +621,29 @@ function LotDetail({
       <div className="card">
         <h3 className="font-semibold text-slate-800 mb-3">Fournisseurs pour ce lot</h3>
 
-        {activeMatches.length > 0 && (
+        {rankedMatches.length > 0 && (
           <div className="mb-4">
-            <p className="text-sm text-slate-500 mb-2">Suggérés depuis votre base (par catégorie) :</p>
+            <p className="text-sm text-slate-500 mb-2">
+              Fournisseurs classés par pertinence (mots clefs de la base + catégorie du lot) :
+            </p>
             <div className="space-y-1.5">
-              {activeMatches.map((s) => (
-                <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
+              {rankedMatches.map(({ supplier: s, score, hits, byCategory }, i) => (
+                <div
+                  key={s.id}
+                  className={`flex items-center justify-between gap-3 text-sm rounded px-3 py-1.5 ${
+                    i < 3 && score >= 50 ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-slate-50'
+                  }`}
+                >
                   <span>
+                    <span className="inline-block min-w-[3rem] mr-2 text-xs font-semibold text-emerald-700">
+                      {i === 0 && score >= 50 ? '★ ' : ''}
+                      {score}%
+                    </span>
                     <strong>{s.name}</strong> · {s.category}
                     {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
                     {s.zone ? ` · ${s.zone}` : ''}
-                  </span>
-                  <button
-                    className="btn-secondary !py-1"
-                    onClick={() => addSupplierToLot(s)}
-                    disabled={lot.suppliers.some((x) => x.supplierId === s.id)}
-                  >
-                    {lot.suppliers.some((x) => x.supplierId === s.id) ? 'Ajouté' : 'Ajouter'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {keywordMatches.length > 0 && (
-          <div className="mb-4">
-            <p className="text-sm text-slate-500 mb-2">Suggérés par mots clefs de recherche (autres catégories) :</p>
-            <div className="space-y-1.5">
-              {keywordMatches.map(({ supplier: s, hits }) => (
-                <div key={s.id} className="flex items-center justify-between text-sm bg-indigo-50/60 rounded px-3 py-1.5">
-                  <span>
-                    <strong>{s.name}</strong> · {s.category} · {s.email || "pas d'e-mail enregistré"}
-                    <span className="text-indigo-600"> · mots clefs : {hits.slice(0, 4).join(', ')}</span>
+                    {hits.length > 0 && <span className="text-indigo-600"> · mots clefs : {hits.slice(0, 4).join(', ')}</span>}
+                    {byCategory && hits.length === 0 && <span className="text-slate-400"> · catégorie du lot</span>}
                   </span>
                   <button
                     className="btn-secondary !py-1"
