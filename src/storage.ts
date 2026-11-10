@@ -111,7 +111,7 @@ export async function syncSuppliersFromBase(seed: SupplierRecord[]): Promise<voi
     }
     for (const cur of existing) {
       const k = supplierKey(cur.category, cur.name)
-      if (!seedKeys.has(k) && !cur.fromBase && LEGACY_SUPPLIER_KEYS.has(k)) await tx.store.delete(cur.id)
+      if (!seedKeys.has(k) && (cur.fromBase || LEGACY_SUPPLIER_KEYS.has(k))) await tx.store.delete(cur.id)
     }
     await tx.done
   }
