@@ -219,6 +219,12 @@ const LETTER_PART_RE = /^[IVX]+\s+CFC\s+(\d{3}(?:\.\d+)?)\b/
 // to match DECIMAL_ARTICLE_RE against (see file-header comment). A bare sub-heading with no
 // quantity/price never has this.
 const PRICE_ROW_RE = /\.{4,}/
+// Per-zone quantity row of a CRB-style position ("-> 27  W  par  p  A", "-> 31Bis  A  25  p  A"):
+// the quantity can be the literal word "par" (price per piece, no number) and the empty Prix cell is
+// a drawn rule, so neither a number+unit nor a dot-fill is ever readable - this row is the only
+// signal that a ".101"-coded orphan position is a priced one (seen on "2907-AO-05 Travaux du maçon",
+// forages 853/856 highlighted in blue, silently dropped before).
+const ZONE_ROW_RE = /^->\s*\S+\s+[A-Z]\s+(?:par|[\d'.,]+)\s+\S+\s+[A-Z]\s*$/
 // The highlight-containment check below tolerates a few points of slop (antialiasing/rounding),
 // which occasionally lets the trailing dot-fill of an unrelated PREVIOUS chapter's last line leak
 // into the next highlight a hair above it - always a bare zone tag ("COMMUN 4 ..."), never real
@@ -251,7 +257,7 @@ const BANNER_RE = /^(Projet|Contrat|Objets|Page|Soumission|Chapitre)\s*:/
 // marginX and breaks the alignment check for every real header on that page (same failure mode as
 // an unrecognised column-header banner, see COLUMN_HEADER_RE below).
 const FOOTER_RE =
-  /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d|Page\s+\d+\s*\/\s*\d+|Date\s+d.impression\s*:|^\S+\s+\d+\s*\|\s*\d+\s*$/
+  /Page\s+\d+\s+de\s+\d+\s*$|Imprimé\s+le\s+\d|Page\s+\d+\s*\/\s*\d+|Date\s+d.impression\s*:|^(?:\S+\s+){1,3}\d+\s*\|\s*\d+\s*$/
 // One bureau (seen on "26-58 HEP") prints its page-level top banner as "Chapitre <code> <title>"
 // instead of "CAN Construction: <code> <title> A/B(..." - same semantic role (the top-level CFC
 // chapter active on this page, used to scope/reset the sub-chapter "current chapter" pointer so
@@ -750,7 +756,8 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
           run.some((r) => DECIMAL_ARTICLE_RE.test(r.line.text.trim())) ||
           (letterMode && run.some((r) => LETTER_ARTICLE_RE.test(r.line.text.trim()))) ||
           hasPriceRowWithContent ||
-          run.some((r) => QUANTITY_UNIT_RE.test(r.line.text))
+          run.some((r) => QUANTITY_UNIT_RE.test(r.line.text)) ||
+          run.some((r) => ZONE_ROW_RE.test(r.line.text.trim()))
         // Letter-chapter documents: the preparer may highlight only a sub-heading line (e.g.
         // "Piliers préfabriqués au sous-sol -2" on 26-20 Surville 3, pages 67-71) while the priced
         // positions below stay white - a highlight under a known chapter is the intent to source it.

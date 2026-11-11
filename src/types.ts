@@ -15,6 +15,7 @@ export const KNOWN_CALCULATORS: Calculator[] = [
   { name: 'Bastien Preteseille', email: 'bpreteseille@induni.ch', phone: '022 879 01 01', entities: ['GC'] },
   { name: 'Joana Rodrigues Dos Santos', email: 'jrodrigues@induni.ch', phone: '076 320 39 71', entities: ['BAT VD'] },
   { name: 'Lucas Mouaz', email: 'lmouaz@induni.ch', phone: '+41 76 380 83 45', entities: ['BAT VD'] },
+  { name: 'Benjamin Faure', email: 'bfaure@induni.ch', phone: '+41 79 157 31 34', entities: ['BAT GE', 'TRANSFO GE'] },
 ]
 
 export const BUYER_OPTIONS = ['Nina HEIDER', 'Emilie BARANSKI', 'Pierre-Olivier MONTAUT']
