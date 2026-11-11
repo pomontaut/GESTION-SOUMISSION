@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Lot, Submission, SupplierRecord } from '../types'
+import { PDFDocument } from 'pdf-lib'
+import type { Lot, PrestationType, Submission, SupplierRecord } from '../types'
+import { uid } from '../types'
+import { runLotAgent } from '../agent/runLotAgent'
+import { suggestLotCategories } from '../data/categorize'
 import { detectLotHeterogeneity } from '../data/categorize'
 import { companyKey, dedupeLotSuppliers } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
@@ -27,6 +31,9 @@ export default function ValidationTab({
   const [searchByLot, setSearchByLot] = useState<Record<string, string>>({})
   const [draggingLotId, setDraggingLotId] = useState<string | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const [addingLot, setAddingLot] = useState(false)
+  const [newLot, setNewLot] = useState({ title: '', cfc: '', prestation: 'fourniture_pose' as PrestationType, pages: '' })
+  const [newLotError, setNewLotError] = useState<string | null>(null)
   const lotElsRef = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
@@ -116,6 +123,53 @@ export default function ValidationTab({
     }
     setDraggingLotId(null)
     setDropIndex(null)
+  }
+
+  /** Ajout manuel d'un lot : même format qu'un lot détecté (catégories, fournisseurs proposés, e-mail). */
+  async function addManualLot() {
+    const title = newLot.title.trim()
+    if (!title) return setNewLotError("Indiquez l'intitulé du lot.")
+    let total: number | null = null
+    if (submission.pdfData) {
+      try {
+        total = (await PDFDocument.load(submission.pdfData.slice(0))).getPageCount()
+      } catch {
+        total = null
+      }
+    }
+    const pages = new Set<number>()
+    for (const part of newLot.pages.split(/[,;\s]+/).filter(Boolean)) {
+      const m = part.match(/^(\d+)(?:\s*[-–àa]\s*(\d+))?$/)
+      if (!m) return setNewLotError(`« ${part} » n'est pas un numéro de page (ex. 12, 14-16)`)
+      const a = Number(m[1])
+      const b = m[2] ? Number(m[2]) : a
+      for (let n = Math.min(a, b); n <= Math.max(a, b); n++) pages.add(n)
+    }
+    if (pages.size === 0) return setNewLotError('Indiquez au moins une page du PDF (ex. 12, 14-16).')
+    const bad = [...pages].filter((n) => n < 1 || (total !== null && n > total))
+    if (bad.length) return setNewLotError(`Page(s) hors du PDF${total ? ` (1–${total})` : ''} : ${bad.join(', ')}`)
+    const base: Lot = {
+      id: uid(),
+      title,
+      cfcCode: newLot.cfc.trim(),
+      chapterCode: '',
+      chapterTitle: title,
+      subChapterCode: '',
+      subChapterTitle: '',
+      prestationType: newLot.prestation,
+      pages: [...pages].sort((a, b) => a - b),
+      positionCount: 1,
+      zoneIds: [],
+      validated: false,
+      categories: suggestLotCategories(title, ''),
+      suppliers: [],
+      followUp: [],
+    }
+    const [lot] = runLotAgent([base], suppliers, submission.info)
+    onUpdate({ ...submission, lots: [...submission.lots, lot] })
+    setNewLot({ title: '', cfc: '', prestation: newLot.prestation, pages: '' })
+    setNewLotError(null)
+    setAddingLot(false)
   }
 
   function updateLot(id: string, patch: Partial<Lot>) {
@@ -460,6 +514,43 @@ export default function ValidationTab({
       })}
       {draggingLotId && dropIndex === submission.lots.length && (
         <div className="h-1 rounded bg-indigo-400" />
+      )}
+
+      {addingLot ? (
+        <div className="card space-y-3">
+          <h3 className="font-semibold text-slate-800">＋ Ajouter un lot manuellement</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="text-sm md:col-span-2">
+              Intitulé du lot
+              <input className="input mt-1" value={newLot.title} onChange={(e) => setNewLot({ ...newLot, title: e.target.value })} placeholder="ex. 856 Forages à la carotteuse" />
+            </label>
+            <label className="text-sm">
+              CFC (optionnel)
+              <input className="input mt-1" value={newLot.cfc} onChange={(e) => setNewLot({ ...newLot, cfc: e.target.value })} placeholder="ex. 211.4" />
+            </label>
+            <label className="text-sm">
+              Prestation
+              <select className="input mt-1" value={newLot.prestation} onChange={(e) => setNewLot({ ...newLot, prestation: e.target.value as PrestationType })}>
+                <option value="fourniture">Fourniture</option>
+                <option value="fourniture_pose">Fourniture + pose</option>
+              </select>
+            </label>
+            <label className="text-sm md:col-span-2">
+              Pages du PDF
+              <input className="input mt-1" value={newLot.pages} onChange={(e) => setNewLot({ ...newLot, pages: e.target.value })} placeholder="ex. 12, 14-16" />
+            </label>
+          </div>
+          {newLotError && <p className="text-sm text-red-600">⚠ {newLotError}</p>}
+          <div className="flex gap-2">
+            <button className="btn-primary" onClick={addManualLot}>Créer le lot</button>
+            <button className="btn-secondary" onClick={() => { setAddingLot(false); setNewLotError(null) }}>Annuler</button>
+          </div>
+          <p className="text-xs text-slate-500">Les catégories et fournisseurs sont proposés d'après l'intitulé, comme pour un lot détecté ; tout reste modifiable ensuite.</p>
+        </div>
+      ) : (
+        <button className="btn-secondary" onClick={() => setAddingLot(true)} disabled={!submission.pdfData}>
+          ＋ Ajouter un lot manuellement
+        </button>
       )}
 
       {submission.lots.length === 0 && (
