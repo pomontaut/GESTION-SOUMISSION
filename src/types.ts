@@ -71,6 +71,7 @@ export interface FollowUpEntry {
   status: 'a_envoyer' | 'envoye'
   sentDate?: string
   relanceDate?: string
+  offerReceived?: boolean // offre réceptionnée (sans pièce jointe)
   estimatedAmount?: string
   offeredAmount?: string
   conforme: boolean

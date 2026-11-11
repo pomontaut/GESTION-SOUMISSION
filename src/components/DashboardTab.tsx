@@ -4,6 +4,16 @@ import { MODELS, generateTco, getApiKey, getModel, setApiKey, setModel } from '.
 import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
 import { exportTcoExcel } from '../export/tcoExcel'
 
+/** Fournisseur ayant répondu : case cochée, offre jointe ou montant saisi. */
+const hasAnswered = (f: FollowUpEntry) => Boolean(f.offerReceived || f.offerFileName || f.offeredAmount?.trim())
+
+interface RelancePanel {
+  lotId: string
+  supplierIds: string[]
+  subject: string
+  body: string
+}
+
 /** Seules les consultations réellement envoyées apparaissent dans le suivi. */
 const sentFollowUp = (lot: Lot) => lot.followUp.filter((f) => f.status === 'envoye')
 
@@ -17,6 +27,8 @@ export default function DashboardTab({
   const [apiKey, setApiKeyState] = useState(getApiKey())
   const [model, setModelState] = useState(getModel())
   const [tcoBusy, setTcoBusy] = useState<Record<string, string>>({})
+  const [relancePanel, setRelancePanel] = useState<RelancePanel | null>(null)
+  const [copied, setCopied] = useState(false)
   const [tcoError, setTcoError] = useState<Record<string, string>>({})
 
   async function attachOffer(lotId: string, supplierId: string, file: File | undefined) {
@@ -55,8 +67,62 @@ export default function DashboardTab({
     })
   }
 
-  function relance(lotId: string, supplierId: string) {
-    updateFollowUp(lotId, supplierId, { relanceDate: new Date().toISOString().slice(0, 10) })
+  function buildRelanceMessage(lot: Lot) {
+    const info = submission.info
+    const deadlineTxt = info.deadline ? new Date(info.deadline).toLocaleDateString('fr-CH') : ''
+    const ref = [info.siteNumber, info.projectName, info.siteLocation].filter(Boolean).join(' - ')
+    const subject = `Relance — Demande de prix — ${lot.title}${info.projectName ? ' — ' + info.projectName : ''}`
+    const body = [
+      'Bonjour,',
+      '',
+      `Sauf erreur de notre part, nous n'avons pas encore reçu votre offre pour les prestations « ${lot.title} »${ref ? ` (${ref})` : ''}.`,
+      deadlineTxt ? `Nous vous rappelons que la date de réponse souhaitée est le ${deadlineTxt}.` : '',
+      '',
+      "Pourriez-vous nous la transmettre dans les meilleurs délais ? Si vous ne souhaitez pas remettre d'offre, merci de nous en informer.",
+      '',
+      'MERCI DE MENTIONNER LES REFERENCES SUIVANTES SUR VOTRE MAIL DE RETOUR :',
+      ref,
+      '',
+      'Meilleures salutations,',
+      `${info.calculatorName || ''}${info.calculatorEmail ? ' — ' + info.calculatorEmail : ''}${info.calculatorPhone ? ' — ' + info.calculatorPhone : ''}`,
+    ]
+      .filter((l, i, a) => !(l === '' && a[i - 1] === ''))
+      .join('\n')
+    return { subject, body }
+  }
+
+  function openRelance(lot: Lot, supplierIds: string[]) {
+    if (supplierIds.length === 0) return
+    setCopied(false)
+    setRelancePanel({ lotId: lot.id, supplierIds, ...buildRelanceMessage(lot) })
+  }
+
+  /** Enregistre la date de relance pour les fournisseurs du panneau. */
+  function markRelanced(panel: RelancePanel) {
+    const lot = submission.lots.find((l) => l.id === panel.lotId)
+    if (!lot) return
+    const today = new Date().toISOString().slice(0, 10)
+    updateLot(panel.lotId, {
+      followUp: lot.followUp.map((f) => (panel.supplierIds.includes(f.supplierId) ? { ...f, relanceDate: today } : f)),
+    })
+  }
+
+  function relanceRecipients(panel: RelancePanel) {
+    const lot = submission.lots.find((l) => l.id === panel.lotId)
+    return (lot?.followUp ?? [])
+      .filter((f) => panel.supplierIds.includes(f.supplierId) && f.email)
+      .map((f) => f.email)
+  }
+
+  async function copyRelance(panel: RelancePanel) {
+    const text = `À (Cci): ${relanceRecipients(panel).join(', ')}\nObjet: ${panel.subject}\n\n${panel.body}`
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+    } catch {
+      window.prompt('Copiez le message :', text)
+    }
+    markRelanced(panel)
   }
 
   function setRetained(lotId: string, supplierId: string) {
@@ -69,7 +135,7 @@ export default function DashboardTab({
 
   function exportCsv() {
     const rows = [
-      ['Lot', 'CFC', 'Fournisseur', 'Email', 'Statut', 'Date envoi', 'Date relance', 'Montant estimé', 'Montant offert', 'Conforme', 'Date retour', 'Notes', 'Retenu'],
+      ['Lot', 'CFC', 'Fournisseur', 'Email', 'Statut', 'Date envoi', 'Date relance', 'Montant estimé', 'Montant offert', 'Conforme', 'Offre reçue', 'Date retour', 'Notes', 'Retenu'],
     ]
     for (const lot of submission.lots) {
       for (const f of sentFollowUp(lot)) {
@@ -84,6 +150,7 @@ export default function DashboardTab({
           f.estimatedAmount ?? '',
           f.offeredAmount ?? '',
           f.conforme ? 'oui' : 'non',
+          hasAnswered(f) ? 'oui' : 'non',
           f.returnDate ?? '',
           f.notes ?? '',
           f.retained ? 'oui' : 'non',
@@ -199,6 +266,67 @@ export default function DashboardTab({
         </div>
       </div>
 
+      {relancePanel && (() => {
+        const lot = submission.lots.find((l) => l.id === relancePanel.lotId)
+        const recipients = relanceRecipients(relancePanel)
+        const names = (lot?.followUp ?? []).filter((f) => relancePanel.supplierIds.includes(f.supplierId)).map((f) => f.name)
+        return (
+          <div className="card border-2 border-blue-300">
+            <div className="flex items-center mb-2">
+              <h3 className="font-semibold text-slate-800">
+                Message de relance — {names.join(', ')}
+              </h3>
+              <button className="ml-auto text-slate-400 hover:text-slate-700" onClick={() => setRelancePanel(null)}>
+                ✕
+              </button>
+            </div>
+            <label className="label">Destinataires (Cci)</label>
+            <input className="input" readOnly value={recipients.join(', ')} />
+            {names.length > recipients.length && (
+              <p className="text-xs text-amber-600 mt-1">⚠ Certains fournisseurs n'ont pas d'adresse e-mail enregistrée.</p>
+            )}
+            <label className="label mt-2">Objet</label>
+            <input
+              className="input"
+              value={relancePanel.subject}
+              onChange={(e) => setRelancePanel({ ...relancePanel, subject: e.target.value })}
+            />
+            <label className="label mt-2">Corps du message</label>
+            <textarea
+              className="input h-48 font-mono text-xs"
+              value={relancePanel.body}
+              onChange={(e) => setRelancePanel({ ...relancePanel, body: e.target.value })}
+            />
+            <div className="flex flex-wrap gap-2 mt-3 items-center">
+              <a
+                className="btn-primary"
+                onClick={() => markRelanced(relancePanel)}
+                href={`mailto:?bcc=${encodeURIComponent(recipients.join(','))}&subject=${encodeURIComponent(
+                  relancePanel.subject,
+                )}&body=${encodeURIComponent(relancePanel.body)}`}
+              >
+                ✉️ Ouvrir dans ma messagerie
+              </a>
+              <button className="btn-secondary" onClick={() => copyRelance(relancePanel)}>
+                {copied ? '✅ Copié' : 'Copier objet + destinataires + corps'}
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  markRelanced(relancePanel)
+                  setRelancePanel(null)
+                }}
+              >
+                Marquer « relancé » et fermer
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              La date de relance est enregistrée à l'ouverture de la messagerie ou à la copie.
+            </p>
+          </div>
+        )
+      })()}
+
       {submission.lots.filter((l) => sentFollowUp(l).length > 0).map((lot) => (
         <div key={lot.id} className="card overflow-x-auto">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -210,9 +338,24 @@ export default function DashboardTab({
             </span>
             <span className="text-xs text-slate-500">
               {lot.prestationType === 'fourniture' ? 'Fourniture' : 'Fourniture + pose'} · {lot.suppliers.length} fournisseur(s) ·{' '}
-              {sentFollowUp(lot).filter((f) => f.offeredAmount).length}/{sentFollowUp(lot).length} offre(s) reçue(s)
+              {sentFollowUp(lot).filter(hasAnswered).length}/{sentFollowUp(lot).length} offre(s) reçue(s)
             </span>
             <span className="text-xs text-slate-400 ml-auto">pages {lot.pages.join(', ')}</span>
+            <button
+              className="btn-secondary"
+              disabled={sentFollowUp(lot).filter((f) => !hasAnswered(f)).length === 0}
+              title="Relance groupée (Cci) de tous les fournisseurs qui n'ont pas répondu"
+              onClick={() =>
+                openRelance(
+                  lot,
+                  sentFollowUp(lot)
+                    .filter((f) => !hasAnswered(f))
+                    .map((f) => f.supplierId),
+                )
+              }
+            >
+              ✉️ Relancer les non-répondants ({sentFollowUp(lot).filter((f) => !hasAnswered(f)).length})
+            </button>
             <button
               className="btn-primary"
               disabled={Boolean(tcoBusy[lot.id]) || !lot.followUp.some((f) => f.offerData)}
@@ -232,6 +375,7 @@ export default function DashboardTab({
             <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <th className="py-1.5 pr-2" title="Offre réceptionnée (sans l'annexer)">Reçue</th>
                   <th className="py-1.5 pr-2">Fournisseur</th>
                   <th className="py-1.5 pr-2">Offre jointe</th>
                   <th className="py-1.5 pr-2">Statut</th>
@@ -247,7 +391,20 @@ export default function DashboardTab({
               </thead>
               <tbody>
                 {sentFollowUp(lot).map((f) => (
-                  <tr key={f.supplierId} className="border-b border-slate-100">
+                  <tr key={f.supplierId} className={`border-b border-slate-100 ${f.offerReceived ? 'bg-green-50' : ''}`}>
+                    <td className="py-1.5 pr-2 text-center">
+                      <input
+                        type="checkbox"
+                        title="Offre réceptionnée (sans l'annexer)"
+                        checked={Boolean(f.offerReceived)}
+                        onChange={(e) =>
+                          updateFollowUp(lot.id, f.supplierId, {
+                            offerReceived: e.target.checked,
+                            ...(e.target.checked && !f.returnDate ? { returnDate: new Date().toISOString().slice(0, 10) } : {}),
+                          })
+                        }
+                      />
+                    </td>
                     <td className="py-1.5 pr-2">
                       {f.name}
                       <div className="text-xs text-slate-400">{f.email}</div>
@@ -294,7 +451,7 @@ export default function DashboardTab({
                       />
                     </td>
                     <td className="py-1.5 pr-2">
-                      <button className="btn-secondary !py-1" onClick={() => relance(lot.id, f.supplierId)}>
+                      <button className="btn-secondary !py-1" onClick={() => openRelance(lot, [f.supplierId])}>
                         Relancer
                       </button>
                       {f.relanceDate && <div className="text-xs text-slate-400 mt-0.5">{f.relanceDate}</div>}
