@@ -173,7 +173,12 @@ export default function LotsTab({
       </div>
 
       {previewLot && submission.pdfData && (
-        <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />
+        <PdfPreviewModal
+          lot={submission.lots.find((l) => l.id === previewLot.id) ?? previewLot}
+          pdfData={submission.pdfData}
+          onClose={() => setPreviewLot(null)}
+          onPagesChange={(pages) => updateLot(previewLot.id, { pages })}
+        />
       )}
     </div>
   )

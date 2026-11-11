@@ -472,6 +472,7 @@ export default function ValidationTab({
           pdfData={submission.pdfData}
           onClose={() => setPreviewLot(null)}
           onRedactionsChange={(redactions) => updateLot(previewLot.id, { redactions })}
+          onPagesChange={(pages) => updateLot(previewLot.id, { pages })}
         />
       )}
 
