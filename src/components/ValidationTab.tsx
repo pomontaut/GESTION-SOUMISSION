@@ -484,6 +484,7 @@ export default function ValidationTab({
             <EmailPreviewModal
               lot={submission.lots.find((l) => l.id === previewEmailLot.id) ?? previewEmailLot}
               onRedactionsChange={(redactions) => updateLot(previewEmailLot.id, { redactions })}
+              onPagesChange={(pages) => updateLot(previewEmailLot.id, { pages })}
               submission={submission}
               initialSubject={subject}
               initialBody={body}

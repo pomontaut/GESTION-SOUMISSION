@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Lot, PdfRedaction, Submission } from '../types'
+import PdfPagesBar from './PdfPagesBar'
 import { extractLotPdf } from '../pdf/extractPages'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import PdfRedactionEditor from './PdfRedactionEditor'
@@ -13,6 +14,7 @@ export default function EmailPreviewModal({
   onClose,
   onSent,
   onRedactionsChange,
+  onPagesChange,
 }: {
   lot: Lot
   submission: Submission
@@ -22,6 +24,7 @@ export default function EmailPreviewModal({
   onClose: () => void
   onSent: (subject: string, body: string) => void
   onRedactionsChange: (redactions: PdfRedaction[]) => void
+  onPagesChange?: (pages: number[]) => void
 }) {
   const [editingZones, setEditingZones] = useState(false)
   const [subject, setSubject] = useState(initialSubject)
@@ -116,6 +119,9 @@ export default function EmailPreviewModal({
                 </button>
                 <span className="text-xs text-slate-500">Efface un titre ou toute zone avant l'envoi.</span>
               </div>
+            )}
+            {submission.pdfData && onPagesChange && (
+              <PdfPagesBar lot={lot} pdfData={submission.pdfData} onPagesChange={onPagesChange} compact />
             )}
             {pdfError && <p className="p-4 text-sm text-red-600">{pdfError}</p>}
             {pdfUrl && <iframe title="Pièce jointe" src={pdfUrl} className="w-full flex-1 border-0" />}
