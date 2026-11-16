@@ -55,8 +55,29 @@ export default function DashboardTab({
     })
   }
 
+  /** Ouvre l'e-mail de relance (fournisseur en « À », le calculateur en copie « Cc » pour garder une trace)
+   *  et date la relance. */
   function relance(lotId: string, supplierId: string) {
+    const lot = submission.lots.find((l) => l.id === lotId)
+    const f = lot?.followUp.find((x) => x.supplierId === supplierId)
     updateFollowUp(lotId, supplierId, { relanceDate: new Date().toISOString().slice(0, 10) })
+    if (!lot || !f) return
+    const info = submission.info
+    const projet = info.projectName || submission.name
+    const subject = `RELANCE – Demande de prix – ${projet} – CFC ${lot.cfcCode} ${lot.title}`
+    const body = [
+      'Bonjour,',
+      '',
+      `Sauf erreur de notre part, nous n'avons pas encore reçu votre offre pour la demande de prix « ${lot.title} » (CFC ${lot.cfcCode}) du projet ${projet}${f.sentDate ? `, envoyée le ${f.sentDate}` : ''}.`,
+      info.deadline ? `Nous vous remercions de nous la faire parvenir d'ici le ${info.deadline}.` : 'Nous vous remercions de nous la faire parvenir dans les meilleurs délais.',
+      'Si vous ne souhaitez pas remettre d\'offre, merci de nous en informer.',
+      '',
+      'Meilleures salutations,',
+      info.calculatorName,
+      info.calculatorPhone,
+    ].join('\n')
+    const cc = info.calculatorEmail ? `&cc=${encodeURIComponent(info.calculatorEmail)}` : ''
+    window.location.href = `mailto:${encodeURIComponent(f.email)}?subject=${encodeURIComponent(subject)}${cc}&body=${encodeURIComponent(body)}`
   }
 
   function setRetained(lotId: string, supplierId: string) {
