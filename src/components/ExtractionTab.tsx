@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import type { PlanFile, Submission, SubmissionInfo } from '../types'
+import type { DetectedZone, Lot, PlanFile, Submission, SubmissionInfo } from '../types'
+import { concatPdfs, mergeLotLists, shiftLot, shiftZones } from '../pdf/mergePdfs'
 import { uid } from '../types'
 import { BUYER_OPTIONS, ENTITY_OPTIONS, KNOWN_CALCULATORS } from '../types'
 import { analyzeSubmissionPdf, pdfHasExtractableText } from '../pdf/analyze'
@@ -34,6 +35,7 @@ export default function ExtractionTab({
     !submission.info.calculatorName || !KNOWN_CALCULATORS.some((c) => c.name === submission.info.calculatorName),
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const appendInputRef = useRef<HTMLInputElement>(null)
   const plansInputRef = useRef<HTMLInputElement>(null)
   const [planBusy, setPlanBusy] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)
@@ -117,24 +119,46 @@ export default function ExtractionTab({
     }
   }
 
-  async function handleFile(file: File) {
+  async function analyzeOne(file: File) {
+    const buffer = await file.arrayBuffer()
+    const hasText = await pdfHasExtractableText(buffer)
+    const result = hasText
+      ? await analyzeSubmissionPdf(buffer)
+      : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
+    return { buffer, result }
+  }
+
+  /** Une ou plusieurs soumissions (ex. maçonnerie + préfabriqué) fusionnées en une seule étude de prix.
+   *  append = ajoutées à celle déjà importée. */
+  async function handleFiles(files: File[], append = false) {
+    const pdfs = files.filter((f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf')
+    if (!pdfs.length) return
     setError(null)
     setAnalyzing(true)
     setOcrProgress(null)
     try {
-      const buffer = await file.arrayBuffer()
-      const hasText = await pdfHasExtractableText(buffer)
-      const result = hasText
-        ? await analyzeSubmissionPdf(buffer)
-        : await analyzeSubmissionPdfOcr(buffer, (page, total) => setOcrProgress({ page, total }))
+      const keep = append && !!submission.pdfData
+      const parts: { buffer: ArrayBuffer; result: Awaited<ReturnType<typeof analyzeOne>>['result'] }[] = []
+      for (const f of pdfs) parts.push(await analyzeOne(f))
       const [suppliers, learnings, rules] = await Promise.all([listSuppliers(), listLotSupplierLearnings(), listAgentRules()])
-      const lots = runLotAgent(result.lots, suppliers, submission.info, learnings, rules, result.zones)
+      const { data, pageCounts } = await concatPdfs([...(keep ? [submission.pdfData!] : []), ...parts.map((p) => p.buffer)])
+      let offset = keep ? pageCounts[0] : 0
+      let zones: DetectedZone[] = keep ? [...submission.zones] : []
+      let rawLots: Lot[] = []
+      parts.forEach((p, i) => {
+        zones = zones.concat(shiftZones(p.result.zones, offset))
+        rawLots = mergeLotLists(rawLots, p.result.lots.map((l) => shiftLot(l, offset)))
+        offset += pageCounts[(keep ? 1 : 0) + i]
+      })
+      const newLots = runLotAgent(rawLots, suppliers, submission.info, learnings, rules, zones)
+      const lots = keep ? mergeLotLists(submission.lots, newLots) : newLots
+      const names = [...(keep && submission.pdfFileName ? [submission.pdfFileName] : []), ...pdfs.map((f) => f.name)]
       onUpdate({
         ...submission,
-        name: submission.info.projectName || file.name.replace(/\.pdf$/i, ''),
-        pdfFileName: file.name,
-        pdfData: buffer,
-        zones: result.zones,
+        name: submission.info.projectName || names[0].replace(/\.pdf$/i, ''),
+        pdfFileName: names.join(' + '),
+        pdfData: data,
+        zones,
         lots,
       })
       onImported?.()
@@ -151,8 +175,7 @@ export default function ExtractionTab({
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
+    handleFiles([...e.dataTransfer.files], !!submission.pdfData && e.shiftKey)
   }
 
   function resetAll() {
@@ -352,20 +375,37 @@ export default function ExtractionTab({
           onDragOver={(e) => e.preventDefault()}
           onDrop={onDrop}
         >
-          <p className="text-slate-600 mb-3">📄 Glissez-déposez votre PDF ici, ou</p>
+          <p className="text-slate-600 mb-3">📄 Glissez-déposez votre ou vos PDF ici (ex. maçonnerie + préfabriqué : fusionnés en une seule soumission), ou</p>
           <button className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
-            Choisir un fichier
+            Choisir un ou plusieurs fichiers
           </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="application/pdf"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) handleFile(file)
+              if (e.target.files) handleFiles([...e.target.files])
+              e.target.value = ''
             }}
           />
+          <input
+            ref={appendInputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) handleFiles([...e.target.files], true)
+              e.target.value = ''
+            }}
+          />
+          {submission.pdfData && (
+            <button className="btn-secondary ml-2" disabled={analyzing} onClick={() => appendInputRef.current?.click()}>
+              ＋ Ajouter une 2e soumission (fusion)
+            </button>
+          )}
           <p className="text-sm text-slate-500 mt-3">
             {analyzing
               ? ocrProgress
