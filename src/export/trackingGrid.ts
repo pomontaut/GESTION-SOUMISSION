@@ -21,17 +21,22 @@ function contacted(l: LotT): { name: string; sent: boolean }[] {
 }
 
 /** Lots à afficher en colonnes : ceux qui ont au moins un fournisseur sollicité. */
-function gridLots(submission: Submission) {
-  return submission.lots.filter((l) => contacted(l).length > 0)
+export type GridMode = 'brut' | 'final'
+
+/** brut = tous les lots analysés par l'agent ; final = seulement les lots validés par l'acheteur (ou déjà envoyés). */
+function gridLots(submission: Submission, mode: GridMode = 'final') {
+  return submission.lots.filter(
+    (l) => contacted(l).length > 0 && (mode === 'brut' || l.validated || l.followUp.some((f) => f.status === 'envoye')),
+  )
 }
 
-export function hasGridData(submission: Submission): boolean {
-  return gridLots(submission).length > 0
+export function hasGridData(submission: Submission, mode: GridMode = 'final'): boolean {
+  return gridLots(submission, mode).length > 0
 }
 
 /** Données de la grille pour l'aperçu à l'écran : fournisseurs (une ligne par société) × lots. */
-export function gridPreview(submission: Submission) {
-  const lots = gridLots(submission)
+export function gridPreview(submission: Submission, mode: GridMode = 'final') {
+  const lots = gridLots(submission, mode)
   const norm = (n: string) => n.trim().toLowerCase()
   const suppliers: { name: string; lotIds: Set<string> }[] = []
   for (const lot of lots) {
@@ -60,9 +65,9 @@ function fmtPages(pages: number[]): string {
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('fr-CH') : '')
 
 /** Génère la « Grille soumission » : fournisseurs en lignes, lots en colonnes, X = fournisseur consulté. */
-export async function exportTrackingGrid(submission: Submission): Promise<void> {
+export async function exportTrackingGrid(submission: Submission, mode: GridMode = 'final'): Promise<void> {
   const ExcelJS = (await import('exceljs')).default
-  const lots = gridLots(submission)
+  const lots = gridLots(submission, mode)
   const info = submission.info
 
   // Fournisseurs sollicités, dans l'ordre de première apparition. Une même société rattachée à
@@ -170,7 +175,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
     .replace(/\s+/g, ' ')
     .trim()
     .toUpperCase()
-  a.download = `Grille soumission ${title}.xlsx`.trim()
+  a.download = `Grille soumission${mode === 'brut' ? ' (version brute)' : ' (version finale)'} ${title}.xlsx`.trim()
   a.click()
   URL.revokeObjectURL(url)
 }

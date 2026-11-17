@@ -1,15 +1,18 @@
 import type { Submission } from '../types'
-import { exportTrackingGrid, gridPreview } from '../export/trackingGrid'
+import { exportTrackingGrid, gridPreview, type GridMode } from '../export/trackingGrid'
 
 /** Grille de soumission « version brute », dès l'analyse des lots ; la version finale est dans « Suivi ». */
-export default function RawGrid({ submission }: { submission: Submission }) {
-  const { lots, suppliers, labels } = gridPreview(submission)
-  if (!lots.length) return null
+export default function GridView({ submission, mode }: { submission: Submission; mode: GridMode }) {
+  const { lots, suppliers, labels } = gridPreview(submission, mode)
+  const brut = mode === 'brut'
+  if (!lots.length) return brut ? null : <p className="text-sm text-slate-500">Grille finale : aucun lot validé pour l'instant.</p>
   return (
     <details className="card !p-3 mb-3" open>
-      <summary className="text-sm font-medium cursor-pointer">Grille de soumission (version brute)</summary>
+      <summary className="text-sm font-medium cursor-pointer">{brut ? 'Grille de soumission — version brute (analyse de l\'agent)' : 'Grille de soumission — version finale (lots validés par l\'acheteur)'}</summary>
       <p className="text-xs text-slate-500 my-2">
-        Version brute, avant envoi : X = fournisseur à consulter. La version finale est dans « 4. Suivi ».
+        {brut
+          ? 'Version brute, avant validation : X = fournisseur proposé. La version finale est dans « 4. Suivi ».'
+          : 'Version finale : seuls les lots validés dans « 2. Validation & envoi » figurent ici.'}
       </p>
       <div className="overflow-auto max-h-[40vh]">
         <table className="text-xs border-collapse">
@@ -35,8 +38,8 @@ export default function RawGrid({ submission }: { submission: Submission }) {
           </tbody>
         </table>
       </div>
-      <button className="btn-secondary w-full mt-2" onClick={() => exportTrackingGrid(submission)}>
-        ⭳ Grille version brute (Excel)
+      <button className="btn-secondary w-full mt-2" onClick={() => exportTrackingGrid(submission, mode)}>
+        {brut ? '⭳ Grille version brute (Excel)' : '⭳ Grille version finale (Excel)'}
       </button>
     </details>
   )

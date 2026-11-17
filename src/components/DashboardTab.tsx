@@ -4,6 +4,7 @@ import { uid } from '../types'
 import { deleteOfferFile, offerFileUrl, uploadOfferFile } from '../storage'
 import { extractAmountFromPdf } from '../pdf/extractAmount'
 import { detectLotHeterogeneity } from '../data/categorize'
+import GridView from './GridView'
 import { exportTrackingGrid, hasGridData } from '../export/trackingGrid'
 import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import { runTcoAgent } from '../tco/runTcoAgent'
@@ -213,6 +214,9 @@ export default function DashboardTab({
               <option value="refuse">Refusé</option>
             </select>
           </Field>
+        </div>
+        <div className="mt-4">
+          <GridView submission={submission} mode="final" />
         </div>
         <div className="flex gap-2 mt-4">
           <button
