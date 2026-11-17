@@ -17,6 +17,27 @@ function gridLots(submission: Submission) {
   return submission.lots.filter((l) => sentSuppliers(l).length > 0)
 }
 
+export type GridMode = 'prevu' | 'envoye'
+
+/** Fournisseurs retenus d'un lot selon le mode : prévus (tous sauf ignorés) ou réellement envoyés. */
+function suppliersFor(lot: Lot, mode: GridMode) {
+  return mode === 'envoye' ? sentSuppliers(lot) : lot.suppliers.filter((s) => s.status !== 'ignore')
+}
+
+/** Données de la grille (aperçu à l'écran et export Excel). */
+export function buildGridData(submission: Submission, mode: GridMode) {
+  const lots = submission.lots.filter((l) => suppliersFor(l, mode).length > 0)
+  const suppliers: { id: string; name: string; lotIds: Set<string> }[] = []
+  for (const lot of lots) {
+    for (const s of suppliersFor(lot, mode)) {
+      let row = suppliers.find((r) => r.id === s.supplierId)
+      if (!row) suppliers.push((row = { id: s.supplierId, name: s.name, lotIds: new Set() }))
+      row.lotIds.add(lot.id)
+    }
+  }
+  return { lots, suppliers, labels: lots.map((l) => l.cfcCode || l.subChapterCode || l.title) }
+}
+
 /** Vrai dès qu'au moins une consultation a été envoyée (la grille ne reprend que celles-là). */
 export function anyEmailSent(submission: Submission): boolean {
   return gridLots(submission).length > 0
@@ -35,20 +56,10 @@ export function allEmailsSent(submission: Submission): boolean {
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('fr-CH') : '')
 
 /** Génère la « Grille soumission » : fournisseurs en lignes, lots en colonnes, X = fournisseur consulté. */
-export async function exportTrackingGrid(submission: Submission): Promise<void> {
+export async function exportTrackingGrid(submission: Submission, mode: GridMode = 'envoye'): Promise<void> {
   const ExcelJS = (await import('exceljs')).default
-  const lots = gridLots(submission)
+  const { lots, suppliers } = buildGridData(submission, mode)
   const info = submission.info
-
-  // Fournisseurs dans l'ordre de première apparition, avec leurs lots.
-  const suppliers: { id: string; name: string; lotIds: Set<string> }[] = []
-  for (const lot of lots) {
-    for (const s of sentSuppliers(lot)) {
-      let row = suppliers.find((r) => r.id === s.supplierId)
-      if (!row) suppliers.push((row = { id: s.supplierId, name: s.name, lotIds: new Set() }))
-      row.lotIds.add(lot.id)
-    }
-  }
 
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Feuil1', {
@@ -112,7 +123,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
       else if (c === 2) cell.value = sup.name
       else if (c < lastCol && sup.lotIds.has(lots[c - 3].id)) cell.value = 'X'
       style(cell, grey, c === 1 ? undefined : c === 2 ? 'left' : 'center')
-      if (c === 2 && allSent) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YELLOW } }
+      if (c === 2 && allSent && mode === 'envoye') cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YELLOW } }
       cell.border = { top: thin, bottom: thin, left: c === 1 ? medium : thin, right: c === lastCol ? medium : thin }
     }
   })
@@ -123,7 +134,7 @@ export async function exportTrackingGrid(submission: Submission): Promise<void> 
   )
   const a = document.createElement('a')
   a.href = url
-  a.download = `Grille soumission ${info.projectName || submission.name || ''}.xlsx`.trim()
+  a.download = `Grille soumission${mode === 'prevu' ? ' (prévisionnelle)' : ''} ${info.projectName || submission.name || ''}.xlsx`.trim()
   a.click()
   URL.revokeObjectURL(url)
 }
