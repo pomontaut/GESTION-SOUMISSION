@@ -1,3 +1,4 @@
+import { loadExcelJS } from '../lib/loadExcelJS'
 import type { FollowUpEntry, Lot, Submission } from '../types'
 
 // Swiss/French amounts come in as free text ("150'000.00", "150 000,50", "150000") - strip
@@ -181,7 +182,7 @@ const CATEGORY_FILL = 'FFE2E8F0' // category sub-header within "Comparatif techn
  * doesn't collect yet - deliberately left out here rather than shown as empty columns.
  */
 export async function generateTcoWorkbook(lot: Lot, submission: Submission): Promise<Blob> {
-  const ExcelJS = (await import('exceljs')).default
+  const ExcelJS = await loadExcelJS()
   const wb = new ExcelJS.Workbook()
   wb.creator = 'GESTION-SOUMISSION'
   wb.created = new Date()

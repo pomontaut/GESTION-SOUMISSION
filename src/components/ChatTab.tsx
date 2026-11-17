@@ -1,3 +1,4 @@
+import { loadExcelJS } from '../lib/loadExcelJS'
 import { useEffect, useRef, useState } from 'react'
 import { toBase64 } from '../pdf/base64'
 import type { Submission } from '../types'
@@ -42,7 +43,7 @@ async function readAttachment(file: File): Promise<Attachment> {
     return { name: file.name, mediaType: file.type, base64: toBase64(new Uint8Array(await file.arrayBuffer())) }
   }
   if (lower.endsWith('.xlsx')) {
-    const ExcelJS = (await import('exceljs')).default
+    const ExcelJS = await loadExcelJS()
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load(await file.arrayBuffer())
     const parts: string[] = []

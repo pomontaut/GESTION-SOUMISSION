@@ -1,3 +1,4 @@
+import { loadExcelJS } from '../lib/loadExcelJS'
 import type { Submission } from '../types'
 
 const GREY = 'FFA6A6A6' // gris du modèle (blanc, assombri de 35 %)
@@ -66,7 +67,7 @@ const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('fr-CH
 
 /** Génère la « Grille soumission » : fournisseurs en lignes, lots en colonnes, X = fournisseur consulté. */
 export async function exportTrackingGrid(submission: Submission, mode: GridMode = 'final'): Promise<void> {
-  const ExcelJS = (await import('exceljs')).default
+  const ExcelJS = await loadExcelJS()
   const lots = gridLots(submission, mode)
   const info = submission.info
 

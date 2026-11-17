@@ -53,12 +53,20 @@ app.use('/api/agent-chat', agentChatRoutes)
 app.use('/api/lots-from-grid', lotsFromGridRoutes)
 
 const distDir = path.join(__dirname, '..', 'dist')
-app.use(express.static(distDir))
+app.use(
+  express.static(distDir, {
+    setHeaders: (res, filePath) => {
+      // index.html ne doit jamais être mis en cache (il référence les fichiers hachés du dernier build)
+      if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-store')
+    },
+  }),
+)
 app.get('/*splat', (req, res, next) => {
   if (req.path.startsWith('/api/')) {
     next()
     return
   }
+  res.setHeader('Cache-Control', 'no-store')
   res.sendFile(path.join(distDir, 'index.html'))
 })
 

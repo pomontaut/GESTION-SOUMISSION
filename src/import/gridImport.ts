@@ -1,3 +1,4 @@
+import { loadExcelJS } from '../lib/loadExcelJS'
 /** Import d'une « Grille soumission » rédigée à la main (Excel) : fournisseurs en lignes, lots en colonnes, X = consulté. */
 export interface ImportedGrid {
   lotLabels: string[]
@@ -18,7 +19,7 @@ function cellText(v: unknown): string {
 }
 
 export async function parseGridFile(file: File): Promise<ImportedGrid> {
-  const ExcelJS = (await import('exceljs')).default
+  const ExcelJS = await loadExcelJS()
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.load(await file.arrayBuffer())
   const ws = wb.worksheets[0]

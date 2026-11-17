@@ -1,3 +1,4 @@
+import { loadExcelJS } from '../lib/loadExcelJS'
 import type { Cell, Workbook } from 'exceljs'
 import type { OffreTco, Parametre, ScenarioTco, TcoResult } from '../agent/acheteurTypes'
 
@@ -429,7 +430,7 @@ export function buildTcoWorkbook(tco: TcoResult, ExcelJS: typeof import('exceljs
 
 /** Génère et télécharge le classeur TCO (formules actives, HT). */
 export async function exportTcoExcel(tco: TcoResult, fileName: string): Promise<void> {
-  const ExcelJS = (await import('exceljs')).default
+  const ExcelJS = await loadExcelJS()
   const wb = buildTcoWorkbook(tco, ExcelJS as unknown as typeof import('exceljs'))
   const buf = await wb.xlsx.writeBuffer()
   const url = URL.createObjectURL(
