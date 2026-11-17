@@ -10,6 +10,7 @@ import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
+import RawGrid from './RawGrid'
 import EmailPreviewModal from './EmailPreviewModal'
 
 export default function ValidationTab({
@@ -352,6 +353,8 @@ export default function ValidationTab({
           ✓ Tout valider
         </button>
       </div>
+
+      <RawGrid submission={submission} />
 
       {!submission.pdfData && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
