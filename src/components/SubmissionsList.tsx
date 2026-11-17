@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { Submission } from '../types'
 import { emptySubmissionInfo, uid } from '../types'
-import { deleteSubmission, listSubmissions, saveSubmission } from '../storage'
+import { deleteSubmission, getSubmission, listSubmissions, saveSubmission } from '../storage'
 
 export default function SubmissionsList({ onOpen }: { onOpen: (s: Submission) => void }) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
+  const [openingId, setOpeningId] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
@@ -16,6 +17,16 @@ export default function SubmissionsList({ onOpen }: { onOpen: (s: Submission) =>
   useEffect(() => {
     refresh()
   }, [])
+
+  async function open(s: Submission) {
+    setOpeningId(s.id)
+    try {
+      const full = await getSubmission(s.id)
+      onOpen(full ?? s)
+    } finally {
+      setOpeningId(null)
+    }
+  }
 
   async function createNew() {
     const now = new Date().toISOString()
@@ -59,8 +70,9 @@ export default function SubmissionsList({ onOpen }: { onOpen: (s: Submission) =>
           {submissions.map((s) => (
             <button
               key={s.id}
-              onClick={() => onOpen(s)}
-              className="card text-left flex items-center justify-between hover:border-indigo-300 transition-colors"
+              onClick={() => open(s)}
+              disabled={openingId === s.id}
+              className="card text-left flex items-center justify-between hover:border-indigo-300 transition-colors disabled:opacity-60"
             >
               <div>
                 <div className="font-medium text-slate-800">
@@ -69,6 +81,7 @@ export default function SubmissionsList({ onOpen }: { onOpen: (s: Submission) =>
                 <div className="text-sm text-slate-500 mt-0.5">
                   {s.info.siteNumber ? `N° ${s.info.siteNumber} · ` : ''}
                   {s.lots.length} lot(s) · mis à jour le {new Date(s.updatedAt).toLocaleDateString('fr-CH')}
+                  {openingId === s.id ? ' · ouverture…' : ''}
                 </div>
               </div>
               <span className="btn-danger" onClick={(e) => remove(s.id, e)}>
