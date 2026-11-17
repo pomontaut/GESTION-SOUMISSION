@@ -9,6 +9,7 @@ import emailRoutes from './routes/email'
 import learningsRoutes from './routes/learnings'
 import tcoRoutes from './routes/tco'
 import agentChatRoutes from './routes/agentChat'
+import lotsFromGridRoutes from './routes/lotsFromGrid'
 
 const authUser = process.env.APP_USER
 const authPassword = process.env.APP_PASSWORD
@@ -49,6 +50,7 @@ app.use('/api/send-email', emailRoutes)
 app.use('/api/learnings', learningsRoutes)
 app.use('/api/tco', tcoRoutes)
 app.use('/api/agent-chat', agentChatRoutes)
+app.use('/api/lots-from-grid', lotsFromGridRoutes)
 
 const distDir = path.join(__dirname, '..', 'dist')
 app.use(express.static(distDir))

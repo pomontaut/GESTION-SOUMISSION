@@ -11,6 +11,8 @@ import { sendLotEmailNow } from '../email/sendLotNow'
 import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
 import PdfPreviewModal from './PdfPreviewModal'
 import GridView from './GridView'
+import { parseGridFile } from '../import/gridImport'
+import { rebuildLotsFromGrid } from '../agent/lotsFromGrid'
 import EmailPreviewModal from './EmailPreviewModal'
 
 export default function ValidationTab({
@@ -35,6 +37,8 @@ export default function ValidationTab({
   const [addingLot, setAddingLot] = useState(false)
   const [newLot, setNewLot] = useState({ title: '', cfc: '', prestation: 'fourniture_pose' as PrestationType, pages: '' })
   const [newLotError, setNewLotError] = useState<string | null>(null)
+  const [importMsg, setImportMsg] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
   const lotElsRef = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
@@ -171,6 +175,32 @@ export default function ValidationTab({
     setNewLot({ title: '', cfc: '', prestation: newLot.prestation, pages: '' })
     setNewLotError(null)
     setAddingLot(false)
+  }
+
+  /** Grille rédigée à la main (Excel) : l'agent refait les lots d'après le PDF et la grille. */
+  async function importGrid(file: File) {
+    setImportBusy(true)
+    setImportMsg('Lecture de la grille…')
+    try {
+      const grid = await parseGridFile(file)
+      if (
+        submission.lots.some((l) => l.followUp.some((f) => f.status === 'envoye')) &&
+        !confirm('Des consultations sont déjà marquées « envoyées » : elles seront perdues si les lots sont refaits. Continuer ?')
+      ) {
+        setImportMsg('')
+        return
+      }
+      setImportMsg(`Grille : ${grid.lotLabels.length} lot(s), ${grid.suppliers.length} fournisseur(s). L'agent refait les lots…`)
+      const r = await rebuildLotsFromGrid(submission, grid, suppliers)
+      onUpdate({ ...submission, lots: r.lots })
+      setImportMsg(
+        `✅ ${r.lots.length} lot(s) refaits ${r.usedAgent ? "par l'agent" : 'par n° CFC'} · ${r.unassignedZones} position(s) non rattachée(s)${r.warning ? ' — ' + r.warning : ''}`,
+      )
+    } catch (e) {
+      setImportMsg(`❌ ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setImportBusy(false)
+    }
   }
 
   function updateLot(id: string, patch: Partial<Lot>) {
@@ -352,6 +382,25 @@ export default function ValidationTab({
         >
           ✓ Tout valider
         </button>
+      </div>
+
+      <div className="card !p-3 flex items-center gap-3 flex-wrap">
+        <label className={`btn-secondary cursor-pointer ${importBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+          ⭱ Importer une grille rédigée à la main (Excel)
+          <input
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) importGrid(f)
+            }}
+          />
+        </label>
+        <span className="text-xs text-slate-500">
+          {importMsg || "Fournisseurs en lignes, lots en colonnes, « X » = consulté (même format que la grille exportée). L'agent refait les lots d'après le PDF et la grille."}
+        </span>
       </div>
 
       <GridView submission={submission} mode="brut" />
