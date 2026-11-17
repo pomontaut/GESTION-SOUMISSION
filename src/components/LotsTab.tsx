@@ -5,6 +5,8 @@ import { listSuppliers, saveSupplier } from '../storage'
 import { extractLotPdf } from '../pdf/extractPages'
 import { ALL_CATEGORIES } from '../data/suppliers'
 import { anyEmailSent, exportTrackingGrid } from '../export/trackingGrid'
+import { parseGridFile } from '../import/gridImport'
+import { rebuildLotsFromGrid } from '../agent/lotsFromGridAgent'
 import { detectLotHeterogeneity, topCategoryFor } from '../data/categorize'
 
 const INACTIVE_STATUSES = ['Ne pas consulter', 'Inactif / à exclure']
@@ -20,6 +22,8 @@ export default function LotsTab({
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([])
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
+  const [importMsg, setImportMsg] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
 
   useEffect(() => {
     listSuppliers().then(setSuppliers)
@@ -68,6 +72,31 @@ export default function LotsTab({
     setSelectedId(merged.id)
   }
 
+  async function importGrid(file: File) {
+    setImportBusy(true)
+    setImportMsg('Lecture de la grille…')
+    try {
+      const grid = await parseGridFile(file)
+      if (submission.lots.some((l) => l.followUp.some((f) => f.status === 'envoye')) &&
+        !confirm('Des consultations sont déjà marquées « envoyées » : elles seront perdues si les lots sont refaits. Continuer ?')) {
+        setImportMsg('')
+        return
+      }
+      setImportMsg(`Grille : ${grid.lotLabels.length} lot(s), ${grid.suppliers.length} fournisseur(s). L'agent refait les lots…`)
+      const r = await rebuildLotsFromGrid(submission, grid, suppliers)
+      onUpdate({ ...submission, lots: r.lots })
+      setSelectedId(r.lots[0]?.id ?? null)
+      setChecked(new Set())
+      setImportMsg(
+        `✅ ${r.lots.length} lot(s) refaits ${r.usedAgent ? 'par l\'agent' : 'par n° CFC'} · ${r.unassignedZones} position(s) non rattachée(s)${r.warning ? ' — ' + r.warning : ''}`,
+      )
+    } catch (e) {
+      setImportMsg(`❌ ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
   function splitLot(oldId: string, newLots: Lot[], remainder: Lot | null) {
     const replacement = remainder ? [remainder, ...newLots] : newLots
     onUpdate({
@@ -94,6 +123,20 @@ export default function LotsTab({
             Fusionner {checked.size} lots sélectionnés
           </button>
         )}
+        <label className={`btn-secondary w-full mb-1 block text-center cursor-pointer ${importBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+          ⭱ Importer une grille (Excel) — l'agent refait les lots
+          <input
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) importGrid(f)
+            }}
+          />
+        </label>
+        {importMsg && <p className="text-xs text-slate-600 mb-3">{importMsg}</p>}
         <button
           className="btn-primary w-full mb-3"
           disabled={!anyEmailSent(submission)}
