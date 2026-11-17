@@ -2,9 +2,15 @@ import type { DetectedZone, Lot, Submission, SupplierRecord } from '../types'
 import { uid } from '../types'
 import type { ImportedGrid } from '../import/gridImport'
 import { buildLotEmail } from '../email/draftEmail'
-import { dedupeLotSuppliers } from '../data/matching'
+import { companyKey, dedupeLotSuppliers } from '../data/matching'
 
 type Assignment = { lot: string; titre: string; zoneIds: string[] }
+
+function mostFrequent(values: string[]): string {
+  const n = new Map<string, number>()
+  for (const v of values.filter(Boolean)) n.set(v, (n.get(v) ?? 0) + 1)
+  return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+}
 
 const norm = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -62,28 +68,46 @@ export async function rebuildLotsFromGrid(
   let assignments: Assignment[]
   let usedAgent = false
   let warning: string | undefined
-  try {
-    if (!zones.length) throw new Error('aucune position détectée dans le PDF')
-    assignments = await askAgent(grid, zones, submission.info.projectName || submission.name)
-    usedAgent = true
-  } catch (e) {
-    warning = `Agent indisponible (${e instanceof Error ? e.message : e}) : répartition par n° CFC seulement.`
-    assignments = byCode(grid, zones)
+  const pageMode = grid.mode === 'pages' && !!grid.lotPages
+  if (pageMode) {
+    // Les pages de chaque lot sont dans la grille : rien à deviner, pas d'agent.
+    assignments = grid.lotPages!.map((pg, i) => {
+      const lz = zones.filter((z) => pg.includes(z.page))
+      const title = mostFrequent(lz.map((z) => z.chapterTitle || z.subChapterTitle)) || grid.lotLabels[i]
+      return { lot: grid.lotLabels[i], titre: title, zoneIds: lz.map((z) => z.id) }
+    })
+  } else {
+    try {
+      if (!zones.length) throw new Error('aucune position détectée dans le PDF')
+      assignments = await askAgent(grid, zones, submission.info.projectName || submission.name)
+      usedAgent = true
+    } catch (e) {
+      warning = `Agent indisponible (${e instanceof Error ? e.message : e}) : répartition par n° CFC seulement.`
+      assignments = byCode(grid, zones)
+    }
   }
 
   const zoneById = new Map(zones.map((z) => [z.id, z]))
   const taken = new Set<string>()
-  const byName = new Map(knownSuppliers.map((s) => [norm(s.name), s]))
+  // Plusieurs lignes de la base par société (une par catégorie) : on garde celle qui a une adresse.
+  const byName = new Map<string, SupplierRecord>()
+  for (const s of knownSuppliers) {
+    const k = norm(companyKey(s.name))
+    const cur = byName.get(k)
+    if (!cur || (!cur.email.trim() && s.email.trim())) byName.set(k, s)
+  }
+  const lookup = (name: string) => byName.get(norm(companyKey(name)))
   const lots: Lot[] = grid.lotLabels.map((label, i) => {
     const a = assignments.find((x) => norm(x.lot) === norm(label))
-    const ids = (a?.zoneIds ?? []).filter((id) => zoneById.has(id) && !taken.has(id))
+    // mode pages : une même page peut appartenir à plusieurs lots (fournisseurs différents)
+    const ids = (a?.zoneIds ?? []).filter((id) => zoneById.has(id) && (pageMode || !taken.has(id)))
     ids.forEach((id) => taken.add(id))
     const lz = ids.map((id) => zoneById.get(id)!)
     const first = lz[0]
     const suppliers = grid.suppliers
       .filter((s) => s.lots[i])
       .map((s) => {
-        const k = byName.get(norm(s.name))
+        const k = lookup(s.name)
         return {
           supplierId: k?.id ?? `grille-${norm(s.name).replace(/ /g, '-')}`,
           name: k?.name ?? s.name,
@@ -100,11 +124,12 @@ export async function rebuildLotsFromGrid(
       subChapterCode: first?.subChapterCode ?? '',
       subChapterTitle: first?.subChapterTitle ?? '',
       prestationType: lz.length > 0 && lz.every((z) => z.color === 'jaune') ? 'fourniture' : 'fourniture_pose',
-      pages: Array.from(new Set(lz.map((z) => z.page))).sort((x, y) => x - y),
+      pages: pageMode ? [...grid.lotPages![i]] : Array.from(new Set(lz.map((z) => z.page))).sort((x, y) => x - y),
       positionCount: lz.length,
       zoneIds: ids,
-      validated: false,
-      categories: Array.from(new Set(suppliers.map((s) => byName.get(norm(s.name))?.category).filter(Boolean) as string[])),
+      // La grille de l'acheteur fait foi : listes de fournisseurs validées d'office (onglet 3 : envois proposés).
+      validated: suppliers.length > 0,
+      categories: Array.from(new Set(suppliers.map((s) => lookup(s.name)?.category).filter(Boolean) as string[])),
       suppliers,
       followUp: suppliers.map((s) => ({ supplierId: s.supplierId, name: s.name, email: s.email, status: 'a_envoyer' as const, conforme: true, retained: false })),
     }
