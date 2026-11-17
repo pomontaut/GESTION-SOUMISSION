@@ -777,9 +777,9 @@ function PlannedGrid({ submission }: { submission: Submission }) {
   if (!lots.length) return null
   return (
     <details className="card !p-3 mb-3" open>
-      <summary className="text-sm font-medium cursor-pointer">Grille de soumission (prévisionnelle)</summary>
+      <summary className="text-sm font-medium cursor-pointer">Grille de soumission (version brute)</summary>
       <p className="text-xs text-slate-500 my-2">
-        X = fournisseur à consulter. La version finale (envois réels) est dans « Dashboard de suivi ».
+        Version brute, avant envoi : X = fournisseur à consulter. La version finale (envois réels) est dans « Dashboard de suivi ».
       </p>
       <div className="overflow-auto max-h-[40vh]">
         <table className="text-xs border-collapse">
@@ -806,7 +806,7 @@ function PlannedGrid({ submission }: { submission: Submission }) {
         </table>
       </div>
       <button className="btn-secondary w-full mt-2" onClick={() => exportTrackingGrid(submission, 'prevu')}>
-        ⭳ Grille prévisionnelle (Excel)
+        ⭳ Grille version brute (Excel)
       </button>
     </details>
   )

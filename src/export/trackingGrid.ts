@@ -134,7 +134,7 @@ export async function exportTrackingGrid(submission: Submission, mode: GridMode 
   )
   const a = document.createElement('a')
   a.href = url
-  a.download = `Grille soumission${mode === 'prevu' ? ' (prévisionnelle)' : ''} ${info.projectName || submission.name || ''}.xlsx`.trim()
+  a.download = `Grille soumission${mode === 'prevu' ? ' (version brute)' : ''} ${info.projectName || submission.name || ''}.xlsx`.trim()
   a.click()
   URL.revokeObjectURL(url)
 }
