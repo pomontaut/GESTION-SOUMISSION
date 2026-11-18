@@ -22,7 +22,9 @@ function classifyPixel(r: number, g: number, b: number): HighlightColor | null {
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   if (max - min < 40) return null // grayscale: page background, black text, table gridlines
-  if (r > 200 && g > 200 && b < 100) return 'jaune'
+  // Pure yellow (255,255,0) but also the pastel yellow a semi-transparent highlighter renders as
+  // (255,250,153 on M25063): blue clearly lower than both red and green, red ~ green.
+  if (r > 200 && g > 200 && Math.abs(r - g) < 40 && b < Math.min(r, g) - 60) return 'jaune'
   return 'autre'
 }
 

@@ -1,5 +1,5 @@
 import { pdfjsLib } from './pdfjs'
-import { detectColorBands } from './highlightRegions'
+import { classifyLineHighlight, detectColorBands } from './highlightRegions'
 import type { DetectedZone, Lot, PrestationType } from '../types'
 import { uid } from '../types'
 import { suggestLotCategories } from '../data/categorize'
@@ -363,6 +363,151 @@ export async function pdfHasExtractableText(data: ArrayBuffer): Promise<boolean>
   return false
 }
 
+interface ColoredLine {
+  page: number
+  line: TextLine
+  color: 'jaune' | 'autre' | null
+}
+
+const TOTAL_LINE_RE = /^Total\s+(\d{1,2})\s*:\s*(.+?)(?:\s+CHF)?$/i
+const SECTION_LINE_RE = /^([A-Z])\.\s+([A-ZÀ-Þ][A-ZÀ-Þ0-9 ,.'’\/&()-]{3,})/
+
+/**
+ * Flattened (no Highlight annotation) submissions in the "private" numbered layout (M25063
+ * maçonnerie, bureau FLK): sections "A. INSTALLATION DE CHANTIER" ... "E. ...", chapters
+ * "1. DEMOLITIONS EXTERIEURES" closed by a "Total 1 : Démolitions extérieures" line (chapter
+ * numbers restart in every section), articles "1.1", "1.2"..., and a recap block ("RECAPITULATION"
+ * / "Récapitulatif" pages) that must never become a lot. The CAN header regexes of the main path
+ * match none of this (it produced ONE bogus lot titled after a page footer). The chapter of a line
+ * is the NEXT "Total N : Title" line, which is more robust than the header (sometimes missing or
+ * split across pages); the highlight colour is sampled per text line from the rendered page.
+ */
+function analyzeFlattenedNumbered(
+  numPages: number,
+  pageLines: Map<number, TextLine[]>,
+  pageColors: Map<number, Array<'jaune' | 'autre' | null>>,
+): AnalyzeResult | null {
+  const norm = (t: string) => t.replace(/\d+/g, '#')
+  const counts = new Map<string, number>()
+  for (const lines of pageLines.values()) for (const l of lines) counts.set(norm(l.text), (counts.get(norm(l.text)) ?? 0) + 1)
+  const repeatThreshold = Math.max(3, Math.ceil(numPages * 0.3))
+
+  const flat: ColoredLine[] = []
+  for (let p = 1; p <= numPages; p++) {
+    const lines = pageLines.get(p) ?? []
+    if (lines.some((l) => /^Récapitulatif/i.test(l.text))) continue // appended recap pages
+    const colors = pageColors.get(p) ?? []
+    lines.forEach((line, i) => {
+      if ((counts.get(norm(line.text)) ?? 0) >= repeatThreshold) return // running header/footer
+      flat.push({ page: p, line, color: colors[i] ?? null })
+    })
+  }
+  if (flat.filter((f) => TOTAL_LINE_RE.test(f.line.text)).length < 5) return null
+
+  interface Assigned extends ColoredLine {
+    section: string
+    chapter: string
+    chapterTitle: string
+  }
+  const assigned: Assigned[] = []
+  let section = ''
+  let inRecap = false
+  let pending: ColoredLine[] = []
+  for (const f of flat) {
+    const t = f.line.text
+    const sec = t.match(SECTION_LINE_RE)
+    if (sec && !TOTAL_LINE_RE.test(t)) {
+      section = sec[1]
+      inRecap = false
+      pending = []
+      continue
+    }
+    if (/^R[ÉE]CAPITULATION/i.test(t)) {
+      inRecap = true
+      pending = []
+      continue
+    }
+    if (inRecap) continue
+    const tot = t.match(TOTAL_LINE_RE)
+    if (tot) {
+      for (const q of pending) assigned.push({ ...q, section, chapter: tot[1], chapterTitle: tot[2].trim() })
+      pending = []
+      continue
+    }
+    pending.push(f)
+  }
+
+  // Zones = runs of consecutive same-colour highlighted lines within one chapter and page.
+  const zones: DetectedZone[] = []
+  interface Run { section: string; chapter: string; chapterTitle: string; color: 'jaune' | 'autre'; page: number; texts: string[] }
+  const runs: Run[] = []
+  let cur: Run | null = null
+  for (const a of assigned) {
+    if (!a.color) {
+      cur = null
+      continue
+    }
+    if (cur && cur.section === a.section && cur.chapter === a.chapter && cur.color === a.color && cur.page === a.page) {
+      cur.texts.push(a.line.text)
+    } else {
+      cur = { section: a.section, chapter: a.chapter, chapterTitle: a.chapterTitle, color: a.color, page: a.page, texts: [a.line.text] }
+      runs.push(cur)
+    }
+  }
+  if (runs.length === 0) return null
+
+  interface Group { run: Run; pages: Set<number>; zoneIds: string[]; textSample: string }
+  const groups = new Map<string, Group>()
+  for (const r of runs) {
+    const id = uid()
+    const text = r.texts.join(' ').replace(/\s+/g, ' ').trim()
+    const code = `${r.section}.${r.chapter}`
+    zones.push({
+      id,
+      page: r.page,
+      chapterCode: code,
+      chapterTitle: r.chapterTitle,
+      subChapterCode: '',
+      subChapterTitle: '',
+      cfcCode: '',
+      text,
+      color: r.color,
+    })
+    const key = `${r.color}|${code}`
+    const g = groups.get(key)
+    if (g) {
+      g.pages.add(r.page)
+      g.zoneIds.push(id)
+      if (g.textSample.length < 800) g.textSample += ' ' + text.slice(0, 200)
+    } else {
+      groups.set(key, { run: r, pages: new Set([r.page]), zoneIds: [id], textSample: text.slice(0, 200) })
+    }
+  }
+  const lots: Lot[] = Array.from(groups.values()).map((g): Lot => {
+    const code = `${g.run.section}.${g.run.chapter}`
+    const title = `${code} ${g.run.chapterTitle}`
+    return {
+      id: uid(),
+      title,
+      cfcCode: '',
+      chapterCode: code,
+      chapterTitle: g.run.chapterTitle,
+      subChapterCode: '',
+      subChapterTitle: '',
+      prestationType: (g.run.color === 'jaune' ? 'fourniture' : 'fourniture_pose') as PrestationType,
+      pages: Array.from(g.pages).sort((a, b) => a - b),
+      positionCount: g.zoneIds.length,
+      zoneIds: g.zoneIds,
+      validated: false,
+      categories: suggestLotCategories(title, g.textSample),
+      suppliers: [],
+      followUp: [],
+    }
+  })
+  lots.sort((a, b) => a.pages[0] - b.pages[0] || a.chapterCode.localeCompare(b.chapterCode))
+  return { zones, lots, numPages }
+}
+
 export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeResult> {
   const doc = await pdfjsLib.getDocument({ data: data.slice(0) }).promise
 
@@ -402,7 +547,14 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
   // there but there is no Highlight annotation at all. Only when the whole document has none
   // (so a document with real annotations is never affected), recover the highlighted regions
   // from the rendered pixels and feed them through the same path as native annotations.
-  if (Array.from(pageAnnots.values()).every((a) => (a as unknown[]).length === 0)) {
+  // Only Highlight/FreeText count as "real" annotations: a Link (table of contents, hyperlinks,
+  // seen on M25063 maçonnerie, 7 Link on page 1) or Widget must not disable the raster fallback.
+  const flattenedLineColors = new Map<number, Array<'jaune' | 'autre' | null>>()
+  const isMarkup = (a: unknown) => {
+    const st = (a as { subtype?: string }).subtype
+    return st === 'Highlight' || st === 'FreeText'
+  }
+  if (Array.from(pageAnnots.values()).every((a) => !(a as unknown[]).some(isMarkup))) {
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p)
       const viewport = page.getViewport({ scale: 2 })
@@ -412,7 +564,19 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
       const ctx = canvas.getContext('2d', { willReadFrequently: true })
       if (!ctx) continue
       await page.render({ canvasContext: ctx, viewport }).promise
-      const bands = detectColorBands(ctx.getImageData(0, 0, canvas.width, canvas.height))
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const bands = detectColorBands(image)
+      // Per-text-line colour (same raster), used by the numbered-layout path below: a blue band
+      // can swallow yellow rows, so the band's dominant colour is not reliable line by line.
+      flattenedLineColors.set(
+        p,
+        (pageAllLines.get(p) ?? []).map((l) => {
+          const x0 = Math.min(l.xStart, 60)
+          const [vx0, vy0] = viewport.convertToViewportPoint(x0, l.y + 9)
+          const [vx1, vy1] = viewport.convertToViewportPoint(x0 + 300, l.y - 2)
+          return classifyLineHighlight(image, { x0: vx0, y0: vy0, x1: vx1, y1: vy1 })
+        }),
+      )
       pageAnnots.set(
         p,
         bands.map((b) => {
@@ -426,6 +590,11 @@ export async function analyzeSubmissionPdf(data: ArrayBuffer): Promise<AnalyzeRe
         }),
       )
     }
+  }
+
+  if (flattenedLineColors.size > 0) {
+    const numbered = analyzeFlattenedNumbered(doc.numPages, pageAllLines, flattenedLineColors)
+    if (numbered) return numbered
   }
 
   // A running header/footer ("OU3 SA" / "Bureau d'ingénieurs... Page 8 / 38", a bureau's own
