@@ -399,24 +399,29 @@ export default function ValidationTab({
         </button>
       </div>
 
-      <div className="card !p-3 flex items-center gap-3 flex-wrap">
+      <details className="card !p-3">
+        <summary className="cursor-pointer text-sm text-slate-500">
+          Cas exceptionnel : corriger les lots avec une grille rédigée à la main (Excel)
+        </summary>
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
         <label className={`btn-secondary cursor-pointer ${importBusy ? 'opacity-50 pointer-events-none' : ''}`}>
-          ⭱ Importer une grille rédigée à la main (Excel)
-          <input
-            type="file"
-            accept=".xlsx"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              e.target.value = ''
-              if (f) importGrid(f)
-            }}
-          />
-        </label>
-        <span className="text-xs text-slate-500">
-          {importMsg || "Fournisseurs en lignes, lots en colonnes, « X » = consulté (même format que la grille exportée). L'agent refait les lots d'après le PDF et la grille."}
-        </span>
-      </div>
+            ⭱ Importer une grille rédigée à la main (Excel)
+            <input
+              type="file"
+              accept=".xlsx"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) importGrid(f)
+              }}
+            />
+          </label>
+          <span className="text-xs text-slate-500">
+            {importMsg || "Facultatif : les lots et fournisseurs sont déjà proposés automatiquement d'après le PDF."}
+          </span>
+        </div>
+      </details>
 
       <GridView submission={submission} mode="brut" />
 

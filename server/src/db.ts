@@ -90,14 +90,14 @@ export async function initSchema(): Promise<void> {
   // Mémoire de l'agent : méthode de construction de la grille de référence (Brodbeck). Id fixe =
   // posée une seule fois, jamais dupliquée ; supprimable depuis l'onglet « Chat agent ».
   await pool.query(
-    `INSERT INTO agent_consignes (id, scope, text) VALUES ($1, 'general', $2) ON CONFLICT (id) DO NOTHING`,
+    `INSERT INTO agent_consignes (id, scope, text) VALUES ($1, 'general', $2) ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text`,
     [
       'methode-grille-brodbeck',
-      "Méthode de la grille de référence « 26-553 Brodbeck Roulet – Ernest Bloch » (format CAN / article), à reproduire pour toute future consultation : " +
+      "RÈGLE PRIORITAIRE : à l'import d'une soumission (PDF), tu produis TOUJOURS toi-même les lots et le matching fournisseurs à partir du PDF, sans jamais demander de grille Excel ; la grille n'est qu'exceptionnelle (correction manuelle a posteriori), ne la réclame ni ne la suggère. Méthode de la grille de référence « 26-553 Brodbeck Roulet – Ernest Bloch » (format CAN / article), exemple à REPRODUIRE automatiquement pour toute future consultation : " +
         "(1) la grille est un tableau Excel avec les FOURNISSEURS en lignes (nom en colonne B) et, en colonnes, les N° DE PAGES du PDF de soumission où figurent les positions surlignées (ex. 1, 5, 8, 12, 29à30…) ; un « X » = ce fournisseur est consulté pour cette page. " +
         "(2) Un LOT = un groupe de fournisseurs consultés sur exactement les mêmes pages (ils reçoivent la même demande) ; les pages du lot sont les colonnes cochées, page 1 (garde) comprise ; le lot 1 est celui du premier fournisseur de la grille. " +
         "(3) Les fournisseurs sont choisis par métier/catégorie en face de chaque famille d'articles CAN (revêtements bitumineux : Colas, Scrasa, Asfalsa, SAPA, WALO ; matériaux/canalisations : HGC, GETAZ, CHALLANDE, etc.), pas par chapitre isolé : une même page peut donc figurer dans plusieurs lots. " +
-        "(4) La grille de l'acheteur fait foi : lots validés d'office, aucune devinette de pages. Pour une nouvelle consultation, propose les fournisseurs par article/page selon la même logique (catégorie du métier ↔ positions surlignées) et regroupe ceux qui ont les mêmes pages.",
+        "(4) Pour une nouvelle consultation sans grille, propose les fournisseurs par article/page selon la même logique (catégorie du métier ↔ positions surlignées) et regroupe ceux qui ont les mêmes pages.",
     ],
   )
 }
