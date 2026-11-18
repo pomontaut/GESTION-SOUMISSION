@@ -9,6 +9,7 @@ import { companyKey, dedupeLotSuppliers } from '../data/matching'
 import { buildLotEmail } from '../email/draftEmail'
 import { sendLotEmailNow } from '../email/sendLotNow'
 import { learnManualSupplier, listSuppliers, saveSupplier } from '../storage'
+import { ALL_CATEGORIES } from '../data/suppliers'
 import PdfPreviewModal from './PdfPreviewModal'
 import GridView from './GridView'
 import { parseGridFile } from '../import/gridImport'
@@ -227,6 +228,20 @@ export default function ValidationTab({
   // match missed it - worth remembering for next time (see saveLotSupplierLearning). A follow-up
   // row is seeded immediately too, so the new supplier shows up in the Suivi tab right away
   // instead of only after the lot's e-mail gets (re)generated.
+  /** Crée le fournisseur dans la base (sans quitter l'onglet) puis l'ajoute au lot. */
+  async function createSupplierForLot(lot: Lot, data: { name: string; email: string; category: string }) {
+    const record: SupplierRecord = {
+      id: uid(),
+      name: data.name.trim(),
+      email: data.email.trim(),
+      category: data.category.trim(),
+      status: 'Actif / à confirmer',
+    }
+    await saveSupplier(record)
+    setSuppliers((prev) => [...prev, record])
+    addSupplierToLot(lot, record)
+  }
+
   function addSupplierToLot(lot: Lot, supplier: SupplierRecord) {
     if (lot.suppliers.some((x) => x.supplierId === supplier.id || companyKey(x.name) === companyKey(supplier.name))) return
     updateLot(lot.id, {
@@ -558,7 +573,7 @@ export default function ValidationTab({
               query={searchByLot[lot.id] ?? ''}
               onQueryChange={(q) => setSearchByLot((prev) => ({ ...prev, [lot.id]: q }))}
               onAdd={(s) => addSupplierToLot(lot, s)}
-              onOpenFullEditor={() => onEditLot(lot.id)}
+              onCreate={(data) => createSupplierForLot(lot, data)}
             />
             </div>
           </div>
@@ -723,24 +738,29 @@ function LotDragHandle({
   )
 }
 
-// Inline search over the whole supplier base (not just the lot's matched category) - lets you add
-// a fournisseur to a lot right here, without leaving for the full lot editor, which is what
-// "ouvrez-le pour en ajouter manuellement" used to force you to do.
+// Recherche dans toute la base fournisseurs (pas seulement la catégorie du lot) + création d'un
+// nouveau fournisseur directement ici (formulaire en ligne, sans changer de page).
 function SupplierSearchAdd({
   lot,
   suppliers,
   query,
   onQueryChange,
   onAdd,
-  onOpenFullEditor,
+  onCreate,
 }: {
   lot: Lot
   suppliers: SupplierRecord[]
   query: string
   onQueryChange: (q: string) => void
   onAdd: (s: SupplierRecord) => void
-  onOpenFullEditor: () => void
+  onCreate: (data: { name: string; email: string; category: string }) => Promise<void>
 }) {
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', category: '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const listId = `cat-list-${lot.id}`
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
@@ -748,6 +768,32 @@ function SupplierSearchAdd({
       .filter((s) => s.name.toLowerCase().includes(q) && !lot.suppliers.some((x) => x.supplierId === s.id || companyKey(x.name) === companyKey(s.name)))
       .slice(0, 8)
   }, [query, suppliers, lot.suppliers])
+
+  function openForm() {
+    setForm({ name: query.trim(), email: '', category: lot.categories[0] ?? '' })
+    setError('')
+    setCreating(true)
+  }
+
+  async function submit() {
+    const email = form.email.trim()
+    if (!form.name.trim()) return setError('Le nom est obligatoire.')
+    if (email && !email.split(/[,;\s]+/).filter(Boolean).every((a) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a))) {
+      return setError('Adresse e-mail invalide.')
+    }
+    if (suppliers.some((s) => companyKey(s.name) === companyKey(form.name))) {
+      return setError('Ce fournisseur existe déjà dans la base : recherchez-le par son nom.')
+    }
+    setBusy(true)
+    try {
+      await onCreate(form)
+      setCreating(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="mt-1">
@@ -757,29 +803,52 @@ function SupplierSearchAdd({
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
       />
-      {query.trim().length >= 2 &&
-        (matches.length > 0 ? (
-          <div className="space-y-1.5 mt-2">
-            {matches.map((s) => (
-              <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
-                <span>
-                  <strong>{s.name}</strong> · {s.category}
-                  {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
-                </span>
-                <button className="btn-secondary !py-1" onClick={() => onAdd(s)}>
-                  Ajouter
-                </button>
-              </div>
-            ))}
+      {query.trim().length >= 2 && matches.length > 0 && (
+        <div className="space-y-1.5 mt-2">
+          {matches.map((s) => (
+            <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
+              <span>
+                <strong>{s.name}</strong> · {s.category}
+                {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
+              </span>
+              <button className="btn-secondary !py-1" onClick={() => onAdd(s)}>
+                Ajouter
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {!creating && (
+        <p className="text-sm text-slate-400 mt-2">
+          {query.trim().length >= 2 && matches.length === 0 ? `Aucun fournisseur trouvé pour « ${query} ». ` : ''}
+          <button className="underline text-indigo-600" onClick={openForm}>
+            ＋ Nouveau fournisseur
+          </button>
+        </p>
+      )}
+      {creating && (
+        <div className="mt-2 p-3 rounded border border-indigo-200 bg-indigo-50/40">
+          <div className="grid grid-cols-3 gap-2">
+            <input className="input" placeholder="Nom du fournisseur" autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input className="input" placeholder="E-mail(s) de commande" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input className="input" list={listId} placeholder="Catégorie" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+            <datalist id={listId}>
+              {ALL_CATEGORIES.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
           </div>
-        ) : (
-          <p className="text-sm text-slate-400 mt-2">
-            Aucun fournisseur trouvé pour « {query} ».{' '}
-            <button className="underline" onClick={onOpenFullEditor}>
-              Créer un nouveau fournisseur
+          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+          <div className="flex gap-2 mt-2">
+            <button className="btn-primary !py-1" onClick={submit} disabled={busy}>
+              {busy ? 'Ajout…' : 'Ajouter à la base et à ce lot'}
             </button>
-          </p>
-        ))}
+            <button className="btn-secondary !py-1" onClick={() => setCreating(false)}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
