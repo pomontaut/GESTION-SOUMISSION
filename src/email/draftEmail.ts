@@ -1,5 +1,7 @@
 import type { Lot, SubmissionInfo } from '../types'
 
+/** Le texte ne précise jamais « fourniture » / « fourniture et pose » : la nature du fournisseur (base) suffit à lui faire comprendre ce qu'il doit chiffrer. */
+
 /** Objet : « Demande de prix — n° - nom de la soumission » (jamais le nom du lot). */
 function requestSubject(info: SubmissionInfo): string {
   const ref = [info.siteNumber, info.projectName].filter(Boolean).join(' - ')
@@ -12,7 +14,7 @@ export function buildLotEmail(lot: Lot, info: SubmissionInfo): { subject: string
     subject,
     body: composeBody(
       info,
-      `Merci de bien vouloir nous transmettre votre offre pour les prestations décrites selon soumission ci-annexée (${lot.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'}).`,
+      `Merci de bien vouloir nous transmettre votre offre pour les prestations décrites selon soumission ci-annexée.`,
     ),
   }
 }
@@ -22,7 +24,7 @@ export function buildSupplierEmail(lots: Lot[], info: SubmissionInfo): { subject
   if (lots.length === 1) return buildLotEmail(lots[0], info)
   const subject = requestSubject(info)
   const list = lots.map(
-    (l) => `- ${l.cfcCode ? 'CFC ' + l.cfcCode + ' — ' : ''}${l.title} (${l.prestationType === 'fourniture' ? 'fourniture uniquement' : 'fourniture et pose'})`,
+    (l) => `- ${l.cfcCode ? 'CFC ' + l.cfcCode + ' — ' : ''}${l.title}`,
   )
   return {
     subject,
