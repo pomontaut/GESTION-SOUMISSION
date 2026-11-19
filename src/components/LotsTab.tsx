@@ -384,6 +384,22 @@ function LotDetail({
     [lotZones],
   )
 
+  // Fournisseurs d'autres catégories dont les mots clefs (liste achats) figurent dans le texte du lot
+  const keywordMatches = useMemo(() => {
+    const strip = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const hay = strip(`${lot.title} ${lotZones.map((z) => z.text).join(' ')}`)
+    const inCat = new Set(categoryMatches.map((s) => s.id))
+    return suppliers
+      .filter((s) => !inCat.has(s.id) && !INACTIVE_STATUSES.includes(s.status ?? '') && s.keywords)
+      .map((s) => ({
+        s,
+        hits: s.keywords!.split(/[;\n]+/).map((k) => strip(k).trim()).filter((k) => k.length >= 5 && hay.includes(k)),
+      }))
+      .filter((x) => x.hits.length > 0)
+      .sort((a, b) => b.hits.length - a.hits.length)
+      .slice(0, 8)
+  }, [suppliers, categoryMatches, lot.title, lotZones])
+
   const activeMatches = categoryMatches.filter((s) => !INACTIVE_STATUSES.includes(s.status ?? ''))
   const inactiveMatches = categoryMatches.filter((s) => INACTIVE_STATUSES.includes(s.status ?? ''))
 
@@ -610,6 +626,29 @@ function LotDetail({
                     <strong>{s.name}</strong> · {s.category}
                     {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
                     {s.zone ? ` · ${s.zone}` : ''}
+                  </span>
+                  <button
+                    className="btn-secondary !py-1"
+                    onClick={() => addSupplierToLot(s)}
+                    disabled={lot.suppliers.some((x) => x.supplierId === s.id)}
+                  >
+                    {lot.suppliers.some((x) => x.supplierId === s.id) ? 'Ajouté' : 'Ajouter'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {keywordMatches.length > 0 && (
+          <div className="mb-4">
+            <p className="text-sm text-slate-500 mb-2">Autres fournisseurs de la base (mots clefs correspondant au lot) :</p>
+            <div className="space-y-1.5">
+              {keywordMatches.map(({ s, hits }) => (
+                <div key={s.id} className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-1.5">
+                  <span>
+                    <strong>{s.name}</strong> · {s.category}
+                    {s.nature ? ` · ${s.nature}` : ''} · {s.email || "pas d'e-mail enregistré"}
+                    {s.zone ? ` · ${s.zone}` : ''} · <em>{hits.slice(0, 3).join(', ')}</em>
                   </span>
                   <button
                     className="btn-secondary !py-1"

@@ -16,7 +16,14 @@ interface RawSupplierRow {
   zone: string
   status: string
   comments: string
+  cantons?: string[]
+  keywords?: string
+  can?: string
+  controleHA?: boolean
 }
+
+/** Version de la liste officielle : à changer à chaque régénération (déclenche la synchronisation navigateur). */
+export const SUPPLIERS_SEED_VERSION = '2026-11-19-base-fournisseur-ID_8472914'
 
 export const ALL_CATEGORIES: string[] = categoriesRaw as string[]
 
@@ -35,5 +42,10 @@ export function buildSupplierSeed(): SupplierRecord[] {
     zone: r.zone,
     status: r.status,
     comments: r.comments,
+    cantons: r.cantons ?? [],
+    keywords: r.keywords ?? '',
+    can: r.can ?? '',
+    controleHA: r.controleHA ?? false,
+    fromSeed: true,
   }))
 }

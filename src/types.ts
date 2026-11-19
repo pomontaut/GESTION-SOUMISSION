@@ -129,6 +129,11 @@ export interface SupplierRecord {
   zone?: string
   status?: string // Actif / à confirmer, Ne pas consulter, Inactif / à exclure
   comments?: string
+  cantons?: string[] // VD / GE / VS desservis
+  keywords?: string // mots clefs de recherche (liste achats)
+  can?: string // positions CAN couvertes
+  controleHA?: boolean // contrôlé par les achats
+  fromSeed?: boolean // issu de la liste officielle (mis à jour par la synchronisation)
 }
 
 export const uid = (): string =>

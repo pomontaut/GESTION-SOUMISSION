@@ -26,3 +26,13 @@ Le résultat est un site 100% statique dans `dist/`, déployable tel quel sur n'
 ## Méthode de détection des lots
 
 Voir l'onglet « Annexe — Méthode de détection » dans l'application.
+
+## Liste des fournisseurs (base officielle des achats)
+
+`src/data/suppliersSeed.json` + `categories.json` + `src/agent/suppliersKnowledge.md` (panel transmis à l'agent acheteur) sont générés depuis le classeur « base fournisseur soumission Induni » :
+
+```bash
+python3 -I script/build_suppliers_seed.py <classeur.xlsx>
+```
+
+Puis changer `SUPPLIERS_SEED_VERSION` (`src/data/suppliers.ts`) : au prochain chargement, chaque navigateur synchronise sa base locale (mise à jour, ajouts, retraits ; statuts/commentaires et fournisseurs créés à la main conservés).
