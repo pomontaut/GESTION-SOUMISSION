@@ -125,7 +125,7 @@ export default function RelanceModal({
         </div>
 
         <p className="text-xs text-slate-500 mb-3">
-          Un e-mail individuel part à chaque fournisseur (ils ne se voient pas entre eux) ; une copie de chacun arrive dans la boîte d'envoi soumissions@induni.ch.
+          Un e-mail individuel part à chaque fournisseur, en copie cachée (Cci) : « À » = soumissions@induni.ch, qui reçoit ainsi une copie de chaque relance.
         </p>
 
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 mb-4 max-h-48 overflow-y-auto">

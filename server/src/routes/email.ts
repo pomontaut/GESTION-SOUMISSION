@@ -67,8 +67,8 @@ router.post('/', async (req, res) => {
   }
 })
 
-// Relance en masse : un e-mail INDIVIDUEL par fournisseur (il ne voit que lui-même), avec une copie
-// (Cci) dans la boîte d'envoi soumissions@induni.ch pour CHAQUE relance. Réponse ligne par ligne :
+// Relance en masse : un e-mail INDIVIDUEL par fournisseur, toujours en copie cachée (Cci) : le fournisseur
+// n'est jamais en « À » (À = soumissions@induni.ch, qui reçoit ainsi une copie de CHAQUE relance). Réponse ligne par ligne :
 // le navigateur ne date « relancé » que les envois réussis.
 const MAX_RELANCES = 60
 router.post('/relances', async (req, res) => {
@@ -97,8 +97,8 @@ router.post('/relances', async (req, res) => {
     }
     try {
       await sendResendEmail({
-        to,
-        bcc: [from],
+        to: [from],
+        bcc: to,
         subject: m.subject,
         text: m.text,
         html: typeof m.html === 'string' ? m.html : undefined,
