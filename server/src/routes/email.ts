@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../db'
 import { sendResendEmail } from '../resend'
+import { INDUNI_LOGO_BASE64 } from '../logo'
 
 // Resend refuse un e-mail de plus de 40 Mo (base64 inclus, soit ~30 Mo de fichiers).
 const MAX_ATTACHMENT_BYTES = 28 * 1024 * 1024
@@ -71,6 +72,10 @@ router.post('/', async (req, res) => {
 // n'est jamais en « À » (À = soumissions@induni.ch, qui reçoit ainsi une copie de CHAQUE relance). Réponse ligne par ligne :
 // le navigateur ne date « relancé » que les envois réussis.
 const MAX_RELANCES = 60
+const LOGO_INLINE = { filename: 'induni.jpg', contentBase64: INDUNI_LOGO_BASE64, contentId: 'induni-logo', contentType: 'image/jpeg' }
+// Logo INDUNI sous la signature (image intégrée, jamais un lien externe susceptible d'être bloqué).
+const withLogo = (html: string) =>
+  html.replace(/<\/div>$/, '<p style="margin:12px 0 0;"><img src="cid:induni-logo" alt="INDUNI" width="150" style="display:block;border:0;width:150px;height:auto;"></p></div>')
 router.post('/relances', async (req, res) => {
   const messages = req.body?.messages
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -101,7 +106,8 @@ router.post('/relances', async (req, res) => {
         bcc: to,
         subject: m.subject,
         text: m.text,
-        html: typeof m.html === 'string' ? m.html : undefined,
+        html: typeof m.html === 'string' ? withLogo(m.html) : undefined,
+        inlineImages: typeof m.html === 'string' ? [LOGO_INLINE] : undefined,
       })
       results.push({ id, ok: true })
     } catch (err) {

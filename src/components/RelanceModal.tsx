@@ -8,7 +8,7 @@ export interface RelanceTarget {
   entry: FollowUpEntry
 }
 
-const TEMPLATE_KEY = 'relanceTemplate'
+const TEMPLATE_KEY = 'relanceTemplate2' // v2 : nouvelle signature (les anciens modèles mémorisés sont ignorés)
 
 /** E-mail type de relance : variables {fournisseur} {lot} {cfc} {projet} {envoi} (« , envoyée le … » ou vide). */
 export function defaultRelanceTemplate(info: SubmissionInfo, projet: string): { subject: string; body: string } {
@@ -23,9 +23,10 @@ export function defaultRelanceTemplate(info: SubmissionInfo, projet: string): { 
         : 'Nous vous remercions de nous la faire parvenir dans les meilleurs délais.',
       "Si vous ne souhaitez pas remettre d'offre, merci de nous en informer.",
       '',
-      'Meilleures salutations,',
-      info.calculatorName,
-      info.calculatorPhone,
+      'Avec nos meilleures salutations.',
+      'Service achats',
+      'Avenue des Grandes-Communes 6 | 1213 Petit-Lancy',
+      'www.induni.ch',
     ].join('\n'),
   }
 }

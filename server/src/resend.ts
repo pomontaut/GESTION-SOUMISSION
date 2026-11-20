@@ -6,6 +6,8 @@ export async function sendResendEmail(params: {
   html?: string
   attachment?: { filename: string; contentBase64: string }
   extraAttachments?: Array<{ filename: string; contentBase64: string }>
+  /** Images intégrées au corps HTML (`<img src="cid:…">`). */
+  inlineImages?: Array<{ filename: string; contentBase64: string; contentId: string; contentType: string }>
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
@@ -24,7 +26,11 @@ export async function sendResendEmail(params: {
   // provider) shows html when both are present.
   if (params.html) payload.html = params.html
   const all = [...(params.attachment ? [params.attachment] : []), ...(params.extraAttachments ?? [])]
-  if (all.length) payload.attachments = all.map((a) => ({ filename: a.filename, content: a.contentBase64 }))
+  const attachments: Array<Record<string, string>> = all.map((a) => ({ filename: a.filename, content: a.contentBase64 }))
+  for (const i of params.inlineImages ?? []) {
+    attachments.push({ filename: i.filename, content: i.contentBase64, content_id: i.contentId, content_type: i.contentType })
+  }
+  if (attachments.length) payload.attachments = attachments
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
