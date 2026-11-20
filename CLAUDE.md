@@ -15,3 +15,7 @@ Quand l'utilisateur fournit de nouveaux PDF/Excel réels (soumissions, Grilles d
 ## TCO : agent acheteur-senior → TCO synthétique (une feuille)
 
 Bouton « Générer un TCO » (onglet Suivi) : si des offres PDF/image sont jointes, `src/tco/runTcoAgent.ts` appelle `POST /api/tco/generate` (tâche asynchrone, suivi par `GET /api/tco/generate/:id`) ; `server/src/tcoAgent.ts` lit `.claude/agents/acheteur-senior.md` à chaque appel et force l'outil `emettre_tco` (données d'entrée seulement, aucun total). `src/export/tcoExcel.ts` génère le classeur au format de référence « TCO isolation TPG Bachet-de-Pesay » : UNE feuille, 6 sections, formules actives. Sans offre jointe : ancien comparatif de suivi (`src/tco/generateTco.ts`). Modèle : variable `TCO_MODEL` (défaut `claude-opus-5-5`). Ne pas rétablir de JSON libre ni d'onglets Analyse séparés.
+
+## Relance en masse des fournisseurs (onglet Suivi)
+
+Cases à cocher par fournisseur (+ « ☑ Cocher ceux sans offre » par lot, case d'en-tête = tout le lot) → barre « Relancer la sélection » → `RelanceModal` : e-mail type modifiable (variables `{fournisseur} {lot} {cfc} {projet} {envoi}`, mémorisable dans le navigateur, aperçu). Envoi via `POST /api/send-email/relances` (`server/src/routes/email.ts`, Resend) : UN e-mail par fournisseur + copie Cci de CHAQUE relance dans `RESEND_FROM` (soumissions@induni.ch) ; réponse ligne par ligne, seuls les envois réussis sont datés (`relanceDate`, une seule mise à jour). Le bouton « Relancer » de la ligne reste un simple `mailto:` (aucun envoi automatique).

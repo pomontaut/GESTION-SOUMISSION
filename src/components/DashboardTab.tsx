@@ -10,6 +10,7 @@ import { generateTcoWorkbook, tcoFilename } from '../tco/generateTco'
 import { runTcoAgent } from '../tco/runTcoAgent'
 import { exportTcoExcel } from '../export/tcoExcel'
 import PdfPreviewModal from './PdfPreviewModal'
+import RelanceModal, { type RelanceTarget } from './RelanceModal'
 
 // Fournisseur à qui la consultation a réellement été envoyée (statut Envoyé, ou date d'envoi saisie
 // pour un envoi fait hors de l'outil).
@@ -28,6 +29,9 @@ export default function DashboardTab({
 }) {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
   const [previewLot, setPreviewLot] = useState<Lot | null>(null)
+  // Relance en masse : fournisseurs cochés (clé `lotId|supplierId`).
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [relanceSnapshot, setRelanceSnapshot] = useState<RelanceTarget[] | null>(null)
   const [generatingTcoId, setGeneratingTcoId] = useState<string | null>(null)
   const [tcoStatus, setTcoStatus] = useState('')
 
@@ -108,6 +112,55 @@ export default function DashboardTab({
     ].join('\n')
     const cc = info.calculatorEmail ? `&cc=${encodeURIComponent(info.calculatorEmail)}` : ''
     window.location.href = `mailto:${encodeURIComponent(f.email)}?subject=${encodeURIComponent(subject)}${cc}&body=${encodeURIComponent(body)}`
+  }
+
+  const selKey = (lotId: string, supplierId: string) => `${lotId}|${supplierId}`
+  const hasOffer = (f: FollowUpEntry) => !!(f.offeredAmount || f.returnDate || f.offerFileId)
+
+  function toggleSelected(lotId: string, supplierId: string, checked: boolean) {
+    setSelected((prev) => {
+      const n = new Set(prev)
+      if (checked) n.add(selKey(lotId, supplierId))
+      else n.delete(selKey(lotId, supplierId))
+      return n
+    })
+  }
+
+  /** Coche/décoche tout un lot ; « sans offre » = uniquement ceux dont l'offre n'est pas encore reçue. */
+  function selectLot(lot: Lot, mode: 'pending' | 'none') {
+    setSelected((prev) => {
+      const n = new Set(prev)
+      for (const f of lot.followUp) {
+        const k = selKey(lot.id, f.supplierId)
+        if (mode === 'none') n.delete(k)
+        else if (!hasOffer(f)) n.add(k)
+      }
+      return n
+    })
+  }
+
+  const relanceTargets: RelanceTarget[] = submission.lots.flatMap((l) =>
+    sentFollowUp(l)
+      .filter((f) => selected.has(selKey(l.id, f.supplierId)))
+      .map((entry) => ({ lot: l, entry })),
+  )
+
+  /** Date « relancé » des envois réussis, en UNE seule mise à jour (sinon chaque lot écraserait la précédente). */
+  function markRelanced(keys: string[]) {
+    const today = new Date().toISOString().slice(0, 10)
+    const set = new Set(keys)
+    onUpdate({
+      ...submission,
+      lots: submission.lots.map((l) => ({
+        ...l,
+        followUp: l.followUp.map((f) => (set.has(selKey(l.id, f.supplierId)) ? { ...f, relanceDate: today } : f)),
+      })),
+    })
+    setSelected((prev) => {
+      const n = new Set(prev)
+      keys.forEach((k) => n.delete(k))
+      return n
+    })
   }
 
   /** Case « Reçu » : coche sans exiger de fichier ; la date de retour passe au jour (modifiable). */
@@ -263,6 +316,15 @@ export default function DashboardTab({
             </span>
             <span className="text-xs text-slate-400">pages {lot.pages.join(', ')}</span>
             <div className="flex gap-2 ml-auto">
+              {lot.followUp.length > 0 && (
+                <button
+                  className="btn-secondary !py-1"
+                  title="Coche les fournisseurs de ce lot dont l'offre n'est pas encore reçue, pour une relance en masse"
+                  onClick={() => selectLot(lot, 'pending')}
+                >
+                  ☑ Cocher ceux sans offre
+                </button>
+              )}
               <button
                 className="btn-secondary !py-1"
                 disabled={lot.followUp.length === 0 || generatingTcoId === lot.id}
@@ -301,6 +363,24 @@ export default function DashboardTab({
             <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <th className="py-1.5 pr-2 w-6">
+                    <input
+                      type="checkbox"
+                      title="Tout cocher / décocher pour la relance en masse"
+                      checked={lot.followUp.every((f) => selected.has(selKey(lot.id, f.supplierId)))}
+                      onChange={(e) => {
+                        const all = e.target.checked
+                        setSelected((prev) => {
+                          const n = new Set(prev)
+                          for (const f of lot.followUp) {
+                            if (all) n.add(selKey(lot.id, f.supplierId))
+                            else n.delete(selKey(lot.id, f.supplierId))
+                          }
+                          return n
+                        })
+                      }}
+                    />
+                  </th>
                   <th className="py-1.5 pr-2">Fournisseur</th>
                   <th className="py-1.5 pr-2">Statut</th>
                   <th className="py-1.5 pr-2">Date envoi</th>
@@ -321,6 +401,13 @@ export default function DashboardTab({
                 {lot.followUp.map((f) => (
                   <tr key={f.supplierId} className="border-b border-slate-100">
                     <td className="py-1.5 pr-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(selKey(lot.id, f.supplierId))}
+                        onChange={(e) => toggleSelected(lot.id, f.supplierId, e.target.checked)}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
                       {f.name}
                       <div className="text-xs text-slate-400">{f.email}</div>
                     </td>
@@ -338,7 +425,11 @@ export default function DashboardTab({
                       />
                     </td>
                     <td className="py-1.5 pr-2">
-                      <button className="btn-secondary !py-1" onClick={() => relance(lot.id, f.supplierId)}>
+                      <button
+                        className="btn-secondary !py-1"
+                        title="Ouvre un e-mail de relance dans votre messagerie (pas d'envoi automatique) ; pour envoyer depuis la plateforme, cochez les fournisseurs"
+                        onClick={() => relance(lot.id, f.supplierId)}
+                      >
                         Relancer
                       </button>
                       {f.relanceDate && <div className="text-xs text-slate-400 mt-0.5">{f.relanceDate}</div>}
@@ -461,6 +552,28 @@ export default function DashboardTab({
         </div>
         )
       })}
+
+      {relanceTargets.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white rounded-xl shadow-xl px-4 py-2.5 flex items-center gap-3 text-sm">
+          <span>{relanceTargets.length} fournisseur(s) coché(s)</span>
+          <button className="bg-indigo-500 hover:bg-indigo-400 rounded-lg px-3 py-1 font-medium" onClick={() => setRelanceSnapshot(relanceTargets)}>
+            ✉️ Relancer la sélection
+          </button>
+          <button className="text-slate-300 hover:text-white" onClick={() => setSelected(new Set())}>
+            Tout décocher
+          </button>
+        </div>
+      )}
+
+      {relanceSnapshot && (
+        <RelanceModal
+          targets={relanceSnapshot}
+          info={submission.info}
+          projet={submission.info.projectName || submission.name}
+          onClose={() => setRelanceSnapshot(null)}
+          onSent={markRelanced}
+        />
+      )}
 
       {previewLot && submission.pdfData && (
         <PdfPreviewModal lot={previewLot} pdfData={submission.pdfData} onClose={() => setPreviewLot(null)} />

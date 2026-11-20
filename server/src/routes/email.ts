@@ -67,4 +67,48 @@ router.post('/', async (req, res) => {
   }
 })
 
+// Relance en masse : un e-mail INDIVIDUEL par fournisseur (il ne voit que lui-même), avec une copie
+// (Cci) dans la boîte d'envoi soumissions@induni.ch pour CHAQUE relance. Réponse ligne par ligne :
+// le navigateur ne date « relancé » que les envois réussis.
+const MAX_RELANCES = 60
+router.post('/relances', async (req, res) => {
+  const messages = req.body?.messages
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).json({ error: 'Aucune relance à envoyer' })
+    return
+  }
+  if (messages.length > MAX_RELANCES) {
+    res.status(400).json({ error: `Maximum ${MAX_RELANCES} relances par envoi` })
+    return
+  }
+  const from = process.env.RESEND_FROM || 'soumissions@induni.ch'
+  const emailRe = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
+  const results: Array<{ id: string; ok: boolean; error?: string }> = []
+  for (const m of messages as Array<{ id?: string; to?: string[]; subject?: string; text?: string; html?: string }>) {
+    const id = String(m?.id ?? '')
+    const to = Array.isArray(m?.to) ? m.to.map((a) => String(a).trim()).filter(Boolean) : []
+    if (to.length === 0 || to.some((a) => !emailRe.test(a))) {
+      results.push({ id, ok: false, error: 'Adresse e-mail manquante ou invalide' })
+      continue
+    }
+    if (!m.subject || !m.text) {
+      results.push({ id, ok: false, error: 'Objet ou corps manquant' })
+      continue
+    }
+    try {
+      await sendResendEmail({
+        to,
+        bcc: [from],
+        subject: m.subject,
+        text: m.text,
+        html: typeof m.html === 'string' ? m.html : undefined,
+      })
+      results.push({ id, ok: true })
+    } catch (err) {
+      results.push({ id, ok: false, error: err instanceof Error ? err.message : "Échec de l'envoi" })
+    }
+  }
+  res.json({ results, copyTo: from })
+})
+
 export default router

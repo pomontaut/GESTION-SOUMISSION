@@ -215,6 +215,26 @@ export async function sendLotEmail(params: {
   )
 }
 
+export interface RelanceMessage {
+  id: string
+  to: string[]
+  subject: string
+  text: string
+  html?: string
+}
+
+/** Relance en masse : un e-mail par fournisseur + copie (Cci) dans la boîte d'envoi soumissions. */
+export async function sendRelances(messages: RelanceMessage[]): Promise<{ results: Array<{ id: string; ok: boolean; error?: string }>; copyTo: string }> {
+  const res = await assertOk(
+    await fetch('/api/send-email/relances', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    }),
+  )
+  return res.json()
+}
+
 const normKey = (s: string) => s.toLowerCase().split(/\s+/).filter(Boolean).join(' ')
 const baseName = (n: string) => normKey(n.replace(/\(.*?\)/g, ' '))
 const supplierKey = (s: SupplierRecord) => `${normKey(s.category)}|${baseName(s.name)}`
